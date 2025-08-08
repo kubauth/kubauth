@@ -14,8 +14,8 @@ import (
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/handler/openid"
-	"github.com/ory/fosite/storage"
 	"github.com/ory/fosite/token/jwt"
+	"kubauth/cmd/kubauth/cmd/oidc/storage"
 )
 
 // OIDC server configuration

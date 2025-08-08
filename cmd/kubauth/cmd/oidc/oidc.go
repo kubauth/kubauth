@@ -12,7 +12,7 @@ import (
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"kubauth/cmd/kubauth/global"
 	"kubauth/internal/httpsrv"
-	"kubauth/misc"
+	"kubauth/internal/misc"
 	"log/slog"
 	"net/http"
 	"os"
