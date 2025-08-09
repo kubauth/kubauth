@@ -10,11 +10,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	kubocdv1alpha1 "kubauth/api/kubauth/v1alpha1"
+	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/kubauth/cmd/oidc/config"
 	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
 	"kubauth/cmd/kubauth/cmd/oidc/handlers"
 	"kubauth/cmd/kubauth/cmd/oidc/oidcserver"
+	"kubauth/cmd/kubauth/cmd/oidc/storage"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	oidcWebhooks "kubauth/cmd/kubauth/cmd/oidc/webhooks"
 	"kubauth/cmd/kubauth/global"
@@ -50,6 +51,8 @@ var flags struct {
 	metricsCertPath string
 	metricsCertName string
 	metricsCertKey  string
+
+	clientNamespace string
 }
 
 var (
@@ -72,6 +75,7 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertPath, "metricsCertPath", "", "The directory that contains the metrics server certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertName, "metricsCertName", "tls.crt", "The name of the metrics server certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertKey, "metricsCertKey", "tls.key", "The name of the metrics server key file.")
+	Cmd.PersistentFlags().StringVar(&flags.clientNamespace, "clientNamespace", "", "The namespace hosting OidcClient resources.")
 
 	// OIDC config
 	Cmd.PersistentFlags().BoolVarP(&config.Conf.HttpConfig.Tls, "tls", "t", false, "enable TLS")
@@ -84,7 +88,7 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&config.Conf.Resources, "resources", "", "resources", "Resources folders")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(kubocdv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
 }
 
 var Cmd = &cobra.Command{
@@ -104,6 +108,11 @@ var Cmd = &cobra.Command{
 		setupLog := ctrl.Log.WithName("setup")
 
 		logger.Info("Starting OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
+
+		if flags.clientNamespace == "" {
+			setupLog.Error(nil, "clientNamespace must be specified and non null")
+			os.Exit(1)
+		}
 
 		// if the enable-http2 flag is false (the default), http/2 should be disabled
 		// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -205,13 +214,21 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if err := (&oidcControllers.OidcClientReconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "OidcClient")
-			os.Exit(1)
+		// ------------------------------------- Create our storage
+		storage := storage.NewMemoryStore()
+
+		// Setup OidcClient Reconciler
+		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
+			Client:  mgr.GetClient(),
+			Scheme:  mgr.GetScheme(),
+			Storage: storage,
 		}
+
+		err = ctrl.NewControllerManagedBy(mgr).
+			For(&kubauthv1alpha1.OidcClient{}).
+			Named("kubauth-oidcclient").
+			Complete(oidcClientReconciler)
+
 		if flags.enableWebhook {
 			if err := oidcWebhooks.SetupOidcClientWebhookWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create webhook", "webhook", "OidcClient")
@@ -251,7 +268,7 @@ var Cmd = &cobra.Command{
 
 		userDb := userdb.NewUserDb()
 
-		_ = oidcserver.NewOIDCServer(router, userDb, template.Must(template.ParseFiles(path.Join(config.Conf.Resources, "templates", "login.gohtml"))))
+		_ = oidcserver.NewOIDCServer(router, userDb, template.Must(template.ParseFiles(path.Join(config.Conf.Resources, "templates", "login.gohtml"))), storage)
 
 		server := httpsrv.New("oidcSrv", &config.Conf.HttpConfig, router)
 
@@ -267,6 +284,5 @@ var Cmd = &cobra.Command{
 			setupLog.Error(err, "problem running manager")
 			os.Exit(1)
 		}
-
 	},
 }

@@ -18,19 +18,21 @@ package kubauthmodel
 
 import (
 	"context"
-
+	"github.com/ory/fosite"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
+	"kubauth/cmd/kubauth/cmd/oidc/fositeclient"
+	"kubauth/cmd/kubauth/cmd/oidc/storage"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	kubauthmodelv1alpha1 "kubauth/api/kubauth/v1alpha1"
 )
 
 // OidcClientReconciler reconciles a OidcClient object
 type OidcClientReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme    *runtime.Scheme
+	Namespace string // Where OidcClient are stored
+	Storage   *storage.MemoryStore
 }
 
 // +kubebuilder:rbac:groups=kubauth.kubotal.io,resources=oidcclients,verbs=get;list;watch;create;update;patch;delete
@@ -47,17 +49,20 @@ type OidcClientReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
 func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
+	// _ = logf.FromContext(ctx)
 
-	// TODO(user): your logic here
+	// We don't care about who trigger this. We fetch all clients which are in our namespace and store them in configStore
+	clients := &kubauthv1alpha1.OidcClientList{}
+	err := r.List(ctx, clients, client.InNamespace(r.Namespace))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	fositeClients := make(map[string]fosite.Client)
+	for idx, _ := range clients.Items {
+		fositeClients[clients.Items[idx].Spec.Id] = fositeclient.NewFositeClient(&clients.Items[idx].Spec)
+	}
+	r.Storage.SetClients(ctx, fositeClients)
 
 	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *OidcClientReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kubauthmodelv1alpha1.OidcClient{}).
-		Named("kubauth-oidcclient").
-		Complete(r)
 }

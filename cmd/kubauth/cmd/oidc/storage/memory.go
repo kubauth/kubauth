@@ -137,6 +137,12 @@ func (s *MemoryStore) GetClient(_ context.Context, id string) (fosite.Client, er
 	return cl, nil
 }
 
+func (s *MemoryStore) SetClients(_ context.Context, clients map[string]fosite.Client) {
+	s.clientsMutex.Lock()
+	defer s.clientsMutex.Unlock()
+	s.Clients = clients
+}
+
 func (s *MemoryStore) SetTokenLifespans(clientID string, lifespans *fosite.ClientLifespanConfig) error {
 	if client, ok := s.Clients[clientID]; ok {
 		if clc, ok := client.(*fosite.DefaultClientWithCustomTokenLifespans); ok {

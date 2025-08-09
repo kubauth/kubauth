@@ -59,9 +59,10 @@ spec:
                 description: The client ID.
                 type: string
               public:
+                default: false
                 description: true, if this client is marked as public.
                 type: boolean
-              redirectUris:
+              redirectURIs:
                 description: The client's allowed redirect URIs.
                 items:
                   type: string
@@ -83,7 +84,7 @@ spec:
             - grantTypes
             - id
             - public
-            - redirectUris
+            - redirectURIs
             - responseTypes
             - scopes
             type: object

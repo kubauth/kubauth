@@ -48,7 +48,7 @@ type OidcClientSpec struct {
 
 	// The client's allowed redirect URIs.
 	// +required
-	RedirectUris []string `json:"redirectUris"`
+	RedirectURIs []string `json:"redirectURIs"`
 
 	// The client's allowed grant types.
 	// +required
@@ -65,6 +65,7 @@ type OidcClientSpec struct {
 	Scopes []string `json:"scopes"`
 
 	// true, if this client is marked as public.
+	// +default:value=false
 	Public bool `json:"public"`
 
 	// The allowed audience(s) for this client.
