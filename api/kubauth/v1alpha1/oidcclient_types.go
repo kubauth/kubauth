@@ -20,8 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+/* NOTES:
+Not (yet?) implemented
+- ClientWithSecretRotation
+- OpenIDConnectClient (Seems we are able to handle id_token without this ?)
+- ResponseModeClient
+*/
 
 // OidcClientSpec defines the desired state of OidcClient
 type OidcClientSpec struct {
@@ -30,15 +34,46 @@ type OidcClientSpec struct {
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-	// foo is an example field of OidcClient. Edit oidcclient_types.go to remove/update
+	// The client ID.
+	// +required
+	Id string `json:"id"`
+
+	// A human oriented description
 	// +optional
-	Foo *string `json:"foo,omitempty"`
+	Description string `json:"description,omitempty"`
+
+	// The hashed secret. (Required if !public)
+	// +optional
+	HashedSecret string `json:"hashedSecret,omitempty"`
+
+	// The client's allowed redirect URIs.
+	// +required
+	RedirectUris []string `json:"redirectUris"`
+
+	// The client's allowed grant types.
+	// +required
+	GrantTypes []string `json:"grantTypes"`
+
+	// The client's allowed response types.
+	// All allowed combinations of response types have to be listed, each combination having
+	// response types of the combination separated by a space.
+	// +required
+	ResponseTypes []string `json:"responseTypes"`
+
+	// The scopes this client is allowed to request.
+	// +required
+	Scopes []string `json:"scopes"`
+
+	// true, if this client is marked as public.
+	Public bool `json:"public"`
+
+	// The allowed audience(s) for this client.
+	// +optional
+	Audiences []string `json:"audiences"`
 }
 
 // OidcClientStatus defines the observed state of OidcClient.
 type OidcClientStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true

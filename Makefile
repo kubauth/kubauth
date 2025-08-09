@@ -71,6 +71,18 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="boilerplate.go.txt" paths="./..."
 
+ifndef ignore-not-found
+  ignore-not-found = false
+endif
+
+.PHONY: install
+install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
+
+.PHONY: uninstall
+uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+
 
 ##@ Build
 
@@ -81,6 +93,12 @@ build:  build-kubauth  ## Build kubocd binaries with dependencies
 build-kubauth: generate ## Build kubocd binary.
 	CGO_ENABLED=0 go build -o bin/kubauth cmd/kubauth/main.go
 
+
+##@ Helm
+
+.PHONY: crds
+crds: manifests kustomize ## Generate crds file into helm chart
+	$(KUSTOMIZE) build config/crd -o helm/kubauth/crds/crds.yaml
 
 
 ##@ Dependencies

@@ -19,27 +19,15 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	kubocdv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/kubauth/cmd/hash"
 	"kubauth/cmd/kubauth/cmd/oidc"
 	"os"
-)
-
-var (
-	scheme = runtime.NewScheme()
 )
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(hash.Cmd)
 	rootCmd.AddCommand(oidc.Cmd)
-
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
-	utilruntime.Must(kubocdv1alpha1.AddToScheme(scheme))
 
 }
 

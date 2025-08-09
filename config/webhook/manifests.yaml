@@ -1,0 +1,52 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-kubauth-kubotal-io-v1alpha1-oidcclient
+  failurePolicy: Fail
+  name: moidcclient-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - oidcclients
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kubauth-kubotal-io-v1alpha1-oidcclient
+  failurePolicy: Fail
+  name: voidcclient-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - oidcclients
+  sideEffects: None

@@ -1,0 +1,98 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: oidcclients.kubauth.kubotal.io
+spec:
+  group: kubauth.kubotal.io
+  names:
+    kind: OidcClient
+    listKind: OidcClientList
+    plural: oidcclients
+    singular: oidcclient
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: OidcClient is the Schema for the oidcclients API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of OidcClient
+            properties:
+              audiences:
+                description: The allowed audience(s) for this client.
+                items:
+                  type: string
+                type: array
+              description:
+                description: A human oriented description
+                type: string
+              grantTypes:
+                description: The client's allowed grant types.
+                items:
+                  type: string
+                type: array
+              hashedSecret:
+                description: The hashed secret. (Required if !public)
+                type: string
+              id:
+                description: The client ID.
+                type: string
+              public:
+                description: true, if this client is marked as public.
+                type: boolean
+              redirectUris:
+                description: The client's allowed redirect URIs.
+                items:
+                  type: string
+                type: array
+              responseTypes:
+                description: |-
+                  The client's allowed response types.
+                  All allowed combinations of response types have to be listed, each combination having
+                  response types of the combination separated by a space.
+                items:
+                  type: string
+                type: array
+              scopes:
+                description: The scopes this client is allowed to request.
+                items:
+                  type: string
+                type: array
+            required:
+            - grantTypes
+            - id
+            - public
+            - redirectUris
+            - responseTypes
+            - scopes
+            type: object
+          status:
+            description: status defines the observed state of OidcClient
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
