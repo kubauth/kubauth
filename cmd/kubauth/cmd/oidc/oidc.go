@@ -11,7 +11,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/kubauth/cmd/oidc/config"
 	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
 	"kubauth/cmd/kubauth/cmd/oidc/handlers"
 	"kubauth/cmd/kubauth/cmd/oidc/oidcserver"
@@ -36,6 +35,10 @@ import (
 
 var flags struct {
 	logConfig misc.LogConfig
+
+	oidcHttpConfig httpsrv.Config
+	Issuer         string
+	Resources      string
 
 	probeAddr            string
 	enableLeaderElection bool // Must be true, as memory storage require a single context
@@ -63,7 +66,7 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Mode, "logMode", "", "text", "Log mode (dev or json)")
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
 
-	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8081", "The address the probe endpoint binds to.")
+	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8110", "The address the probe endpoint binds to.")
 	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", true, "Enable leader election for controller manager. Must be set, as memory storage require a single instance")
 	Cmd.PersistentFlags().BoolVar(&flags.enableHTTP2, "enableHttp2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	Cmd.PersistentFlags().BoolVar(&flags.enableWebhook, "enableWebhook", true, "If set the webhook server will be enabled")
@@ -78,14 +81,14 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.clientNamespace, "clientNamespace", "", "The namespace hosting OidcClient resources.")
 
 	// OIDC config
-	Cmd.PersistentFlags().BoolVarP(&config.Conf.HttpConfig.Tls, "tls", "t", false, "enable TLS")
-	Cmd.PersistentFlags().BoolVarP(&config.Conf.HttpConfig.DumpExchange, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.HttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
-	Cmd.PersistentFlags().IntVarP(&config.Conf.HttpConfig.BindPort, "bindPort", "p", 8080, "Bind port")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.HttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
-	//Cmd.PersistentFlags().StringArrayVarP(&config.Conf.HttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.Issuer, "issuer", "i", "http://localhost:8080", "Issuer URL")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.Resources, "resources", "", "resources", "Resources folders")
+	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.Tls, "tls", "t", false, "enable TLS")
+	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.DumpExchange, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
+	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
+	Cmd.PersistentFlags().IntVarP(&flags.oidcHttpConfig.BindPort, "bindPort", "p", 8101, "Bind port")
+	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
+	//Cmd.PersistentFlags().StringArrayVarP(&flags.oidcHttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
+	Cmd.PersistentFlags().StringVarP(&flags.Issuer, "issuer", "i", "http://localhost:8101", "Issuer URL")
+	Cmd.PersistentFlags().StringVarP(&flags.Resources, "resources", "", "resources", "Resources folders")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
@@ -226,7 +229,7 @@ var Cmd = &cobra.Command{
 
 		err = ctrl.NewControllerManagedBy(mgr).
 			For(&kubauthv1alpha1.OidcClient{}).
-			Named("kubauth-oidcclient").
+			Named("kubauth-oidcClient").
 			Complete(oidcClientReconciler)
 
 		if flags.enableWebhook {
@@ -264,13 +267,19 @@ var Cmd = &cobra.Command{
 
 		// ---------------------- Setup our OIDC server
 		router := http.NewServeMux()
-		router.Handle("GET /favicon.ico", handlers.FaviconHandler(path.Join(config.Conf.Resources, "static", "favicon.ico")))
+		router.Handle("GET /favicon.ico", handlers.FaviconHandler(path.Join(flags.Resources, "static", "favicon.ico")))
 
 		userDb := userdb.NewUserDb()
 
-		_ = oidcserver.NewOIDCServer(router, userDb, template.Must(template.ParseFiles(path.Join(config.Conf.Resources, "templates", "login.gohtml"))), storage)
+		(&oidcserver.OIDCServer{
+			Issuer:        flags.Issuer,
+			Storage:       storage,
+			UserDb:        userDb,
+			Resources:     flags.Resources,
+			LoginTemplate: template.Must(template.ParseFiles(path.Join(flags.Resources, "templates", "login.gohtml"))),
+		}).Setup(router)
 
-		server := httpsrv.New("oidcSrv", &config.Conf.HttpConfig, router)
+		server := httpsrv.New("oidcSrv", &flags.oidcHttpConfig, router)
 
 		err = mgr.Add(server)
 		if err != nil {

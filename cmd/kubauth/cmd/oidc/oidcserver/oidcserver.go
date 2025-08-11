@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"html/template"
-	"kubauth/cmd/kubauth/cmd/oidc/config"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
 	"time"
@@ -18,69 +17,68 @@ import (
 	"kubauth/cmd/kubauth/cmd/oidc/storage"
 )
 
-// OIDC server configuration
 type OIDCServer struct {
-	oauth2        fosite.OAuth2Provider
-	storage       *storage.MemoryStore
-	config        *fosite.Config
-	privateKey    *rsa.PrivateKey
-	keyID         string
-	issuer        string
-	resources     string
-	userDb        userdb.UserDb
-	loginTemplate *template.Template
+	Issuer        string
+	Storage       *storage.MemoryStore
+	Resources     string
+	UserDb        userdb.UserDb
+	LoginTemplate *template.Template
+
+	oauth2     fosite.OAuth2Provider
+	config     *fosite.Config
+	privateKey *rsa.PrivateKey
+	keyID      string
 }
 
-func NewOIDCServer(router *http.ServeMux, userDb userdb.UserDb, loginTemplate *template.Template, storage *storage.MemoryStore) *OIDCServer {
-	issuer := config.Conf.Issuer
-
+func (s *OIDCServer) Setup(router *http.ServeMux) {
+	var err error
 	// Generate RSA key for JWT signing
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	s.privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to generate RSA key: %v", err))
 	}
-	keyID := uuid.NewString()
+	s.keyID = uuid.NewString()
 
 	// Configure fosite
-	fositeConfig := &fosite.Config{
+	s.config = &fosite.Config{
 		AccessTokenLifespan:   time.Hour,
 		TokenEntropy:          32,
 		GlobalSecret:          []byte("some-secret-that-is-32-bytes-long"),
 		RefreshTokenScopes:    []string{"offline"},
 		AuthorizeCodeLifespan: time.Minute * 10,
-		AccessTokenIssuer:     issuer,
-		IDTokenIssuer:         issuer,
+		AccessTokenIssuer:     s.Issuer,
+		IDTokenIssuer:         s.Issuer,
 	}
 
-	oauth2 := compose.ComposeAllEnabled(fositeConfig, storage, privateKey)
+	s.oauth2 = compose.ComposeAllEnabled(s.config, s.Storage, s.privateKey)
 
-	oidcServer := &OIDCServer{
-		oauth2:        oauth2,
-		storage:       storage,
-		config:        fositeConfig,
-		privateKey:    privateKey,
-		keyID:         keyID,
-		issuer:        issuer,
-		resources:     config.Conf.Resources,
-		userDb:        userDb,
-		loginTemplate: loginTemplate,
-	}
+	//
+	//oidcServer := &OIDCServer{
+	//	oauth2:        oauth2,
+	//	Storage:       storage,
+	//	config:        fositeConfig,
+	//	privateKey:    privateKey,
+	//	keyID:         keyID,
+	//	issuer:        issuer,
+	//	Resources:     resources,
+	//	UserDb:        userDb,
+	//	LoginTemplate: loginTemplate,
+	//}
 
 	// Set up routes
-	router.HandleFunc("/oauth2/auth", oidcServer.handleAuthorize)
-	router.HandleFunc("/oauth2/token", oidcServer.handleToken)
-	router.HandleFunc("/.well-known/openid-configuration", oidcServer.handleOpenIDConfiguration)
-	router.HandleFunc("/userinfo", oidcServer.handleUserInfo)
-	router.HandleFunc("/.well-known/jwks.json", oidcServer.handleJWKS)
+	router.HandleFunc("/oauth2/auth", s.handleAuthorize)
+	router.HandleFunc("/oauth2/token", s.handleToken)
+	router.HandleFunc("/.well-known/openid-configuration", s.handleOpenIDConfiguration)
+	router.HandleFunc("/userinfo", s.handleUserInfo)
+	router.HandleFunc("/.well-known/jwks.json", s.handleJWKS)
 	//router.HandleFunc("/oauth2/revoke", oidcServer.revokeEndpoint)
-	router.HandleFunc("/oauth2/introspect", oidcServer.HandleTokenIntrospection)
+	router.HandleFunc("/oauth2/introspect", s.HandleTokenIntrospection)
 
-	fmt.Printf("OIDC Server starting on %s\n", issuer)
-	fmt.Printf("OpenID Configuration: %s/.well-known/openid-configuration\n", issuer)
-	fmt.Printf("Authorization endpoint: %s/oauth2/auth\n", issuer)
-	fmt.Printf("Token endpoint: %s/oauth2/token\n", issuer)
+	fmt.Printf("OIDC Server starting on %s\n", s.Issuer)
+	fmt.Printf("OpenID Configuration: %s/.well-known/openid-configuration\n", s.Issuer)
+	fmt.Printf("Authorization endpoint: %s/oauth2/auth\n", s.Issuer)
+	fmt.Printf("Token endpoint: %s/oauth2/token\n", s.Issuer)
 
-	return oidcServer
 }
 
 // A session is passed from the `/auth` to the `/token` endpoint. You probably want to store data like: "Who made the request",
@@ -93,13 +91,13 @@ func NewOIDCServer(router *http.ServeMux, userDb userdb.UserDb, loginTemplate *t
 // Usually, you could do:
 //
 //	session = new(fosite.DefaultSession)
-func newSession(user *userdb.User) *openid.DefaultSession {
+func (s *OIDCServer) newSession(user *userdb.User) *openid.DefaultSession {
 	if user == nil {
 		return &openid.DefaultSession{}
 	}
 	return &openid.DefaultSession{
 		Claims: &jwt.IDTokenClaims{
-			Issuer:      config.Conf.Issuer,
+			Issuer:      s.Issuer,
 			Subject:     user.Login,
 			Audience:    []string{"https://my-client.my-application.com"},
 			ExpiresAt:   time.Now().Add(time.Hour * 6),

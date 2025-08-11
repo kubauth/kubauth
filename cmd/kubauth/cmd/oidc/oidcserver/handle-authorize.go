@@ -17,7 +17,7 @@ func (s *OIDCServer) displayLoginResponse(w http.ResponseWriter, r *http.Request
 		"InvalidLogin": invalidLogin,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.loginTemplate.Execute(w, data); err != nil {
+	if err := s.LoginTemplate.Execute(w, data); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 	return
@@ -52,7 +52,7 @@ func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 	login := r.PostForm.Get("login")
 	password := r.PostForm.Get("password")
-	user, err := s.userDb.Authenticate(login, password)
+	user, err := s.UserDb.Authenticate(login, password)
 	if err != nil {
 		s.displayLoginResponse(w, r, true)
 		return
@@ -65,7 +65,7 @@ func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	// For simplicity, we'll auto-approve the request
 	// In a real implementation, you'd show a login/consent page
 	// See comment in fosite-example/oauth2_auth.go/56
-	session := newSession(user)
+	session := s.newSession(user)
 
 	// Now we need to get a response. This is the place where the AuthorizeEndpointHandlers kick in and start processing the request.
 	// NewAuthorizeResponse is capable of running multiple response type handlers which in turn enables this library

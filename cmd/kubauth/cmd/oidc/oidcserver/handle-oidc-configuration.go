@@ -2,13 +2,12 @@ package oidcserver
 
 import (
 	"encoding/json"
-	"kubauth/cmd/kubauth/cmd/oidc/config"
 	"net/http"
 )
 
 // Handle OpenID Connect configuration endpoint
 func (s *OIDCServer) handleOpenIDConfiguration(w http.ResponseWriter, _ *http.Request) {
-	baseURL := config.Conf.Issuer
+	baseURL := s.Issuer
 
 	oidcConfig := map[string]interface{}{
 		"issuer":                                baseURL,

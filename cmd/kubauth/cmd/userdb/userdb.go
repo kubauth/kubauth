@@ -10,7 +10,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/kubauth/cmd/oidc/config"
 	"kubauth/cmd/kubauth/cmd/userdb/handlers"
 	kubauthWebhooks "kubauth/cmd/kubauth/cmd/userdb/webhooks"
 	"kubauth/cmd/kubauth/global"
@@ -30,7 +29,8 @@ import (
 )
 
 var flags struct {
-	logConfig misc.LogConfig
+	logConfig  misc.LogConfig
+	HttpConfig httpsrv.Config
 
 	probeAddr            string
 	enableLeaderElection bool // Should be false, as we are stateless
@@ -58,7 +58,7 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Mode, "logMode", "", "text", "Log mode (dev or json)")
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
 
-	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8081", "The address the probe endpoint binds to.")
+	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8210", "The address the probe endpoint binds to.")
 	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", false, "Enable leader election. Should be false, as we are stateless")
 	Cmd.PersistentFlags().BoolVar(&flags.enableHTTP2, "enableHttp2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	Cmd.PersistentFlags().BoolVar(&flags.enableWebhook, "enableWebhook", true, "If set the webhook server will be enabled")
@@ -73,11 +73,11 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.userNamespace, "userNamespace", "", "The namespace hosting users and groups resources.")
 
 	// userdb server config
-	Cmd.PersistentFlags().BoolVarP(&config.Conf.HttpConfig.Tls, "tls", "t", false, "enable TLS")
-	Cmd.PersistentFlags().BoolVarP(&config.Conf.HttpConfig.DumpExchange, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.HttpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
-	Cmd.PersistentFlags().IntVarP(&config.Conf.HttpConfig.BindPort, "bindPort", "p", 8080, "Bind port")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.HttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
+	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.Tls, "tls", "t", false, "enable TLS")
+	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.DumpExchange, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
+	Cmd.PersistentFlags().StringVarP(&flags.HttpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
+	Cmd.PersistentFlags().IntVarP(&flags.HttpConfig.BindPort, "bindPort", "p", 8201, "Bind port")
+	Cmd.PersistentFlags().StringVarP(&flags.HttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
 	//Cmd.PersistentFlags().StringArrayVarP(&config.Conf.HttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -107,7 +107,7 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if config.Conf.HttpConfig.BindAddr != "127.0.0.1" && config.Conf.HttpConfig.BindAddr != "localhost" {
+		if flags.HttpConfig.BindAddr != "127.0.0.1" && flags.HttpConfig.BindAddr != "localhost" {
 			fmt.Printf("**** WARNING ****: This enpoint is not protected and externaly accessible. It should be accessible only from side containers")
 		}
 
@@ -255,7 +255,7 @@ var Cmd = &cobra.Command{
 		// ---------------------- Setup our user identity server
 		router := http.NewServeMux()
 		router.Handle("/v1/identity", handlers.IdentityHandler(mgr.GetClient(), flags.userNamespace))
-		server := httpsrv.New("userIdSrv", &config.Conf.HttpConfig, router)
+		server := httpsrv.New("userIdSrv", &flags.HttpConfig, router)
 		err = mgr.Add(server)
 		if err != nil {
 			setupLog.Error(err, "unable to add oidc server to the manager")
