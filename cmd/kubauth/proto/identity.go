@@ -1,10 +1,9 @@
 package proto
 
-type IdentityRequest struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-	Detailed bool   `json:"detailed"`
-}
+import (
+	"fmt"
+	"io"
+)
 
 type Status string
 
@@ -65,9 +64,35 @@ type UserDetail struct {
 	Translated Translated   `json:"translated"`
 }
 
+type IdentityRequest struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+	Detailed bool   `json:"detailed"`
+}
+
+var _ RequestPayload = &IdentityRequest{}
+
 type IdentityResponse struct {
 	User
 	Status    Status       `json:"status"`
 	Details   []UserDetail `json:"details"`   // Empty is IdentityRequest.Detail == False
 	Authority string       `json:"authority"` // "" if from an identity provider
+}
+
+var _ ResponsePayload = &IdentityResponse{}
+
+// ------------------------------------------
+
+func (u *IdentityRequest) String() string {
+	return fmt.Sprintf("IdentityRequest(login=%s", u.Login)
+}
+func (u *IdentityRequest) ToJson() ([]byte, error) {
+	return toJson(u)
+}
+func (u *IdentityRequest) FromJson(r io.Reader) error {
+	return fromJson(r, u)
+}
+
+func (u *IdentityResponse) FromJson(r io.Reader) error {
+	return fromJson(r, u)
 }

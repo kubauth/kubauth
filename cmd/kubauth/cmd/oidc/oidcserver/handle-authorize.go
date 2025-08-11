@@ -1,7 +1,6 @@
 package oidcserver
 
 import (
-	"fmt"
 	"github.com/go-logr/logr"
 	"html/template"
 	"net/http"
@@ -33,7 +32,8 @@ func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	ar, err := s.oauth2.NewAuthorizeRequest(ctx, r) // authorize_request_handler/326
 	if err != nil {
 		err2 := fosite.ErrorToRFC6749Error(err)
-		fmt.Printf("Authorization request error: %v  hint=%s  desc=%s\n", err2.ErrorField, err2.HintField, err2.DescriptionField)
+		// fmt.Printf("Authorization request error: %v  hint=%s  desc=%s\n", err2.ErrorField, err2.HintField, err2.DescriptionField)
+		logger.Error("Failed to create authorize request", "error", err2)
 		s.oauth2.WriteAuthorizeError(ctx, w, ar, err) //   authorize_error/13
 		return
 	}
@@ -47,6 +47,7 @@ func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 	err = r.ParseForm()
 	if err != nil {
+		logger.Error("Failed to parse form", "error", err)
 		s.oauth2.WriteAuthorizeError(ctx, w, ar, err)
 		return
 	}
@@ -54,9 +55,15 @@ func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	password := r.PostForm.Get("password")
 	user, err := s.UserDb.Authenticate(login, password)
 	if err != nil {
+		logger.Error("failed to authenticate", "login", login, "error", err)
+		s.oauth2.WriteAuthorizeError(ctx, w, ar, err)
+		return
+	}
+	if user == nil {
 		s.displayLoginResponse(w, r, true)
 		return
 	}
+
 	ar.GrantScope("offline") // To have a refresh token
 	ar.GrantScope("openid")
 	//ar.GrantScope("email")
@@ -73,7 +80,8 @@ func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session) // authorize_response_writer/17
 	if err != nil {
 		err2 := fosite.ErrorToRFC6749Error(err)
-		fmt.Printf("Authorization response error: %v  hint=%s  desc=%s\n", err2.ErrorField, err2.HintField, err2.DescriptionField)
+		//fmt.Printf("Authorization response error: %v  hint=%s  desc=%s\n", err2.ErrorField, err2.HintField, err2.DescriptionField)
+		logger.Error("Failed to create authorize response", "error", err2)
 		s.oauth2.WriteAuthorizeError(ctx, w, ar, err) //   authorize_error/13
 		return
 	}

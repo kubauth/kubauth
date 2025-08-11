@@ -1,12 +1,12 @@
-package httpcli
+package httpclient
 
 import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	"kubauth/cmd/kubauth/proto"
 	"kubauth/internal/misc"
 	"net"
 	"net/http"
@@ -31,7 +31,7 @@ type Config struct {
 }
 
 type HttpClient interface {
-	//Do(meta *proto.RequestMeta, request proto.RequestPayload, response proto.ResponsePayload, httpAuth *HttpAuth) error
+	Do(method string, path string, request proto.RequestPayload, response proto.ResponsePayload) error
 }
 
 var _ HttpClient = &httpClient{}
@@ -137,10 +137,10 @@ func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("Resource '%s' not found", e.url)
 }
 
-func (c *httpClient) Do(method string, path string, request map[string]interface{}, response *map[string]interface{}) error {
-	body, err := json.Marshal(request)
+func (c *httpClient) Do(method string, path string, request proto.RequestPayload, response proto.ResponsePayload) error {
+	body, err := request.ToJson()
 	if err != nil {
-		return fmt.Errorf("unable to marshal request: %w", err)
+		return fmt.Errorf("unable to marshal request '%s': %w", request, err)
 	}
 	u, err := url.JoinPath(c.BaseUrl, path)
 	if err != nil {
@@ -148,7 +148,7 @@ func (c *httpClient) Do(method string, path string, request map[string]interface
 	}
 	req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
 	if err != nil {
-		return fmt.Errorf("unable to build request")
+		return fmt.Errorf("unable to build request '%s': %w", request, err)
 	}
 	if c.Config.HttpAuth != nil {
 		auth := c.Config.HttpAuth
@@ -165,7 +165,7 @@ func (c *httpClient) Do(method string, path string, request map[string]interface
 		defer func() { _ = resp.Body.Close() }()
 	}
 	if err != nil {
-		return fmt.Errorf("error on http connection: %w", err)
+		return fmt.Errorf("error on http connection on request '%s': %w", request, err)
 	}
 	if resp.StatusCode == 401 {
 		// This is not a system error, but a user's one. So this special handling
@@ -178,11 +178,9 @@ func (c *httpClient) Do(method string, path string, request map[string]interface
 		}
 	}
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("invalid status code: %d (%s)", resp.StatusCode, resp.Status)
+		return fmt.Errorf("invalid status code: %d (%s) on request '%s'", resp.StatusCode, resp.Status, request)
 	}
-	decoder := json.NewDecoder(resp.Body)
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(response)
+	err = response.FromJson(resp.Body)
 	if err != nil {
 		return fmt.Errorf("unable to unmarshal response: %w", err)
 	}

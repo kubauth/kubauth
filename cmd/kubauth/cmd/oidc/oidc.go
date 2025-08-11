@@ -15,9 +15,10 @@ import (
 	"kubauth/cmd/kubauth/cmd/oidc/handlers"
 	"kubauth/cmd/kubauth/cmd/oidc/oidcserver"
 	"kubauth/cmd/kubauth/cmd/oidc/storage"
-	"kubauth/cmd/kubauth/cmd/oidc/userdb"
+	"kubauth/cmd/kubauth/cmd/oidc/userdb/idprovider"
 	oidcWebhooks "kubauth/cmd/kubauth/cmd/oidc/webhooks"
 	"kubauth/cmd/kubauth/global"
+	"kubauth/internal/httpclient"
 	"kubauth/internal/httpsrv"
 	"kubauth/internal/misc"
 	"log/slog"
@@ -39,6 +40,8 @@ var flags struct {
 	oidcHttpConfig httpsrv.Config
 	Issuer         string
 	Resources      string
+
+	idpHttpConfig httpclient.Config
 
 	probeAddr            string
 	enableLeaderElection bool // Must be true, as memory storage require a single context
@@ -89,6 +92,11 @@ func init() {
 	//Cmd.PersistentFlags().StringArrayVarP(&flags.oidcHttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
 	Cmd.PersistentFlags().StringVarP(&flags.Issuer, "issuer", "i", "http://localhost:8101", "Issuer URL")
 	Cmd.PersistentFlags().StringVarP(&flags.Resources, "resources", "", "resources", "Resources folders")
+
+	// Idp (Identity provider config
+	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseUrl, "idpBaseUrl", "http://localhost:8201", "The Identity provider base URL")
+	Cmd.PersistentFlags().StringArrayVar(&flags.idpHttpConfig.RootCaPaths, "idpRootCA", []string{}, "The Identity provider root CA paths (Several values possible)")
+	Cmd.PersistentFlags().BoolVar(&flags.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
@@ -269,7 +277,12 @@ var Cmd = &cobra.Command{
 		router := http.NewServeMux()
 		router.Handle("GET /favicon.ico", handlers.FaviconHandler(path.Join(flags.Resources, "static", "favicon.ico")))
 
-		userDb := userdb.NewUserDb()
+		userDb, err := idprovider.New(&flags.idpHttpConfig)
+		if err != nil {
+			setupLog.Error(err, "unable to initialize user db")
+			os.Exit(1)
+		}
+		//userDb := memory.NewUserDb()
 
 		(&oidcserver.OIDCServer{
 			Issuer:        flags.Issuer,
