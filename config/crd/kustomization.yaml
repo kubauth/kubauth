@@ -2,7 +2,10 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/kubauth.kubotal.io_oidcclients.yaml
+  - bases/kubauth.kubotal.io_oidcclients.yaml
+  - bases/kubauth.kubotal.io_users.yaml
+  - bases/kubauth.kubotal.io_groups.yaml
+  - bases/kubauth.kubotal.io_groupbindings.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	kubauthmodelv1alpha1 "kubauth/api/kubauth/v1alpha1"
+	kubautv1alpha1 "kubauth/api/kubauth/v1alpha1"
 )
 
 // nolint:unused
@@ -35,7 +35,7 @@ var oidcclientlog = logf.Log.WithName("oidcclient-resource")
 
 // SetupOidcClientWebhookWithManager registers the webhook for OidcClient in the manager.
 func SetupOidcClientWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&kubauthmodelv1alpha1.OidcClient{}).
+	return ctrl.NewWebhookManagedBy(mgr).For(&kubautv1alpha1.OidcClient{}).
 		WithValidator(&OidcClientCustomValidator{}).
 		WithDefaulter(&OidcClientCustomDefaulter{}).
 		Complete()
@@ -58,7 +58,7 @@ var _ webhook.CustomDefaulter = &OidcClientCustomDefaulter{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind OidcClient.
 func (d *OidcClientCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
-	oidcclient, ok := obj.(*kubauthmodelv1alpha1.OidcClient)
+	oidcclient, ok := obj.(*kubautv1alpha1.OidcClient)
 
 	if !ok {
 		return fmt.Errorf("expected an OidcClient object but got %T", obj)
@@ -88,7 +88,7 @@ var _ webhook.CustomValidator = &OidcClientCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type OidcClient.
 func (v *OidcClientCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	oidcclient, ok := obj.(*kubauthmodelv1alpha1.OidcClient)
+	oidcclient, ok := obj.(*kubautv1alpha1.OidcClient)
 	if !ok {
 		return nil, fmt.Errorf("expected a OidcClient object but got %T", obj)
 	}
@@ -101,7 +101,7 @@ func (v *OidcClientCustomValidator) ValidateCreate(_ context.Context, obj runtim
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type OidcClient.
 func (v *OidcClientCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oidcclient, ok := newObj.(*kubauthmodelv1alpha1.OidcClient)
+	oidcclient, ok := newObj.(*kubautv1alpha1.OidcClient)
 	if !ok {
 		return nil, fmt.Errorf("expected a OidcClient object for the newObj but got %T", newObj)
 	}
@@ -114,7 +114,7 @@ func (v *OidcClientCustomValidator) ValidateUpdate(_ context.Context, oldObj, ne
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type OidcClient.
 func (v *OidcClientCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	oidcclient, ok := obj.(*kubauthmodelv1alpha1.OidcClient)
+	oidcclient, ok := obj.(*kubautv1alpha1.OidcClient)
 	if !ok {
 		return nil, fmt.Errorf("expected a OidcClient object but got %T", obj)
 	}

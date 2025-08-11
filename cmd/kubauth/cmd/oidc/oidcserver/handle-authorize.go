@@ -2,6 +2,7 @@ package oidcserver
 
 import (
 	"fmt"
+	"github.com/go-logr/logr"
 	"html/template"
 	"net/http"
 
@@ -10,7 +11,7 @@ import (
 
 func (s *OIDCServer) displayLoginResponse(w http.ResponseWriter, r *http.Request, invalidLogin bool) {
 	rq := r.URL.RawQuery
-	fmt.Printf("RawQuery: %s\n", rq)
+	//fmt.Printf("RawQuery: %s\n", rq)
 	data := map[string]interface{}{
 		"RawQuery":     template.HTML(rq),
 		"InvalidLogin": invalidLogin,
@@ -25,6 +26,7 @@ func (s *OIDCServer) displayLoginResponse(w http.ResponseWriter, r *http.Request
 // Handle authorization endpoint
 func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := logr.FromContextAsSlogLogger(ctx)
 
 	// Let's create an AuthorizeRequest object!
 	// It will analyze the request and extract important information like scopes, response type and others.
@@ -36,7 +38,7 @@ func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("AuthorizeRequest.GetRequestedScopes(): %v\n", ar.GetRequestedScopes())
+	logger.Debug("handleAuthorize", "requestedScopes", ar.GetRequestedScopes())
 
 	if r.Method == "GET" {
 		// As we currently do not implement SSO, display the login page on each authorize request from client

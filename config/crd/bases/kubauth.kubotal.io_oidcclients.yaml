@@ -14,10 +14,19 @@ spec:
     singular: oidcclient
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.id
+      name: ID
+      type: string
+    - jsonPath: .spec.public
+      name: Pub.
+      type: boolean
+    - jsonPath: .spec.description
+      name: Description
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: OidcClient is the Schema for the oidcclients API
         properties:
           apiVersion:
             description: |-

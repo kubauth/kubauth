@@ -6,28 +6,23 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
-	"html/template"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/kubauth/cmd/oidc/config"
-	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
-	"kubauth/cmd/kubauth/cmd/oidc/handlers"
-	"kubauth/cmd/kubauth/cmd/oidc/oidcserver"
-	"kubauth/cmd/kubauth/cmd/oidc/storage"
-	"kubauth/cmd/kubauth/cmd/oidc/userdb"
-	oidcWebhooks "kubauth/cmd/kubauth/cmd/oidc/webhooks"
+	"kubauth/cmd/kubauth/cmd/userdb/handlers"
+	kubauthWebhooks "kubauth/cmd/kubauth/cmd/userdb/webhooks"
 	"kubauth/cmd/kubauth/global"
 	"kubauth/internal/httpsrv"
 	"kubauth/internal/misc"
 	"log/slog"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -38,7 +33,7 @@ var flags struct {
 	logConfig misc.LogConfig
 
 	probeAddr            string
-	enableLeaderElection bool // Must be true, as memory storage require a single context
+	enableLeaderElection bool // Should be false, as we are stateless
 	enableHTTP2          bool
 
 	enableWebhook   bool
@@ -52,7 +47,7 @@ var flags struct {
 	metricsCertName string
 	metricsCertKey  string
 
-	clientNamespace string
+	userNamespace string
 }
 
 var (
@@ -64,7 +59,7 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
 
 	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8081", "The address the probe endpoint binds to.")
-	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", true, "Enable leader election for controller manager. Must be set, as memory storage require a single instance")
+	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", false, "Enable leader election. Should be false, as we are stateless")
 	Cmd.PersistentFlags().BoolVar(&flags.enableHTTP2, "enableHttp2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	Cmd.PersistentFlags().BoolVar(&flags.enableWebhook, "enableWebhook", true, "If set the webhook server will be enabled")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertPath, "webhookCertPath", "", "The directory that contains the webhook certificate.")
@@ -75,25 +70,23 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertPath, "metricsCertPath", "", "The directory that contains the metrics server certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertName, "metricsCertName", "tls.crt", "The name of the metrics server certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertKey, "metricsCertKey", "tls.key", "The name of the metrics server key file.")
-	Cmd.PersistentFlags().StringVar(&flags.clientNamespace, "clientNamespace", "", "The namespace hosting OidcClient resources.")
+	Cmd.PersistentFlags().StringVar(&flags.userNamespace, "userNamespace", "", "The namespace hosting users and groups resources.")
 
-	// OIDC config
+	// userdb server config
 	Cmd.PersistentFlags().BoolVarP(&config.Conf.HttpConfig.Tls, "tls", "t", false, "enable TLS")
 	Cmd.PersistentFlags().BoolVarP(&config.Conf.HttpConfig.DumpExchange, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.HttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
+	Cmd.PersistentFlags().StringVarP(&config.Conf.HttpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
 	Cmd.PersistentFlags().IntVarP(&config.Conf.HttpConfig.BindPort, "bindPort", "p", 8080, "Bind port")
 	Cmd.PersistentFlags().StringVarP(&config.Conf.HttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
 	//Cmd.PersistentFlags().StringArrayVarP(&config.Conf.HttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.Issuer, "issuer", "i", "http://localhost:8080", "Issuer URL")
-	Cmd.PersistentFlags().StringVarP(&config.Conf.Resources, "resources", "", "resources", "Resources folders")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
 }
 
 var Cmd = &cobra.Command{
-	Use:   "oidc",
-	Short: "OIDC/oauth server",
+	Use:   "userdb",
+	Short: "User DB server",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		var tlsOpts []func(*tls.Config)
@@ -107,11 +100,15 @@ var Cmd = &cobra.Command{
 		ctrl.SetLogger(logr.FromSlogHandler(logger.Handler()))
 		setupLog := ctrl.Log.WithName("setup")
 
-		logger.Info("Starting OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
+		logger.Info("Starting User DB Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
 
-		if flags.clientNamespace == "" {
-			setupLog.Error(nil, "clientNamespace must be specified and non null")
+		if flags.userNamespace == "" {
+			setupLog.Error(nil, "userNamespace must be specified and non null")
 			os.Exit(1)
+		}
+
+		if config.Conf.HttpConfig.BindAddr != "127.0.0.1" && config.Conf.HttpConfig.BindAddr != "localhost" {
+			fmt.Printf("**** WARNING ****: This enpoint is not protected and externaly accessible. It should be accessible only from side containers")
 		}
 
 		// if the enable-http2 flag is false (the default), http/2 should be disabled
@@ -214,24 +211,17 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// ------------------------------------- Create our storage
-		storage := storage.NewMemoryStore()
-
-		// Setup OidcClient Reconciler
-		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
-			Client:  mgr.GetClient(),
-			Scheme:  mgr.GetScheme(),
-			Storage: storage,
-		}
-
-		err = ctrl.NewControllerManagedBy(mgr).
-			For(&kubauthv1alpha1.OidcClient{}).
-			Named("kubauth-oidcclient").
-			Complete(oidcClientReconciler)
-
 		if flags.enableWebhook {
-			if err := oidcWebhooks.SetupOidcClientWebhookWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create webhook", "webhook", "OidcClient")
+			if err := kubauthWebhooks.SetupUserWebhookWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create webhook", "webhook", "User")
+				os.Exit(1)
+			}
+			if err := kubauthWebhooks.SetupGroupWebhookWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create webhook", "webhook", "Group")
+				os.Exit(1)
+			}
+			if err := kubauthWebhooks.SetupGroupBindingWebhookWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create webhook", "webhook", "GroupBinding")
 				os.Exit(1)
 			}
 		}
@@ -262,19 +252,23 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// ---------------------- Setup our OIDC server
+		// ---------------------- Setup our user identity server
 		router := http.NewServeMux()
-		router.Handle("GET /favicon.ico", handlers.FaviconHandler(path.Join(config.Conf.Resources, "static", "favicon.ico")))
-
-		userDb := userdb.NewUserDb()
-
-		_ = oidcserver.NewOIDCServer(router, userDb, template.Must(template.ParseFiles(path.Join(config.Conf.Resources, "templates", "login.gohtml"))), storage)
-
-		server := httpsrv.New("oidcSrv", &config.Conf.HttpConfig, router)
-
+		router.Handle("/v1/identity", handlers.IdentityHandler(mgr.GetClient(), flags.userNamespace))
+		server := httpsrv.New("userIdSrv", &config.Conf.HttpConfig, router)
 		err = mgr.Add(server)
 		if err != nil {
 			setupLog.Error(err, "unable to add oidc server to the manager")
+			os.Exit(1)
+		}
+
+		//------------------------------------- Index groupBindings by user
+		err = mgr.GetFieldIndexer().IndexField(context.TODO(), &kubauthv1alpha1.GroupBinding{}, "userkey", func(rawObj client.Object) []string {
+			ugb := rawObj.(*kubauthv1alpha1.GroupBinding)
+			return []string{ugb.Spec.User}
+		})
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 			os.Exit(1)
 		}
 

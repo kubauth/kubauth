@@ -24,6 +24,66 @@ webhooks:
     resources:
     - oidcclients
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-kubauth-kubotal-io-v1alpha1-group
+  failurePolicy: Fail
+  name: mgroup-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - groups
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-kubauth-kubotal-io-v1alpha1-groupbinding
+  failurePolicy: Fail
+  name: mgroupbinding-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - groupbindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-kubauth-kubotal-io-v1alpha1-user
+  failurePolicy: Fail
+  name: muser-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - users
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -49,4 +109,64 @@ webhooks:
     - UPDATE
     resources:
     - oidcclients
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kubauth-kubotal-io-v1alpha1-group
+  failurePolicy: Fail
+  name: vgroup-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - groups
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kubauth-kubotal-io-v1alpha1-groupbinding
+  failurePolicy: Fail
+  name: vgroupbinding-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - groupbindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kubauth-kubotal-io-v1alpha1-user
+  failurePolicy: Fail
+  name: vuser-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - users
   sideEffects: None

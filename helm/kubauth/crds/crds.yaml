@@ -3,6 +3,139 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
+  name: groupbindings.kubauth.kubotal.io
+spec:
+  group: kubauth.kubotal.io
+  names:
+    kind: GroupBinding
+    listKind: GroupBindingList
+    plural: groupbindings
+    shortNames:
+    - gb
+    - gbs
+    - skgroupbinding
+    - skgroupbindings
+    - skgb
+    - skgbs
+    - skasgb
+    - skasgb
+    singular: groupbinding
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.user
+      name: User
+      type: string
+    - jsonPath: .spec.group
+      name: Group
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: GroupBinding is the Schema for the groupbindings API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              group:
+                minLength: 1
+                type: string
+              user:
+                minLength: 1
+                type: string
+            required:
+            - group
+            - user
+            type: object
+          status:
+            description: GroupBindingStatus defines the observed state of GroupBinding
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: groups.kubauth.kubotal.io
+spec:
+  group: kubauth.kubotal.io
+  names:
+    kind: Group
+    listKind: GroupList
+    plural: groups
+    singular: group
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.comment
+      name: Comment
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              claims:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                type: object
+              comment:
+                description: Whatever extra information related to this group.
+                type: string
+            type: object
+          status:
+            description: GroupStatus defines the observed state of Group
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: oidcclients.kubauth.kubotal.io
 spec:
   group: kubauth.kubotal.io
@@ -13,10 +146,19 @@ spec:
     singular: oidcclient
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.id
+      name: ID
+      type: string
+    - jsonPath: .spec.public
+      name: Pub.
+      type: boolean
+    - jsonPath: .spec.description
+      name: Description
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: OidcClient is the Schema for the oidcclients API
         properties:
           apiVersion:
             description: |-
@@ -58,9 +200,10 @@ spec:
                 description: The client ID.
                 type: string
               public:
+                default: false
                 description: true, if this client is marked as public.
                 type: boolean
-              redirectUris:
+              redirectURIs:
                 description: The client's allowed redirect URIs.
                 items:
                   type: string
@@ -82,7 +225,7 @@ spec:
             - grantTypes
             - id
             - public
-            - redirectUris
+            - redirectURIs
             - responseTypes
             - scopes
             type: object
@@ -91,6 +234,103 @@ spec:
             type: object
         required:
         - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: users.kubauth.kubotal.io
+spec:
+  group: kubauth.kubotal.io
+  names:
+    kind: User
+    listKind: UserList
+    plural: users
+    shortNames:
+    - kuser
+    - kusers
+    singular: user
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.commonNames
+      name: Common names
+      type: string
+    - jsonPath: .spec.emails
+      name: Emails
+      type: string
+    - jsonPath: .spec.uid
+      name: Uid
+      type: integer
+    - jsonPath: .spec.comment
+      name: Comment
+      type: string
+    - jsonPath: .spec.disabled
+      name: Disabled
+      type: boolean
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: User is the Schema for the users API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              claims:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                type: object
+              comment:
+                description: Whatever extra information related to this user.
+                type: string
+              commonNames:
+                description: The user common name(s).
+                items:
+                  type: string
+                type: array
+              disabled:
+                description: Prevent this user to login. Even if this user is managed
+                  by an external provider (i.e. LDAP)
+                type: boolean
+              emails:
+                description: The user email(s).
+                items:
+                  type: string
+                type: array
+              passwordHash:
+                description: |-
+                  The user password, Hashed. Using golang.org/x/crypto/bcrypt.GenerateFromPassword()
+                  Is optional, in case we only enrich a user from another directory
+                type: string
+              uid:
+                description: Numerical user id
+                type: integer
+            type: object
+          status:
+            description: UserStatus defines the observed state of User
+            type: object
         type: object
     served: true
     storage: true

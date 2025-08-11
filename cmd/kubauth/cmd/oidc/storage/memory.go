@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-logr/logr"
 	"sync"
 	"time"
 
@@ -94,33 +95,36 @@ type StoreRefreshToken struct {
 	fosite.Requester
 }
 
-func (s *MemoryStore) CreateOpenIDConnectSession(_ context.Context, authorizeCode string, requester fosite.Requester) error {
+func (s *MemoryStore) CreateOpenIDConnectSession(ctx context.Context, authorizeCode string, requester fosite.Requester) error {
 	s.idSessionsMutex.Lock()
 	defer s.idSessionsMutex.Unlock()
 
-	fmt.Printf("++++++++CreateOpenIDConnectSession(code:%s, requesterID:%s)\n", authorizeCode, requester.GetID())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("CreateOpenIDConnectSession", "code", authorizeCode, "requesterId", requester.GetID())
 	s.IDSessions[authorizeCode] = requester
 	return nil
 }
 
-func (s *MemoryStore) GetOpenIDConnectSession(_ context.Context, authorizeCode string, requester fosite.Requester) (fosite.Requester, error) {
+func (s *MemoryStore) GetOpenIDConnectSession(ctx context.Context, authorizeCode string, requester fosite.Requester) (fosite.Requester, error) {
 	s.idSessionsMutex.RLock()
 	defer s.idSessionsMutex.RUnlock()
 
+	logger := logr.FromContextAsSlogLogger(ctx)
 	cl, ok := s.IDSessions[authorizeCode]
 	if !ok {
-		fmt.Printf("++++++++GetOpenIDConnectSession(code:%s, requesterID:%s) NOT FOUND\n", authorizeCode, requester.GetID())
+		logger.Debug("GetOpenIDConnectSession() NOT FOUND!", "code", authorizeCode, "requesterId", requester.GetID())
 		return nil, fosite.ErrNotFound
 	}
-	fmt.Printf("++++++++GetOpenIDConnectSession(code:%s, requesterID:%s) found\n", authorizeCode, requester.GetID())
+	logger.Debug("GetOpenIDConnectSession() found!", "code", authorizeCode, "requesterId", requester.GetID())
 	return cl, nil
 }
 
-func (s *MemoryStore) DeleteOpenIDConnectSession(_ context.Context, authorizeCode string) error {
+func (s *MemoryStore) DeleteOpenIDConnectSession(ctx context.Context, authorizeCode string) error {
 	s.idSessionsMutex.Lock()
 	defer s.idSessionsMutex.Unlock()
 
-	fmt.Printf("++++++++DeleteOpenIDConnectSession(code:%s)\n", authorizeCode)
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("DeleteOpenIDConnectSession", "code", authorizeCode)
 
 	delete(s.IDSessions, authorizeCode)
 	return nil

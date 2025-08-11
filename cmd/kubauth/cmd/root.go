@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"kubauth/cmd/kubauth/cmd/hash"
 	"kubauth/cmd/kubauth/cmd/oidc"
+	userdb "kubauth/cmd/kubauth/cmd/userdb"
 	"os"
 )
 
@@ -28,6 +29,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(hash.Cmd)
 	rootCmd.AddCommand(oidc.Cmd)
+	rootCmd.AddCommand(userdb.Cmd)
 
 }
 

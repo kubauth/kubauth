@@ -28,9 +28,7 @@ const DefaultBCryptWorkFactor = 12
 var Cmd = &cobra.Command{
 	Use:   "hash [secret]",
 	Short: "Generate a BCrypt hash for OIDC client secret",
-	Long: `Generate a BCrypt hash for OIDC client secret that can be used in fosite.Client.Secret.
-
-The hash is generated using the same method as fosite's default BCrypt hasher with work factor 12.
+	Long: `Generate a BCrypt hash for Kubauth User password and OIDC client secret.
 
 Example:
   kubauth hash my-secret
@@ -48,8 +46,26 @@ Example:
 
 		fmt.Printf("Secret: %s\n", secret)
 		fmt.Printf("Hash: %s\n", string(hash))
-		fmt.Printf("\nUse this hash in your OidcClient secret field.\n")
-		fmt.Printf("Example:\n")
-		fmt.Printf("  Secret: []byte(\"%s\"),\n", string(hash))
+		fmt.Printf(`
+Use ths has in your User 'passwordHash' field
+
+Example:
+  apiVersion: kubauth.kubotal.io/v1alpha1
+  kind: User
+  .....
+  spec:
+    passwordHash: "%s"
+
+Or in your OidcClient 'hashedSecret' field
+
+Example:
+  apiVersion: kubauth.kubotal.io/v1alpha1
+  kind: OiscSecret
+  .....
+  spec:
+    hashedSecret: "%s"
+
+
+`, string(hash), string(hash))
 	},
 }

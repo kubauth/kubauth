@@ -53,34 +53,6 @@ func NewOIDCServer(router *http.ServeMux, userDb userdb.UserDb, loginTemplate *t
 	}
 
 	oauth2 := compose.ComposeAllEnabled(fositeConfig, storage, privateKey)
-	//
-	//client1 := &fosite.DefaultClient{
-	//	ID:             "my-client",
-	//	Secret:         []byte("$2a$12$9vdc.xb3Zf4ts/C2pSvIOuGmFiv0EStBJWslaaycavblaIjYZ9Mia"),            // hashed "my-secret"
-	//	RotatedSecrets: [][]byte{[]byte(`$2y$10$X51gLxUQJ.hGw1epgHTE5u0bt64xM0COU7K9iAp.OFg8p2pUd.1zC `)}, // = "foobaz",
-	//	//RotatedSecrets: nil,
-	//	RedirectURIs:  []string{"http://localhost:9001/wo_callback", "http://localhost:8080/callback"},
-	//	ResponseTypes: []string{"id_token", "code", "token", "id_token token", "code id_token", "code token", "code id_token token"},
-	//	GrantTypes:    []string{"implicit", "refresh_token", "authorization_code", "password", "client_credentials"},
-	//	Scopes:        []string{"fosite", "openid", "photos", "offline", "profile", "email"},
-	//}
-	//
-	//myStorage.Clients["my-client"] = client1
-	//fmt.Printf("Stored client: %+v\n", client1)
-	//
-	//client2 := &fosite.DefaultClient{
-	//	ID:             "example-app",
-	//	Secret:         []byte("$2a$12$pxfZs1UOw3y.4IJAOVqG8OIr4n6304Y2QRBefiQpB3AnDGthYF4ba"), // hashd of ZXhhbXBsZS1hcHAtc2VjcmV0
-	//	RotatedSecrets: nil,
-	//	RedirectURIs:   []string{"http://localhost:5555/callback"},
-	//	ResponseTypes:  []string{"id_token", "code", "token", "id_token token", "code id_token", "code token", "code id_token token"},
-	//	GrantTypes:     []string{"implicit", "refresh_token", "authorization_code", "password", "client_credentials"},
-	//	//Scopes:         []string{"openid", "profile", "email"},
-	//	Scopes: []string{"fosite", "openid", "photos", "offline", "profile", "email", "groups"},
-	//}
-	//
-	//myStorage.Clients["example-app"] = client2
-	//fmt.Printf("Stored client2: %+v\n", client2)
 
 	oidcServer := &OIDCServer{
 		oauth2:        oauth2,

@@ -29,8 +29,6 @@ Not (yet?) implemented
 
 // OidcClientSpec defines the desired state of OidcClient
 type OidcClientSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
@@ -79,8 +77,10 @@ type OidcClientStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="ID",type=string,JSONPath=`.spec.id`
+// +kubebuilder:printcolumn:name="Pub.",type=boolean,JSONPath=`.spec.public`
+// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 
-// OidcClient is the Schema for the oidcclients API
 type OidcClient struct {
 	metav1.TypeMeta `json:",inline"`
 
