@@ -4,17 +4,19 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
-	"github.com/google/uuid"
 	"html/template"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
+	"kubauth/cmd/kubauth/cmd/oidc/storage"
+
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/token/jwt"
-	"kubauth/cmd/kubauth/cmd/oidc/storage"
 )
 
 type OIDCServer struct {
@@ -67,6 +69,7 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 
 	// Set up routes
 	router.HandleFunc("/oauth2/auth", s.handleAuthorize)
+	router.HandleFunc("/oauth2/login", s.handleLogin)
 	router.HandleFunc("/oauth2/token", s.handleToken)
 	router.HandleFunc("/.well-known/openid-configuration", s.handleOpenIDConfiguration)
 	router.HandleFunc("/userinfo", s.handleUserInfo)

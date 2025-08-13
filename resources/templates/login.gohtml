@@ -173,14 +173,14 @@
         <!-- Error messages will be displayed here -->
     </div>
 
-    <form id="loginForm" method="POST" >
+    <form id="loginForm" method="POST" action="/oauth2/login">
         <div class="form-group">
             <label for="login">Login</label>
             <input type="text" id="login" name="login" required>
         </div>
 
         <div class="form-group password-group">
-            <input type="hidden" name="id" value="{{.ID}}">
+            <input type="hidden" name="rq" value="{{.RawQuery}}">
             <label for="password">Password</label>
             <input type="password" id="password" name="password" required>
             <span class="password-toggle" id="passwordToggle">
@@ -224,7 +224,7 @@
     document.getElementById('loginForm').addEventListener('submit', function(e) {
         //e.preventDefault();
 
-        const username = document.getElementById('username').value;
+        const username = document.getElementById('login').value;
         const password = document.getElementById('password').value;
         const errorDiv = document.getElementById('errorMessage');
 
