@@ -3,6 +3,7 @@ module kubauth
 go 1.24.6
 
 require (
+	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/go-logr/logr v1.4.2
 	github.com/google/uuid v1.6.0
@@ -11,6 +12,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/crypto v0.36.0
 	gopkg.in/fsnotify.v1 v1.4.7
+	k8s.io/apiextensions-apiserver v0.33.0
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.0
 	sigs.k8s.io/controller-runtime v0.21.0
@@ -118,7 +120,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.33.0 // indirect
-	k8s.io/apiextensions-apiserver v0.33.0 // indirect
 	k8s.io/apiserver v0.33.0 // indirect
 	k8s.io/component-base v0.33.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect

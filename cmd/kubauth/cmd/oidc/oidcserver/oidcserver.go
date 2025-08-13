@@ -7,8 +7,11 @@ import (
 	"html/template"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
+	"strings"
 	"time"
 
+	github_com_alexedwards_scs_v2 "github.com/alexedwards/scs/v2"
+	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/google/uuid"
 
 	"kubauth/cmd/kubauth/cmd/oidc/storage"
@@ -20,11 +23,12 @@ import (
 )
 
 type OIDCServer struct {
-	Issuer        string
-	Storage       *storage.MemoryStore
-	Resources     string
-	UserDb        userdb.UserDb
-	LoginTemplate *template.Template
+	Issuer         string
+	Storage        *storage.MemoryStore
+	Resources      string
+	UserDb         userdb.UserDb
+	LoginTemplate  *template.Template
+	SessionManager *github_com_alexedwards_scs_v2.SessionManager
 
 	oauth2     fosite.OAuth2Provider
 	config     *fosite.Config
@@ -67,9 +71,21 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	//	LoginTemplate: loginTemplate,
 	//}
 
+	// Session manager only for /oauth2/login
+	s.SessionManager = github_com_alexedwards_scs_v2.New()
+	s.SessionManager.Store = memstore.New()
+	s.SessionManager.Lifetime = time.Minute * 15
+	s.SessionManager.Cookie.Name = "kubauth_login"
+	s.SessionManager.Cookie.HttpOnly = true
+	s.SessionManager.Cookie.SameSite = http.SameSiteLaxMode
+	// Secure cookie only if issuer is https
+	if strings.HasPrefix(s.Issuer, "https://") {
+		s.SessionManager.Cookie.Secure = true
+	}
+
 	// Set up routes
 	router.HandleFunc("/oauth2/auth", s.handleAuthorize)
-	router.HandleFunc("/oauth2/login", s.handleLogin)
+	router.Handle("/oauth2/login", s.SessionManager.LoadAndSave(http.HandlerFunc(s.handleLogin)))
 	router.HandleFunc("/oauth2/token", s.handleToken)
 	router.HandleFunc("/.well-known/openid-configuration", s.handleOpenIDConfiguration)
 	router.HandleFunc("/userinfo", s.handleUserInfo)

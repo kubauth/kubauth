@@ -13,7 +13,8 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		// Render login page. Expect original authorize request query preserved in URL
+		// Render login page. Expect original authorize request query in URL, store in session
+		s.SessionManager.Put(ctx, "rq", r.URL.RawQuery)
 		s.displayLoginResponse(w, r.URL.RawQuery, false)
 		return
 	case http.MethodPost:
@@ -26,6 +27,13 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		login := r.PostForm.Get("login")
 		password := r.PostForm.Get("password")
 		rawQuery := r.PostForm.Get("rq")
+		if rawQuery == "" {
+			if v := s.SessionManager.Get(ctx, "rq"); v != nil {
+				if rq, ok := v.(string); ok {
+					rawQuery = rq
+				}
+			}
+		}
 
 		user, err := s.UserDb.Authenticate(login, password)
 		if err != nil {
