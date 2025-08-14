@@ -74,10 +74,10 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 
 	// Session manager only for /oauth2/login
 	s.SessionManager = github_com_alexedwards_scs_v2.New()
+	//s.SessionManager.IdleTimeout = time.Minute * 10
 	s.SessionManager.Store = memstore.New()
-	// Use custom JSON codec to serialize session data as a JSON string
-	s.SessionManager.Codec = sessioncodec.JSONCodec{}
-	s.SessionManager.Lifetime = time.Minute * 15
+	s.SessionManager.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
+	s.SessionManager.Lifetime = time.Hour
 	s.SessionManager.Cookie.Name = "kubauth_login"
 	s.SessionManager.Cookie.HttpOnly = true
 	s.SessionManager.Cookie.SameSite = http.SameSiteLaxMode

@@ -1,7 +1,6 @@
 package oidcserver
 
 import (
-	"fmt"
 	"net/http"
 
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
@@ -18,9 +17,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// If user already authenticated (SSO), complete the OIDC flow directly
 		if v := s.SessionManager.Get(ctx, "ssoUser"); v != nil {
-
-			fmt.Printf("============ v.type: %T  v:%v", v, v)
-
+			//fmt.Printf("============ v.type: %T  v:%v\n", v, v)
 			u, ok := v.(map[string]interface{})
 			if ok {
 				if login, ok := u["Login"].(string); ok && login != "" {
@@ -64,7 +61,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		user, err := s.UserDb.Authenticate(login, password)
 		if err != nil {
 			logger.Error("failed to authenticate", "login", login, "error", err)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, "Internal error on ID provider subsystem. Contact your system administrator", http.StatusInternalServerError)
 			return
 		}
 		if user == nil {

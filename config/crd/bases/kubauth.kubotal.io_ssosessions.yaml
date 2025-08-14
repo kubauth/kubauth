@@ -4,39 +4,32 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: users.kubauth.kubotal.io
+  name: ssosessions.kubauth.kubotal.io
 spec:
   group: kubauth.kubotal.io
   names:
-    kind: User
-    listKind: UserList
-    plural: users
-    shortNames:
-    - kuser
-    - kusers
-    singular: user
+    kind: SsoSession
+    listKind: SsoSessionList
+    plural: ssosessions
+    singular: ssosession
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.commonNames
-      name: Common names
+    - jsonPath: .spec.login
+      name: Login
       type: string
-    - jsonPath: .spec.emails
-      name: Emails
+    - jsonPath: .spec.deadline
+      name: Deadline
       type: string
-    - jsonPath: .spec.uid
-      name: Uid
-      type: integer
-    - jsonPath: .spec.comment
-      name: Comment
+    - jsonPath: .spec.expiry
+      name: Expiry
       type: string
-    - jsonPath: .spec.disabled
-      name: Disabled
-      type: boolean
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: User is the Schema for the users API
+        description: |-
+          SsoSession is the Schema for the ssosessions API
+          The name is the session token (The session cookie value)
         properties:
           apiVersion:
             description: |-
@@ -56,39 +49,31 @@ spec:
           metadata:
             type: object
           spec:
+            description: spec defines the desired state of SsoSession
             properties:
               claims:
-                description: The oidc Claims
+                description: The OIDC Claims
                 x-kubernetes-preserve-unknown-fields: true
-              comment:
-                description: Whatever extra information related to this user.
+              deadline:
+                description: The absolute deadline, from SessionManager.Lifetime
+                format: date-time
                 type: string
-              commonNames:
-                description: The user common name(s).
-                items:
-                  type: string
-                type: array
-              disabled:
-                description: Prevent this user to login. Even if this user is managed
-                  by an external provider (i.e. LDAP)
-                type: boolean
-              emails:
-                description: The user email(s).
-                items:
-                  type: string
-                type: array
-              passwordHash:
-                description: |-
-                  The user password, Hashed. Using golang.org/x/crypto/bcrypt.GenerateFromPassword()
-                  Is optional, in case we only enrich a user from another directory
+              expiry:
+                description: time limit from SessionManage.IdleTimeout
+                format: date-time
                 type: string
-              uid:
-                description: Numerical user id
-                type: integer
+              login:
+                type: string
+            required:
+            - deadline
+            - expiry
+            - login
             type: object
           status:
-            description: UserStatus defines the observed state of User
+            description: status defines the observed state of SsoSession
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

@@ -45,6 +45,8 @@ type UserSpec struct {
 	// +optional
 	Comment string `json:"comment,omitempty"`
 
+	// The oidc Claims
+	// +optional
 	Claims *apiextensionsv1.JSON `json:"claims,omitempty"`
 
 	// Prevent this user to login. Even if this user is managed by an external provider (i.e. LDAP)

@@ -10,6 +10,12 @@ In the session, store the successful user authentication result in order to have
 implement a new Codec for SessionManager, which store its data as a JSON string
 
 
+Implement a SessionManager storage based on the kubernetes ressources SsoSession.kubauth.kubotal.io. 
+Assume data stored in this session will be always of the form userdb.User, 
+so you can match the resources fields with the ones in the data stored in session using Put()
+
+
+
 ----
 
 On login, request user to 'remember me', to activate SSO
