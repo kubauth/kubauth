@@ -78,6 +78,7 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	s.SessionManager.Cookie.Name = "kubauth_login"
 	s.SessionManager.Cookie.HttpOnly = true
 	s.SessionManager.Cookie.SameSite = http.SameSiteLaxMode
+	s.SessionManager.Cookie.Persist = false // Session lifecycle is browser bases
 	// Secure cookie only if issuer is https
 	if strings.HasPrefix(s.Issuer, "https://") {
 		s.SessionManager.Cookie.Secure = true
