@@ -7,9 +7,10 @@ Add session management only on oauth2/login url. Use the github.com/alexedwards/
 Don't use the session to store the RawQuery. As we plan to use a stateful storage for session management, it is important to reduce the number of session PUT/GET operation
 In the session, store the successful user authentication result in order to have a full SSO between several OIDC applications.
 
-----
+implement a new Codec for SessionManager, which store its data as a JSON string
 
-Store the User content, not only the login (Or request again the claims on userdb)
+
+----
 
 On login, request user to 'remember me', to activate SSO
 Also, let choice for a permanent or browser based session.

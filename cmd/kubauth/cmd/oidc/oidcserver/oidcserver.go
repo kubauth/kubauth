@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"html/template"
+	"kubauth/cmd/kubauth/cmd/oidc/sessioncodec"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
 	"strings"
@@ -74,6 +75,8 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	// Session manager only for /oauth2/login
 	s.SessionManager = github_com_alexedwards_scs_v2.New()
 	s.SessionManager.Store = memstore.New()
+	// Use custom JSON codec to serialize session data as a JSON string
+	s.SessionManager.Codec = sessioncodec.JSONCodec{}
 	s.SessionManager.Lifetime = time.Minute * 15
 	s.SessionManager.Cookie.Name = "kubauth_login"
 	s.SessionManager.Cookie.HttpOnly = true

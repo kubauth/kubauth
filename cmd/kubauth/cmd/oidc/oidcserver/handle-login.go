@@ -1,6 +1,7 @@
 package oidcserver
 
 import (
+	"fmt"
 	"net/http"
 
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
@@ -17,21 +18,29 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// If user already authenticated (SSO), complete the OIDC flow directly
 		if v := s.SessionManager.Get(ctx, "ssoUser"); v != nil {
-			if login, ok := v.(string); ok && login != "" {
-				rawQuery := r.URL.RawQuery
-				if rawQuery != "" {
-					// Recreate authorize request and finish flow without prompting login
-					req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
-					if err == nil {
-						ar, err := s.oauth2.NewAuthorizeRequest(ctx, req)
+
+			fmt.Printf("============ v.type: %T  v:%v", v, v)
+
+			u, ok := v.(map[string]interface{})
+			if ok {
+				if login, ok := u["Login"].(string); ok && login != "" {
+					claims := u["Claims"].(map[string]interface{})
+					//if login, ok := v.(string); ok && login != "" {
+					rawQuery := r.URL.RawQuery
+					if rawQuery != "" {
+						// Recreate authorize request and finish flow without prompting login
+						req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
 						if err == nil {
-							ar.GrantScope("offline")
-							ar.GrantScope("openid")
-							session := s.newSession(&userdb.User{Login: login})
-							response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
+							ar, err := s.oauth2.NewAuthorizeRequest(ctx, req)
 							if err == nil {
-								s.oauth2.WriteAuthorizeResponse(ctx, w, ar, response)
-								return
+								ar.GrantScope("offline")
+								ar.GrantScope("openid")
+								session := s.newSession(&userdb.User{Login: login, Claims: claims})
+								response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
+								if err == nil {
+									s.oauth2.WriteAuthorizeResponse(ctx, w, ar, response)
+									return
+								}
 							}
 						}
 					}
@@ -65,7 +74,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 		// Successful authentication: renew session and persist SSO principal only
 		_ = s.SessionManager.RenewToken(ctx)
-		s.SessionManager.Put(ctx, "ssoUser", user.Login)
+		s.SessionManager.Put(ctx, "ssoUser", user)
 
 		// Reconstruct original authorize request using preserved raw query
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
