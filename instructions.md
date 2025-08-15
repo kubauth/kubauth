@@ -18,9 +18,18 @@ so you can match the resources fields with the ones in the data stored in sessio
 
 ----
 
+Token pb.
+Store token in data, for All() correct behavior
+Refactor naming (kube_ssosession_store !!!)
+Why still ##################### memstore.New() ??
+Use interface with context
+Move SesssionManager build out of oidcserver (Setup in oidc.go)
+
+
+
 On login, request user to 'remember me', to activate SSO
 Also, let choice for a permanent or browser based session.
 
-Use a modified version of session storage, to check PUT/GET
-Setup a K8S based session storage
+
+Implements a logout url
 

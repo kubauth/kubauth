@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"html/template"
 	"kubauth/cmd/kubauth/cmd/oidc/sessioncodec"
+	"kubauth/cmd/kubauth/cmd/oidc/sessionstore"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
 	"strings"
 	"time"
 
 	github_com_alexedwards_scs_v2 "github.com/alexedwards/scs/v2"
-	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/google/uuid"
 
 	"kubauth/cmd/kubauth/cmd/oidc/storage"
@@ -21,6 +21,7 @@ import (
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/token/jwt"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type OIDCServer struct {
@@ -30,6 +31,10 @@ type OIDCServer struct {
 	UserDb         userdb.UserDb
 	LoginTemplate  *template.Template
 	SessionManager *github_com_alexedwards_scs_v2.SessionManager
+
+	// Kubernetes integration for session store
+	K8sClient client.Client
+	Namespace string
 
 	oauth2     fosite.OAuth2Provider
 	config     *fosite.Config
@@ -75,13 +80,15 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	// Session manager only for /oauth2/login
 	s.SessionManager = github_com_alexedwards_scs_v2.New()
 	//s.SessionManager.IdleTimeout = time.Minute * 10
-	s.SessionManager.Store = memstore.New()
+	// Use Kubernetes-backed store for SSO sessions
+	s.SessionManager.Store = sessionstore.NewKubeSsoSessionStore(s.K8sClient, s.Namespace)
 	s.SessionManager.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
 	s.SessionManager.Lifetime = time.Hour
 	s.SessionManager.Cookie.Name = "kubauth_login"
 	s.SessionManager.Cookie.HttpOnly = true
 	s.SessionManager.Cookie.SameSite = http.SameSiteLaxMode
 	s.SessionManager.Cookie.Persist = false // Session lifecycle is browser bases
+	s.SessionManager.HashTokenInStore = true
 	// Secure cookie only if issuer is https
 	if strings.HasPrefix(s.Issuer, "https://") {
 		s.SessionManager.Cookie.Secure = true

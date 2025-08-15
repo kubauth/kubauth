@@ -4,12 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/spf13/cobra"
 	"html/template"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
 	"kubauth/cmd/kubauth/cmd/oidc/handlers"
@@ -26,6 +21,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/go-logr/logr"
+	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -290,6 +291,8 @@ var Cmd = &cobra.Command{
 			UserDb:        userDb,
 			Resources:     flags.Resources,
 			LoginTemplate: template.Must(template.ParseFiles(path.Join(flags.Resources, "templates", "login.gohtml"))),
+			K8sClient:     mgr.GetClient(),
+			Namespace:     flags.clientNamespace,
 		}).Setup(router)
 
 		server := httpsrv.New("oidcSrv", &flags.oidcHttpConfig, router)
