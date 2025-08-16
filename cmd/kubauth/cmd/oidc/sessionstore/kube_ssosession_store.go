@@ -2,6 +2,8 @@ package sessionstore
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"time"
@@ -27,6 +29,7 @@ func NewKubeSsoSessionStore(k8sClient client.Client, namespace string) *KubeSsoS
 }
 
 const annotationRawSession = "kubauth.kubotal.io/session"
+const annotationToken = "kubauth.kubotal.io/token"
 
 type sessionEnvelope struct {
 	Deadline time.Time              `json:"deadline"`
@@ -37,7 +40,8 @@ type sessionEnvelope struct {
 func (s *KubeSsoSessionStore) Find(token string) ([]byte, bool, error) {
 	ctx := context.Background()
 	var sess kubauthv1alpha1.SsoSession
-	if err := s.client.Get(ctx, types.NamespacedName{Namespace: s.namespace, Name: token}, &sess); err != nil {
+	name := encodeName(token)
+	if err := s.client.Get(ctx, types.NamespacedName{Namespace: s.namespace, Name: name}, &sess); err != nil {
 		return nil, false, client.IgnoreNotFound(err)
 	}
 	if sess.Annotations == nil {
@@ -68,15 +72,16 @@ func (s *KubeSsoSessionStore) Commit(token string, b []byte, expiry time.Time) e
 
 	// Upsert SsoSession
 	var existing kubauthv1alpha1.SsoSession
-	key := types.NamespacedName{Namespace: s.namespace, Name: token}
+	name := encodeName(token)
+	key := types.NamespacedName{Namespace: s.namespace, Name: name}
 	err = s.client.Get(ctx, key, &existing)
 	if err != nil {
 		// Create new
 		ss := kubauthv1alpha1.SsoSession{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:   s.namespace,
-				Name:        token,
-				Annotations: map[string]string{annotationRawSession: string(b)},
+				Name:        name,
+				Annotations: map[string]string{annotationRawSession: string(b), annotationToken: token},
 			},
 			Spec: kubauthv1alpha1.SsoSessionSpec{
 				Login:    login,
@@ -96,6 +101,7 @@ func (s *KubeSsoSessionStore) Commit(token string, b []byte, expiry time.Time) e
 		existing.Annotations = map[string]string{}
 	}
 	existing.Annotations[annotationRawSession] = string(b)
+	existing.Annotations[annotationToken] = token
 	existing.Spec.Login = login
 	existing.Spec.Deadline = metav1.NewTime(env.Deadline)
 	existing.Spec.Expiry = metav1.NewTime(expiry)
@@ -111,24 +117,29 @@ func (s *KubeSsoSessionStore) Commit(token string, b []byte, expiry time.Time) e
 // Delete removes the SsoSession resource.
 func (s *KubeSsoSessionStore) Delete(token string) error {
 	ctx := context.Background()
-	return s.client.Delete(ctx, &kubauthv1alpha1.SsoSession{ObjectMeta: metav1.ObjectMeta{Namespace: s.namespace, Name: token}})
+	name := encodeName(token)
+	return s.client.Delete(ctx, &kubauthv1alpha1.SsoSession{ObjectMeta: metav1.ObjectMeta{Namespace: s.namespace, Name: name}})
 }
 
-// Following is commented out, as polishToken() make this wring
-
-//// All returns all session tokens (names of SsoSession resources).
-//func (s *KubeSsoSessionStore) All() ([]string, error) {
-//	ctx := context.Background()
-//	var list kubauthv1alpha1.SsoSessionList
-//	if err := s.client.List(ctx, &list, client.InNamespace(s.namespace)); err != nil {
-//		return nil, err
-//	}
-//	res := make([]string, 0, len(list.Items))
-//	for i := range list.Items {
-//		res = append(res, list.Items[i].Name)
-//	}
-//	return res, nil
-//}
+// All returns all session tokens. It reads tokens from the annotation persisted at Commit().
+func (s *KubeSsoSessionStore) All() ([]string, error) {
+	ctx := context.Background()
+	var list kubauthv1alpha1.SsoSessionList
+	if err := s.client.List(ctx, &list, client.InNamespace(s.namespace)); err != nil {
+		return nil, err
+	}
+	res := make([]string, 0, len(list.Items))
+	for i := range list.Items {
+		item := &list.Items[i]
+		if item.Annotations == nil {
+			continue
+		}
+		if t := item.Annotations[annotationToken]; t != "" {
+			res = append(res, t)
+		}
+	}
+	return res, nil
+}
 
 // extractUser tries to find a value shaped like userdb.User (fields Login, Claims)
 // within the values map. It prioritizes key "ssoUser" if present.
@@ -172,4 +183,11 @@ func asUser(v interface{}) (string, map[string]interface{}, bool) {
 		claims, _ = c.(map[string]interface{})
 	}
 	return login, claims, true
+}
+
+// encodeName returns an RFC1123-compliant name derived from the token.
+// It always uses a short, uniform transformation: sha256 hex with an 'h-' prefix.
+func encodeName(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return "h-" + hex.EncodeToString(sum[:])
 }
