@@ -37,13 +37,13 @@ Rename SsoCleaner to KubeSsoCleaner and cleaner.go to kubessocleaner.go
 
 Inject context in KubeSsoStore by implementing CtxStore and IterableCtxStore instead of Store and IterableStore
 
-
+Complete the oidcserver.handleLogout function to retrieve and delete the corresponding SsoSession 
 
 ----
 
+Add a redirect on logout url in client definition, and globally if no client id
+
 On login, request user to 'remember me', to activate SSO
-Also, let choice for a permanent or browser based session.
 Update status with connected application
 
-Implements a logout url
 

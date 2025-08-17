@@ -59,6 +59,7 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	// Set up routes
 	router.HandleFunc("/oauth2/auth", s.handleAuthorize)
 	router.Handle("/oauth2/login", s.SessionManager.LoadAndSave(http.HandlerFunc(s.handleLogin)))
+	router.Handle("/oauth2/logout", s.SessionManager.LoadAndSave(http.HandlerFunc(s.handleLogout)))
 	router.HandleFunc("/oauth2/token", s.handleToken)
 	router.HandleFunc("/.well-known/openid-configuration", s.handleOpenIDConfiguration)
 	router.HandleFunc("/userinfo", s.handleUserInfo)

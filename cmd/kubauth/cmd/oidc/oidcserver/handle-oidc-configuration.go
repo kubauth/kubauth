@@ -14,6 +14,7 @@ func (s *OIDCServer) handleOpenIDConfiguration(w http.ResponseWriter, _ *http.Re
 		"authorization_endpoint":                baseURL + "/oauth2/auth",
 		"token_endpoint":                        baseURL + "/oauth2/token",
 		"userinfo_endpoint":                     baseURL + "/userinfo",
+		"end_session_endpoint":                  baseURL + "/oauth2/logout",
 		"jwks_uri":                              baseURL + "/.well-known/jwks.json",
 		"response_types_supported":              []string{"code", "token", "id_token", "code token", "code id_token"},
 		"subject_types_supported":               []string{"public"},
