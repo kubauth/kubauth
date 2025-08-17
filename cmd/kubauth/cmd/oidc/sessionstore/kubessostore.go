@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/go-logr/logr"
 	"time"
 
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
@@ -15,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// KubeSsoStore implements scs.Store backed by the SsoSession CRD.
+// KubeSsoStore implements scs CtxStore and IterableCtxStore backed by the SsoSession CRD.
 // It assumes that the session values contain a user object compatible with userdb.User
 // and mirrors key fields into the CRD spec: login, fullName, webToken, claims, deadline, expiry.
 type KubeSsoStore struct {
@@ -36,25 +37,38 @@ type sessionEnvelope struct {
 
 // Find returns the raw session bytes if present.
 func (s *KubeSsoStore) Find(token string) ([]byte, bool, error) {
-	ctx := context.Background()
+	return s.FindCtx(context.Background(), token)
+}
+
+// FindCtx returns the raw session bytes if present using provided context.
+func (s *KubeSsoStore) FindCtx(ctx context.Context, token string) ([]byte, bool, error) {
 	var sess kubauthv1alpha1.SsoSession
 	name := encodeName(token)
+	logger := logr.FromContextAsSlogLogger(ctx)
 	if err := s.client.Get(ctx, types.NamespacedName{Namespace: s.namespace, Name: name}, &sess); err != nil {
+		logger.Debug("SsoSession not found", "token", token, "encoded", name)
 		return nil, false, client.IgnoreNotFound(err)
 	}
 	if sess.Annotations == nil {
+		logger.Debug("No annotation on SsoSession", "token", token, "encoded", name)
 		return nil, false, nil
 	}
 	raw, ok := sess.Annotations[annotationRawSession]
 	if !ok || raw == "" {
+		logger.Debug("Missing annotation on SsoSession", "token", token, "encoded", name)
 		return nil, false, nil
 	}
+	logger.Debug("Found SsoSession", "token", token, "encoded", name)
 	return []byte(raw), true, nil
 }
 
 // Commit stores or updates the SsoSession resource, mirroring important fields.
 func (s *KubeSsoStore) Commit(token string, b []byte, expiry time.Time) error {
-	ctx := context.Background()
+	return s.CommitCtx(context.Background(), token, b, expiry)
+}
+
+// CommitCtx stores or updates the SsoSession resource using provided context.
+func (s *KubeSsoStore) CommitCtx(ctx context.Context, token string, b []byte, expiry time.Time) error {
 	// Decode the envelope to extract mirrored fields
 	var env sessionEnvelope
 	if len(b) > 0 {
@@ -64,10 +78,11 @@ func (s *KubeSsoStore) Commit(token string, b []byte, expiry time.Time) error {
 	}
 
 	login, claims, fullName := extractUser(env.Values)
-
 	// Upsert SsoSession
 	var existing kubauthv1alpha1.SsoSession
 	name := encodeName(token)
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Commiting session", "login", login, "claims", claims, "fullName", fullName, "token", token, "expiry", expiry, "encoded", name)
 	key := types.NamespacedName{Namespace: s.namespace, Name: name}
 	err := s.client.Get(ctx, key, &existing)
 	if err != nil {
@@ -114,14 +129,24 @@ func (s *KubeSsoStore) Commit(token string, b []byte, expiry time.Time) error {
 
 // Delete removes the SsoSession resource.
 func (s *KubeSsoStore) Delete(token string) error {
-	ctx := context.Background()
+	return s.DeleteCtx(context.Background(), token)
+}
+
+// DeleteCtx removes the SsoSession resource using provided context.
+func (s *KubeSsoStore) DeleteCtx(ctx context.Context, token string) error {
 	name := encodeName(token)
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Deleting session", "token", token, "encoded", name)
 	return s.client.Delete(ctx, &kubauthv1alpha1.SsoSession{ObjectMeta: metav1.ObjectMeta{Namespace: s.namespace, Name: name}})
 }
 
 // All returns all session tokens using spec.webToken.
 func (s *KubeSsoStore) All() ([]string, error) {
-	ctx := context.Background()
+	return s.AllCtx(context.Background())
+}
+
+// AllCtx returns all session tokens using spec.webToken with provided context.
+func (s *KubeSsoStore) AllCtx(ctx context.Context) ([]string, error) {
 	var list kubauthv1alpha1.SsoSessionList
 	if err := s.client.List(ctx, &list, client.InNamespace(s.namespace)); err != nil {
 		return nil, err
@@ -132,6 +157,9 @@ func (s *KubeSsoStore) All() ([]string, error) {
 			res = append(res, t)
 		}
 	}
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Listing sessions", "count", len(res))
+
 	return res, nil
 }
 

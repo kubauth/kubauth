@@ -35,9 +35,11 @@ I have added a flags.cleanupPeriod configuration value. Use it and disable clean
 
 Rename SsoCleaner to KubeSsoCleaner and cleaner.go to kubessocleaner.go
 
-----
+Inject context in KubeSsoStore by implementing CtxStore and IterableCtxStore instead of Store and IterableStore
 
-Use interface with context
+
+
+----
 
 On login, request user to 'remember me', to activate SSO
 Also, let choice for a permanent or browser based session.
