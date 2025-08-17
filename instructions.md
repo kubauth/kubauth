@@ -32,7 +32,6 @@ Rename KubeSsoSessionStore to KubeSsoStore
 
 
 Use interface with context
-Move SesssionManager build out of oidcserver (Setup in oidc.go)
 Handle cleanup
 
 On login, request user to 'remember me', to activate SSO

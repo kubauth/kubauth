@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	scsV2 "github.com/alexedwards/scs/v2"
+	"github.com/spf13/pflag"
 	"html/template"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
@@ -41,13 +42,8 @@ import (
 )
 
 var flags struct {
-	logConfig misc.LogConfig
-
-	oidcHttpConfig httpsrv.Config
-	Issuer         string
-	Resources      string
-
-	idpHttpConfig httpclient.Config
+	logConfig    misc.LogConfig
+	displayFlags bool
 
 	probeAddr            string
 	enableLeaderElection bool // Must be true, as memory storage require a single context
@@ -64,9 +60,19 @@ var flags struct {
 	metricsCertName string
 	metricsCertKey  string
 
+	// OIDC config
 	oidcClientNamespace string
-	ssoNamespace        string
-	stickySso           bool
+	oidcHttpConfig      httpsrv.Config
+	Issuer              string
+	Resources           string
+
+	// SSO Config
+	ssoNamespace string
+	stickySso    bool
+	ssoLifetime  time.Duration
+
+	// Idp (Identity provider) config
+	idpHttpConfig httpclient.Config
 }
 
 var (
@@ -76,6 +82,7 @@ var (
 func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Mode, "logMode", "", "text", "Log mode (dev or json)")
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
+	Cmd.PersistentFlags().BoolVar(&flags.displayFlags, "displayFlags", true, "Dump flags values")
 
 	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8110", "The address the probe endpoint binds to.")
 	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", true, "Enable leader election for controller manager. Must be set, as memory storage require a single instance")
@@ -89,11 +96,9 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertPath, "metricsCertPath", "", "The directory that contains the metrics server certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertName, "metricsCertName", "tls.crt", "The name of the metrics server certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertKey, "metricsCertKey", "tls.key", "The name of the metrics server key file.")
-	Cmd.PersistentFlags().StringVar(&flags.oidcClientNamespace, "oidcClientNamespace", "", "The namespace hosting OidcClient resources.")
-	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
-	Cmd.PersistentFlags().BoolVar(&flags.stickySso, "stickySso", false, "If set ssoSession will persists on browser restart.")
 
 	// OIDC config
+	Cmd.PersistentFlags().StringVar(&flags.oidcClientNamespace, "oidcClientNamespace", "", "The namespace hosting OidcClient resources.")
 	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.Tls, "tls", "t", false, "enable TLS")
 	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.DumpExchange, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
 	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
@@ -103,7 +108,12 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.Issuer, "issuer", "i", "http://localhost:8101", "Issuer URL")
 	Cmd.PersistentFlags().StringVarP(&flags.Resources, "resources", "", "resources", "Resources folders")
 
-	// Idp (Identity provider config
+	// SSO Config
+	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
+	Cmd.PersistentFlags().BoolVar(&flags.stickySso, "stickySso", false, "If set ssoSession will persists on browser restart.")
+	Cmd.PersistentFlags().DurationVar(&flags.ssoLifetime, "ssoLifetime", time.Hour*8, "SSO Session absolute lifetime")
+
+	// Idp (Identity provider) config
 	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseUrl, "idpBaseUrl", "http://localhost:8201", "The Identity provider base URL")
 	Cmd.PersistentFlags().StringArrayVar(&flags.idpHttpConfig.RootCaPaths, "idpRootCA", []string{}, "The Identity provider root CA paths (Several values possible)")
 	Cmd.PersistentFlags().BoolVar(&flags.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
@@ -128,7 +138,14 @@ var Cmd = &cobra.Command{
 		ctrl.SetLogger(logr.FromSlogHandler(logger.Handler()))
 		setupLog := ctrl.Log.WithName("setup")
 
-		logger.Info("Starting OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
+		logger.Info("Starting Kubauth OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
+		if flags.displayFlags {
+			sb := new(strings.Builder)
+			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+				_, _ = fmt.Fprintf(sb, "--%s=%q\n", f.Name, f.Value)
+			})
+			fmt.Printf("Flags:\n%s", sb.String())
+		}
 
 		if flags.oidcClientNamespace == "" {
 			setupLog.Error(nil, "oidcClientNamespace must be specified and non null")
@@ -296,7 +313,7 @@ var Cmd = &cobra.Command{
 		// Use Kubernetes-backed store for SSO sessions
 		sm.Store = sessionstore.NewKubeSsoStore(mgr.GetClient(), flags.ssoNamespace)
 		sm.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
-		sm.Lifetime = time.Hour
+		sm.Lifetime = flags.ssoLifetime
 		sm.Cookie.Name = "kubauth_login"
 		sm.Cookie.HttpOnly = true
 		sm.Cookie.SameSite = http.SameSiteLaxMode
