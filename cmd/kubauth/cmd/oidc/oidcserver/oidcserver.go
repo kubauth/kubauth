@@ -5,11 +5,8 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"html/template"
-	"kubauth/cmd/kubauth/cmd/oidc/sessioncodec"
-	"kubauth/cmd/kubauth/cmd/oidc/sessionstore"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
-	"strings"
 	"time"
 
 	scsV2 "github.com/alexedwards/scs/v2"
@@ -21,7 +18,6 @@ import (
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/token/jwt"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type OIDCServer struct {
@@ -31,10 +27,6 @@ type OIDCServer struct {
 	UserDb         userdb.UserDb
 	LoginTemplate  *template.Template
 	SessionManager *scsV2.SessionManager
-
-	// Kubernetes integration for session store
-	K8sClient client.Client
-	Namespace string
 
 	oauth2     fosite.OAuth2Provider
 	config     *fosite.Config
@@ -63,37 +55,6 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	}
 
 	s.oauth2 = compose.ComposeAllEnabled(s.config, s.Storage, s.privateKey)
-
-	//
-	//oidcServer := &OIDCServer{
-	//	oauth2:        oauth2,
-	//	Storage:       storage,
-	//	config:        fositeConfig,
-	//	privateKey:    privateKey,
-	//	keyID:         keyID,
-	//	issuer:        issuer,
-	//	Resources:     resources,
-	//	UserDb:        userDb,
-	//	LoginTemplate: loginTemplate,
-	//}
-
-	// Session manager only for /oauth2/login
-	s.SessionManager = scsV2.New()
-	// IdleTimeout is meaningless, as this session is cross application
-	//s.SessionManager.IdleTimeout = time.Minute * 10
-	// Use Kubernetes-backed store for SSO sessions
-	s.SessionManager.Store = sessionstore.NewKubeSsoStore(s.K8sClient, s.Namespace)
-	s.SessionManager.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
-	s.SessionManager.Lifetime = time.Hour
-	s.SessionManager.Cookie.Name = "kubauth_login"
-	s.SessionManager.Cookie.HttpOnly = true
-	s.SessionManager.Cookie.SameSite = http.SameSiteLaxMode
-	s.SessionManager.Cookie.Persist = false // Session lifecycle is browser based
-	s.SessionManager.HashTokenInStore = true
-	// Secure cookie only if issuer is https
-	if strings.HasPrefix(s.Issuer, "https://") {
-		s.SessionManager.Cookie.Secure = true
-	}
 
 	// Set up routes
 	router.HandleFunc("/oauth2/auth", s.handleAuthorize)

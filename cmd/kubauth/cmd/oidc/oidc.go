@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	scsV2 "github.com/alexedwards/scs/v2"
 	"html/template"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
 	"kubauth/cmd/kubauth/cmd/oidc/handlers"
 	"kubauth/cmd/kubauth/cmd/oidc/oidcserver"
 	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/kubauth/cmd/oidc/sessioncodec"
+	"kubauth/cmd/kubauth/cmd/oidc/sessionstore"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb/idprovider"
 	oidcWebhooks "kubauth/cmd/kubauth/cmd/oidc/webhooks"
 	"kubauth/cmd/kubauth/global"
@@ -21,6 +24,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
@@ -59,7 +64,9 @@ var flags struct {
 	metricsCertName string
 	metricsCertKey  string
 
-	clientNamespace string
+	oidcClientNamespace string
+	ssoNamespace        string
+	stickySso           bool
 }
 
 var (
@@ -82,7 +89,9 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertPath, "metricsCertPath", "", "The directory that contains the metrics server certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertName, "metricsCertName", "tls.crt", "The name of the metrics server certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertKey, "metricsCertKey", "tls.key", "The name of the metrics server key file.")
-	Cmd.PersistentFlags().StringVar(&flags.clientNamespace, "clientNamespace", "", "The namespace hosting OidcClient resources.")
+	Cmd.PersistentFlags().StringVar(&flags.oidcClientNamespace, "oidcClientNamespace", "", "The namespace hosting OidcClient resources.")
+	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
+	Cmd.PersistentFlags().BoolVar(&flags.stickySso, "stickySso", false, "If set ssoSession will persists on browser restart.")
 
 	// OIDC config
 	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.Tls, "tls", "t", false, "enable TLS")
@@ -121,8 +130,12 @@ var Cmd = &cobra.Command{
 
 		logger.Info("Starting OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
 
-		if flags.clientNamespace == "" {
-			setupLog.Error(nil, "clientNamespace must be specified and non null")
+		if flags.oidcClientNamespace == "" {
+			setupLog.Error(nil, "oidcClientNamespace must be specified and non null")
+			os.Exit(1)
+		}
+		if flags.ssoNamespace == "" {
+			setupLog.Error(nil, "ssoNamespace must be specified and non null")
 			os.Exit(1)
 		}
 
@@ -274,6 +287,26 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// Setup SSO session manager
+
+		// Session manager only for /oauth2/login
+		sm := scsV2.New()
+		// IdleTimeout is meaningless, as this session is cross application
+		//s.SessionManager.IdleTimeout = time.Minute * 10
+		// Use Kubernetes-backed store for SSO sessions
+		sm.Store = sessionstore.NewKubeSsoStore(mgr.GetClient(), flags.ssoNamespace)
+		sm.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
+		sm.Lifetime = time.Hour
+		sm.Cookie.Name = "kubauth_login"
+		sm.Cookie.HttpOnly = true
+		sm.Cookie.SameSite = http.SameSiteLaxMode
+		sm.Cookie.Persist = flags.stickySso // Session lifecycle is browser based or not
+		sm.HashTokenInStore = true
+		// Secure cookie only if issuer is https
+		if strings.HasPrefix(flags.Issuer, "https://") {
+			sm.Cookie.Secure = true
+		}
+
 		// ---------------------- Setup our OIDC server
 		router := http.NewServeMux()
 		router.Handle("GET /favicon.ico", handlers.FaviconHandler(path.Join(flags.Resources, "static", "favicon.ico")))
@@ -286,13 +319,12 @@ var Cmd = &cobra.Command{
 		//userDb := memory.NewUserDb()
 
 		(&oidcserver.OIDCServer{
-			Issuer:        flags.Issuer,
-			Storage:       storage,
-			UserDb:        userDb,
-			Resources:     flags.Resources,
-			LoginTemplate: template.Must(template.ParseFiles(path.Join(flags.Resources, "templates", "login.gohtml"))),
-			K8sClient:     mgr.GetClient(),
-			Namespace:     flags.clientNamespace,
+			Issuer:         flags.Issuer,
+			Storage:        storage,
+			UserDb:         userDb,
+			Resources:      flags.Resources,
+			LoginTemplate:  template.Must(template.ParseFiles(path.Join(flags.Resources, "templates", "login.gohtml"))),
+			SessionManager: sm,
 		}).Setup(router)
 
 		server := httpsrv.New("oidcSrv", &flags.oidcHttpConfig, router)
