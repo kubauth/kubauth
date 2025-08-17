@@ -60,6 +60,7 @@ type SsoSessionStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Login",type=string,JSONPath=`.spec.login`
+// +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.fullName`
 // +kubebuilder:printcolumn:name="Deadline",type=string,JSONPath=`.spec.deadline`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

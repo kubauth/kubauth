@@ -18,6 +18,9 @@ spec:
     - jsonPath: .spec.login
       name: Login
       type: string
+    - jsonPath: .spec.fullName
+      name: Name
+      type: string
     - jsonPath: .spec.deadline
       name: Deadline
       type: string

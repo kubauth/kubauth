@@ -21,9 +21,6 @@ Use a reversible scheme. And implement the All() interface
 I don't like the idea to have several type of token sanitize method. We can forget about reversibility, as storing original token in annotation is OK. Simplify the code by using the same transformation in all cases
 
 
-----
-
-
 An optional field 'fullName' has been added in SsoSession resources and also in userdb.User struct. Handle the storage of this value
 
 A required 'WebToken' field has been added in SsoSession resources. Use it to store the scs token, instead of using annotation.
@@ -32,16 +29,12 @@ A required 'WebToken' field has been added in SsoSession resources. Use it to st
 ----
 
 
-Store token in spec instead of annotation, for All() correct behavior
-
-Add age in all resource
 
 Refactor naming (kube_ssosession_store !!!)
 Why still ##################### memstore.New() ??
 Use interface with context
 Move SesssionManager build out of oidcserver (Setup in oidc.go)
-Is cleanup working ?
-
+Handle cleanup
 
 On login, request user to 'remember me', to activate SSO
 Also, let choice for a permanent or browser based session.

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"time"
 
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
@@ -18,7 +17,7 @@ import (
 
 // KubeSsoSessionStore implements scs.Store backed by the SsoSession CRD.
 // It assumes that the session values contain a user object compatible with userdb.User
-// and mirrors key fields into the CRD spec: login, claims, deadline, expiry.
+// and mirrors key fields into the CRD spec: login, fullName, webToken, claims, deadline, expiry.
 type KubeSsoSessionStore struct {
 	client    client.Client
 	namespace string
@@ -29,7 +28,6 @@ func NewKubeSsoSessionStore(k8sClient client.Client, namespace string) *KubeSsoS
 }
 
 const annotationRawSession = "kubauth.kubotal.io/session"
-const annotationToken = "kubauth.kubotal.io/token"
 
 type sessionEnvelope struct {
 	Deadline time.Time              `json:"deadline"`
@@ -65,26 +63,25 @@ func (s *KubeSsoSessionStore) Commit(token string, b []byte, expiry time.Time) e
 		}
 	}
 
-	login, claims, err := extractUser(env.Values)
-	if err != nil {
-		return err
-	}
+	login, claims, fullName := extractUser(env.Values)
 
 	// Upsert SsoSession
 	var existing kubauthv1alpha1.SsoSession
 	name := encodeName(token)
 	key := types.NamespacedName{Namespace: s.namespace, Name: name}
-	err = s.client.Get(ctx, key, &existing)
+	err := s.client.Get(ctx, key, &existing)
 	if err != nil {
 		// Create new
 		ss := kubauthv1alpha1.SsoSession{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:   s.namespace,
 				Name:        name,
-				Annotations: map[string]string{annotationRawSession: string(b), annotationToken: token},
+				Annotations: map[string]string{annotationRawSession: string(b)},
 			},
 			Spec: kubauthv1alpha1.SsoSessionSpec{
 				Login:    login,
+				FullName: fullName,
+				WebToken: token,
 				Deadline: metav1.NewTime(env.Deadline),
 				Expiry:   metav1.NewTime(expiry),
 			},
@@ -101,8 +98,9 @@ func (s *KubeSsoSessionStore) Commit(token string, b []byte, expiry time.Time) e
 		existing.Annotations = map[string]string{}
 	}
 	existing.Annotations[annotationRawSession] = string(b)
-	existing.Annotations[annotationToken] = token
 	existing.Spec.Login = login
+	existing.Spec.FullName = fullName
+	existing.Spec.WebToken = token
 	existing.Spec.Deadline = metav1.NewTime(env.Deadline)
 	existing.Spec.Expiry = metav1.NewTime(expiry)
 	if claims != nil {
@@ -121,7 +119,7 @@ func (s *KubeSsoSessionStore) Delete(token string) error {
 	return s.client.Delete(ctx, &kubauthv1alpha1.SsoSession{ObjectMeta: metav1.ObjectMeta{Namespace: s.namespace, Name: name}})
 }
 
-// All returns all session tokens. It reads tokens from the annotation persisted at Commit().
+// All returns all session tokens using spec.webToken.
 func (s *KubeSsoSessionStore) All() ([]string, error) {
 	ctx := context.Background()
 	var list kubauthv1alpha1.SsoSessionList
@@ -130,49 +128,45 @@ func (s *KubeSsoSessionStore) All() ([]string, error) {
 	}
 	res := make([]string, 0, len(list.Items))
 	for i := range list.Items {
-		item := &list.Items[i]
-		if item.Annotations == nil {
-			continue
-		}
-		if t := item.Annotations[annotationToken]; t != "" {
+		if t := list.Items[i].Spec.WebToken; t != "" {
 			res = append(res, t)
 		}
 	}
 	return res, nil
 }
 
-// extractUser tries to find a value shaped like userdb.User (fields Login, Claims)
+// extractUser tries to find a value shaped like userdb.User (fields Login, Claims, FullName)
 // within the values map. It prioritizes key "ssoUser" if present.
-func extractUser(values map[string]interface{}) (string, map[string]interface{}, error) {
+func extractUser(values map[string]interface{}) (login string, claims map[string]interface{}, fullName string) {
 	if values == nil {
-		return "", nil, nil
+		return "", nil, ""
 	}
 	// Prefer ssoUser
 	if v, ok := values["ssoUser"]; ok {
-		if login, claims, ok := asUser(v); ok {
-			return login, claims, nil
+		if l, c, f, ok := asUser(v); ok {
+			return l, c, f
 		}
 	}
 	// Fallback: first value that matches
 	for _, v := range values {
-		if login, claims, ok := asUser(v); ok {
-			return login, claims, nil
+		if l, c, f, ok := asUser(v); ok {
+			return l, c, f
 		}
 	}
-	return "", nil, errors.New("no user found in session values")
+	return "", nil, ""
 }
 
-func asUser(v interface{}) (string, map[string]interface{}, bool) {
+func asUser(v interface{}) (string, map[string]interface{}, string, bool) {
 	m, ok := v.(map[string]interface{})
 	if !ok {
-		return "", nil, false
+		return "", nil, "", false
 	}
 	loginV, ok := m["Login"]
 	if !ok {
 		// maybe lower-case from other codecs
 		loginV, ok = m["login"]
 		if !ok {
-			return "", nil, false
+			return "", nil, "", false
 		}
 	}
 	login, _ := loginV.(string)
@@ -182,7 +176,13 @@ func asUser(v interface{}) (string, map[string]interface{}, bool) {
 	} else if c, ok := m["claims"]; ok {
 		claims, _ = c.(map[string]interface{})
 	}
-	return login, claims, true
+	var fullName string
+	if f, ok := m["FullName"]; ok {
+		fullName, _ = f.(string)
+	} else if f, ok := m["fullName"]; ok {
+		fullName, _ = f.(string)
+	}
+	return login, claims, fullName, true
 }
 
 // encodeName returns an RFC1123-compliant name derived from the token.
