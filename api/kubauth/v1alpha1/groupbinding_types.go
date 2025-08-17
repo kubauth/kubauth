@@ -39,6 +39,7 @@ type GroupBindingStatus struct {
 // +kubebuilder:resource:scope=Namespaced,shortName=gb;gbs;skgroupbinding;skgroupbindings;skgb;skgbs;skasgb;skasgb
 // +kubebuilder:printcolumn:name="User",type=string,JSONPath=`.spec.user`
 // +kubebuilder:printcolumn:name="Group",type=string,JSONPath=`.spec.group`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // GroupBinding is the Schema for the groupbindings API
 type GroupBinding struct {

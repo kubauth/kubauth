@@ -30,16 +30,27 @@ type SsoSessionSpec struct {
 	// +required
 	Login string `json:"login"`
 
+	// The user full name
+	// +optional
+	FullName string `json:"fullName"`
+
 	// The absolute deadline, from SessionManager.Lifetime
 	Deadline metav1.Time `json:"deadline"`
 
 	// time limit from SessionManage.IdleTimeout
+	// IdleTimeout is meaningless, as this session is cross application. So it is unactivated in most case.
+	// Anyway, we store this for technical coherency, even if it will be same as deadLine in all cases.
 	// +required
 	Expiry metav1.Time `json:"expiry"`
 
 	// The OIDC Claims
 	// +optional
 	Claims *apiextensionsv1.JSON `json:"claims,omitempty"`
+
+	// The original token (cookie value) of the web session.
+	// Stored as the SsoSession name is a sanitized non-reversible version of this
+	// +required
+	WebToken string `json:"webToken"`
 }
 
 // SsoSessionStatus defines the observed state of SsoSession.
@@ -50,7 +61,7 @@ type SsoSessionStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Login",type=string,JSONPath=`.spec.login`
 // +kubebuilder:printcolumn:name="Deadline",type=string,JSONPath=`.spec.deadline`
-// +kubebuilder:printcolumn:name="Expiry",type=string,JSONPath=`.spec.expiry`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // SsoSession is the Schema for the ssosessions API
 // The name is the session token (The session cookie value)

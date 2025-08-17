@@ -20,6 +20,15 @@ Use a reversible scheme. And implement the All() interface
 
 I don't like the idea to have several type of token sanitize method. We can forget about reversibility, as storing original token in annotation is OK. Simplify the code by using the same transformation in all cases
 
+
+----
+
+
+An optional field 'fullName' has been added in SsoSession resources and also in userdb.User struct. Handle the storage of this value
+
+A required 'WebToken' field has been added in SsoSession resources. Use it to store the scs token, instead of using annotation.
+
+
 ----
 
 

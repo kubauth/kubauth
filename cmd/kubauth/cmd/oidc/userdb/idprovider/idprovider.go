@@ -37,8 +37,13 @@ func (u *idProvider) Authenticate(login string, password string) (*userdb.User, 
 	if response.Status != proto.PasswordChecked {
 		return nil, nil
 	}
+	fullName := ""
+	if len(response.CommonNames) > 0 {
+		fullName = response.CommonNames[0]
+	}
 	return &userdb.User{
-		Login:  login,
-		Claims: response.Claims,
+		Login:    login,
+		Claims:   response.Claims,
+		FullName: fullName,
 	}, nil
 }

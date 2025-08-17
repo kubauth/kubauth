@@ -25,6 +25,7 @@ type UserSpec struct {
 	// The user login is the Name of the resource.
 
 	// The user common name(s).
+	// First is used as fullName
 	// +optional
 	CommonNames []string `json:"commonNames,omitempty"`
 
@@ -66,6 +67,7 @@ type UserStatus struct {
 // +kubebuilder:printcolumn:name="Uid",type=integer,JSONPath=`.spec.uid`
 // +kubebuilder:printcolumn:name="Comment",type=string,JSONPath=`.spec.comment`
 // +kubebuilder:printcolumn:name="Disabled",type=boolean,JSONPath=`.spec.disabled`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // User is the Schema for the users API
 type User struct {

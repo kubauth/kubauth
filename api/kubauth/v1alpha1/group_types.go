@@ -36,6 +36,7 @@ type GroupStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Comment",type=string,JSONPath=`.spec.comment`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 type Group struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -79,6 +79,7 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 
 	// Session manager only for /oauth2/login
 	s.SessionManager = github_com_alexedwards_scs_v2.New()
+	// IdleTimeout is meaningless, as this session is cross application
 	//s.SessionManager.IdleTimeout = time.Minute * 10
 	// Use Kubernetes-backed store for SSO sessions
 	s.SessionManager.Store = sessionstore.NewKubeSsoSessionStore(s.K8sClient, s.Namespace)
@@ -87,7 +88,7 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	s.SessionManager.Cookie.Name = "kubauth_login"
 	s.SessionManager.Cookie.HttpOnly = true
 	s.SessionManager.Cookie.SameSite = http.SameSiteLaxMode
-	s.SessionManager.Cookie.Persist = false // Session lifecycle is browser bases
+	s.SessionManager.Cookie.Persist = false // Session lifecycle is browser based
 	s.SessionManager.HashTokenInStore = true
 	// Secure cookie only if issuer is https
 	if strings.HasPrefix(s.Issuer, "https://") {

@@ -33,6 +33,9 @@ spec:
     - jsonPath: .spec.disabled
       name: Disabled
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -64,7 +67,9 @@ spec:
                 description: Whatever extra information related to this user.
                 type: string
               commonNames:
-                description: The user common name(s).
+                description: |-
+                  The user common name(s).
+                  First is used as fullName
                 items:
                   type: string
                 type: array

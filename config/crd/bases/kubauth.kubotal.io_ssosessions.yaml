@@ -21,9 +21,9 @@ spec:
     - jsonPath: .spec.deadline
       name: Deadline
       type: string
-    - jsonPath: .spec.expiry
-      name: Expiry
-      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -59,15 +59,27 @@ spec:
                 format: date-time
                 type: string
               expiry:
-                description: time limit from SessionManage.IdleTimeout
+                description: |-
+                  time limit from SessionManage.IdleTimeout
+                  IdleTimeout is meaningless, as this session is cross application. So it is unactivated in most case.
+                  Anyway, we store this for technical coherency, even if it will be same as deadLine in all cases.
                 format: date-time
                 type: string
+              fullName:
+                description: The user full name
+                type: string
               login:
+                type: string
+              webToken:
+                description: |-
+                  The original token (cookie value) of the web session.
+                  Stored as the SsoSession name is a sanitized non-reversible version of this
                 type: string
             required:
             - deadline
             - expiry
             - login
+            - webToken
             type: object
           status:
             description: status defines the observed state of SsoSession
