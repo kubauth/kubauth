@@ -1,7 +1,8 @@
 // Copyright © 2024 Ory Corp
+// Copyright © 2025 Kubotal
 // SPDX-License-Identifier: Apache-2.0
 
-package storage
+package oidcstorage
 
 import (
 	"context"

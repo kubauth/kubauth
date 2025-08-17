@@ -9,7 +9,7 @@ import (
 	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
 	"kubauth/cmd/kubauth/cmd/oidc/handlers"
 	"kubauth/cmd/kubauth/cmd/oidc/oidcserver"
-	"kubauth/cmd/kubauth/cmd/oidc/storage"
+	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb/idprovider"
 	oidcWebhooks "kubauth/cmd/kubauth/cmd/oidc/webhooks"
 	"kubauth/cmd/kubauth/global"
@@ -227,7 +227,7 @@ var Cmd = &cobra.Command{
 		}
 
 		// ------------------------------------- Create our storage
-		storage := storage.NewMemoryStore()
+		storage := oidcstorage.NewMemoryStore()
 
 		// Setup OidcClient Reconciler
 		oidcClientReconciler := &oidcControllers.OidcClientReconciler{

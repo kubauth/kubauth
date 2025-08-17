@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	github_com_alexedwards_scs_v2 "github.com/alexedwards/scs/v2"
+	scsV2 "github.com/alexedwards/scs/v2"
 	"github.com/google/uuid"
 
-	"kubauth/cmd/kubauth/cmd/oidc/storage"
+	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
@@ -26,11 +26,11 @@ import (
 
 type OIDCServer struct {
 	Issuer         string
-	Storage        *storage.MemoryStore
+	Storage        *oidcstorage.MemoryStore
 	Resources      string
 	UserDb         userdb.UserDb
 	LoginTemplate  *template.Template
-	SessionManager *github_com_alexedwards_scs_v2.SessionManager
+	SessionManager *scsV2.SessionManager
 
 	// Kubernetes integration for session store
 	K8sClient client.Client
@@ -78,11 +78,11 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	//}
 
 	// Session manager only for /oauth2/login
-	s.SessionManager = github_com_alexedwards_scs_v2.New()
+	s.SessionManager = scsV2.New()
 	// IdleTimeout is meaningless, as this session is cross application
 	//s.SessionManager.IdleTimeout = time.Minute * 10
 	// Use Kubernetes-backed store for SSO sessions
-	s.SessionManager.Store = sessionstore.NewKubeSsoSessionStore(s.K8sClient, s.Namespace)
+	s.SessionManager.Store = sessionstore.NewKubeSsoStore(s.K8sClient, s.Namespace)
 	s.SessionManager.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
 	s.SessionManager.Lifetime = time.Hour
 	s.SessionManager.Cookie.Name = "kubauth_login"

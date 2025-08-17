@@ -15,16 +15,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// KubeSsoSessionStore implements scs.Store backed by the SsoSession CRD.
+// KubeSsoStore implements scs.Store backed by the SsoSession CRD.
 // It assumes that the session values contain a user object compatible with userdb.User
 // and mirrors key fields into the CRD spec: login, fullName, webToken, claims, deadline, expiry.
-type KubeSsoSessionStore struct {
+type KubeSsoStore struct {
 	client    client.Client
 	namespace string
 }
 
-func NewKubeSsoSessionStore(k8sClient client.Client, namespace string) *KubeSsoSessionStore {
-	return &KubeSsoSessionStore{client: k8sClient, namespace: namespace}
+func NewKubeSsoStore(k8sClient client.Client, namespace string) *KubeSsoStore {
+	return &KubeSsoStore{client: k8sClient, namespace: namespace}
 }
 
 const annotationRawSession = "kubauth.kubotal.io/session"
@@ -35,7 +35,7 @@ type sessionEnvelope struct {
 }
 
 // Find returns the raw session bytes if present.
-func (s *KubeSsoSessionStore) Find(token string) ([]byte, bool, error) {
+func (s *KubeSsoStore) Find(token string) ([]byte, bool, error) {
 	ctx := context.Background()
 	var sess kubauthv1alpha1.SsoSession
 	name := encodeName(token)
@@ -53,7 +53,7 @@ func (s *KubeSsoSessionStore) Find(token string) ([]byte, bool, error) {
 }
 
 // Commit stores or updates the SsoSession resource, mirroring important fields.
-func (s *KubeSsoSessionStore) Commit(token string, b []byte, expiry time.Time) error {
+func (s *KubeSsoStore) Commit(token string, b []byte, expiry time.Time) error {
 	ctx := context.Background()
 	// Decode the envelope to extract mirrored fields
 	var env sessionEnvelope
@@ -113,14 +113,14 @@ func (s *KubeSsoSessionStore) Commit(token string, b []byte, expiry time.Time) e
 }
 
 // Delete removes the SsoSession resource.
-func (s *KubeSsoSessionStore) Delete(token string) error {
+func (s *KubeSsoStore) Delete(token string) error {
 	ctx := context.Background()
 	name := encodeName(token)
 	return s.client.Delete(ctx, &kubauthv1alpha1.SsoSession{ObjectMeta: metav1.ObjectMeta{Namespace: s.namespace, Name: name}})
 }
 
 // All returns all session tokens using spec.webToken.
-func (s *KubeSsoSessionStore) All() ([]string, error) {
+func (s *KubeSsoStore) All() ([]string, error) {
 	ctx := context.Background()
 	var list kubauthv1alpha1.SsoSessionList
 	if err := s.client.List(ctx, &list, client.InNamespace(s.namespace)); err != nil {

@@ -25,13 +25,12 @@ An optional field 'fullName' has been added in SsoSession resources and also in 
 
 A required 'WebToken' field has been added in SsoSession resources. Use it to store the scs token, instead of using annotation.
 
+Rename KubeSsoSessionStore to KubeSsoStore
+
 
 ----
 
 
-
-Refactor naming (kube_ssosession_store !!!)
-Why still ##################### memstore.New() ??
 Use interface with context
 Move SesssionManager build out of oidcserver (Setup in oidc.go)
 Handle cleanup

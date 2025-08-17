@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/kubauth/cmd/oidc/fositeclient"
-	"kubauth/cmd/kubauth/cmd/oidc/storage"
+	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,7 +32,7 @@ type OidcClientReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Namespace string // Where OidcClient are stored
-	Storage   *storage.MemoryStore
+	Storage   *oidcstorage.MemoryStore
 }
 
 // +kubebuilder:rbac:groups=kubauth.kubotal.io,resources=oidcclients,verbs=get;list;watch;create;update;patch;delete
