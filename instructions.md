@@ -28,11 +28,16 @@ A required 'WebToken' field has been added in SsoSession resources. Use it to st
 Rename KubeSsoSessionStore to KubeSsoStore
 
 
+Implement expired SsoSession cleanup, using same logic as scs.memstore.cleanup.
+Implement this cleaner as a Runnable, to be set under the manager control, in oidc.go 
+
+I have added a flags.cleanupPeriod configuration value. Use it and disable cleanup if value is 0
+
+Rename SsoCleaner to KubeSsoCleaner and cleaner.go to kubessocleaner.go
+
 ----
 
-
 Use interface with context
-Handle cleanup
 
 On login, request user to 'remember me', to activate SSO
 Also, let choice for a permanent or browser based session.

@@ -1,0 +1,64 @@
+package sessionstore
+
+import (
+	"context"
+	"github.com/go-logr/logr"
+	"time"
+
+	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// KubeSsoCleaner periodically deletes expired SsoSession resources.
+// Expiration logic mirrors scs memstore: entries with expiry before now are removed.
+// Additionally, if Deadline is set and is before now, the session is removed too.
+type KubeSsoCleaner struct {
+	client    client.Client
+	namespace string
+	interval  time.Duration
+}
+
+func NewKubeSsoCleaner(k8sClient client.Client, namespace string, interval time.Duration) *KubeSsoCleaner {
+	return &KubeSsoCleaner{client: k8sClient, namespace: namespace, interval: interval}
+}
+
+// Start implements manager.Runnable. It runs until context is cancelled.
+func (c *KubeSsoCleaner) Start(ctx context.Context) error {
+	ticker := time.NewTicker(c.interval)
+	defer ticker.Stop()
+	// Initial run
+	c.cleanupOnce(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			c.cleanupOnce(ctx)
+		}
+	}
+}
+
+func (c *KubeSsoCleaner) cleanupOnce(ctx context.Context) {
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Info("cleaning up sso session store")
+	now := time.Now()
+	var list kubauthv1alpha1.SsoSessionList
+	if err := c.client.List(ctx, &list, client.InNamespace(c.namespace)); err != nil {
+		return
+	}
+	for i := range list.Items {
+		item := &list.Items[i]
+		expired := false
+		if !item.Spec.Expiry.IsZero() && now.After(item.Spec.Expiry.Time) {
+			expired = true
+		}
+		if !expired && !item.Spec.Deadline.IsZero() && now.After(item.Spec.Deadline.Time) {
+			expired = true
+		}
+		if expired {
+			logger.Info("deleting expired session", "session", item.Name, "login", item.Spec.Login)
+			_ = c.client.Delete(ctx, item)
+		}
+	}
+}

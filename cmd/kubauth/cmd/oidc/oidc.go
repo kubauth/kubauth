@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	scsV2 "github.com/alexedwards/scs/v2"
-	"github.com/spf13/pflag"
 	"html/template"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
@@ -27,6 +25,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	scsV2 "github.com/alexedwards/scs/v2"
+	"github.com/spf13/pflag"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
@@ -67,9 +68,10 @@ var flags struct {
 	Resources           string
 
 	// SSO Config
-	ssoNamespace string
-	stickySso    bool
-	ssoLifetime  time.Duration
+	ssoNamespace  string
+	stickySso     bool
+	ssoLifetime   time.Duration
+	cleanupPeriod time.Duration
 
 	// Idp (Identity provider) config
 	idpHttpConfig httpclient.Config
@@ -112,6 +114,7 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
 	Cmd.PersistentFlags().BoolVar(&flags.stickySso, "stickySso", false, "If set ssoSession will persists on browser restart.")
 	Cmd.PersistentFlags().DurationVar(&flags.ssoLifetime, "ssoLifetime", time.Hour*8, "SSO Session absolute lifetime")
+	Cmd.PersistentFlags().DurationVar(&flags.cleanupPeriod, "cleanupPeriod", time.Minute*5, "SSO Session cleanup period")
 
 	// Idp (Identity provider) config
 	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseUrl, "idpBaseUrl", "http://localhost:8201", "The Identity provider base URL")
@@ -322,6 +325,14 @@ var Cmd = &cobra.Command{
 		// Secure cookie only if issuer is https
 		if strings.HasPrefix(flags.Issuer, "https://") {
 			sm.Cookie.Secure = true
+		}
+
+		// Add SSO session cleanup runnable if enabled (similar to scs memstore)
+		if flags.cleanupPeriod > 0 {
+			if err := mgr.Add(sessionstore.NewKubeSsoCleaner(mgr.GetClient(), flags.ssoNamespace, flags.cleanupPeriod)); err != nil {
+				setupLog.Error(err, "unable to add SsoCleaner to the manager")
+				os.Exit(1)
+			}
 		}
 
 		// ---------------------- Setup our OIDC server
