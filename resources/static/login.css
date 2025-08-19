@@ -1,0 +1,53 @@
+/* Login-specific styles */
+
+/* Override container for login form */
+.login-container {
+    max-width: 400px;
+}
+
+/* Form-specific styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.password-group {
+    position: relative;
+}
+
+.password-group input[type="password"],
+.password-group input[type="text"] {
+    padding-right: 45px; /* Make room for the icon */
+}
+
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: calc(100% - 24px); /* Position relative to input field */
+    transform: translateY(-50%);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.password-toggle svg {
+    width: 20px;
+    height: 20px;
+    fill: #b0b0b0;
+    transition: fill 0.2s ease;
+}
+
+.password-toggle:hover svg {
+    fill: #e0e0e0;
+}
+
+.login-button {
+    /* Uses .btn from shared.css */
+}

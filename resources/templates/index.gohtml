@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/shared.css">
+    <link rel="stylesheet" href="/static/index.css">
+</head>
+<body>
+<div class="index-container container">
+    <div class="banner">
+        <h1>Kubauth Applications</h1>
+        <p class="subtitle">Select an application to sign in</p>
+    </div>
+
+    {{if .Entries}}
+    <div class="applications-grid">
+        {{range .Entries}}
+        <a href="{{.EntryURL}}" class="app-card">
+            <div class="app-icon"></div>
+            <div class="app-info">
+                <h3 class="app-name">{{.Name}}</h3>
+                {{if .Description}}
+                <p class="app-description">{{.Description}}</p>
+                {{end}}
+            </div>
+            <div class="app-arrow">→</div>
+        </a>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <p>No applications available</p>
+    </div>
+    {{end}}
+
+    <div class="footer">
+        <p>Kubauth</p>
+    </div>
+</div>
+</body>
+</html>

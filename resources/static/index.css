@@ -1,0 +1,103 @@
+/* Index page specific styles */
+
+.index-container {
+    /* Uses .container from shared.css as base */
+    max-width: 800px;
+}
+
+.banner h1 {
+    font-size: 28px; /* Override shared.css font-size */
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #b0b0b0;
+    font-size: 16px;
+    font-weight: 400;
+}
+
+.applications-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.app-card {
+    display: flex;
+    align-items: center;
+    background-color: #3a3a3a;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.app-card:hover {
+    background-color: #404040;
+    border-color: #0ea5e9;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(14, 165, 233, 0.15);
+}
+
+.app-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0ea5e9, #3b82f6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 20px;
+    color: white;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.app-info {
+    flex: 1;
+}
+
+.app-name {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.app-description {
+    color: #b0b0b0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.app-arrow {
+    font-size: 20px;
+    color: #888;
+    margin-left: 16px;
+    transition: color 0.3s ease;
+}
+
+.app-card:hover .app-arrow {
+    color: #0ea5e9;
+}
+
+/* Empty state and footer use shared.css styles */
+
+@media (max-width: 600px) {
+    .applications-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .banner h1 {
+        font-size: 24px;
+    }
+    
+    .app-card {
+        padding: 16px;
+    }
+}

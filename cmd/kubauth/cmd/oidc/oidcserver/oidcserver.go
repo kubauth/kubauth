@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
+	"path"
 	"time"
 
 	scsV2 "github.com/alexedwards/scs/v2"
@@ -68,6 +69,10 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	//router.HandleFunc("/oauth2/revoke", oidcServer.revokeEndpoint)
 	router.HandleFunc("/oauth2/introspect", s.HandleTokenIntrospection)
 	router.HandleFunc("/index", s.handleIndex)
+
+	// Static file server for CSS and other assets
+	staticDir := path.Join(s.Resources, "static")
+	router.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 
 	fmt.Printf("OIDC Server starting on %s\n", s.Issuer)
 	fmt.Printf("OpenID Configuration: %s/.well-known/openid-configuration\n", s.Issuer)
