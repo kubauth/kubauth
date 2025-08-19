@@ -67,6 +67,7 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 	router.HandleFunc("/.well-known/jwks.json", s.handleJWKS)
 	//router.HandleFunc("/oauth2/revoke", oidcServer.revokeEndpoint)
 	router.HandleFunc("/oauth2/introspect", s.HandleTokenIntrospection)
+	router.HandleFunc("/index", s.handleIndex)
 
 	fmt.Printf("OIDC Server starting on %s\n", s.Issuer)
 	fmt.Printf("OpenID Configuration: %s/.well-known/openid-configuration\n", s.Issuer)

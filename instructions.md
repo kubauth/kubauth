@@ -39,6 +39,12 @@ Inject context in KubeSsoStore by implementing CtxStore and IterableCtxStore ins
 
 Complete the oidcserver.handleLogout function to retrieve and delete the corresponding SsoSession 
 
+
+Complete the oidcserver.handleIndex function to display a page listing oidcClient in a user-friendly way.
+Only oidcClient with a non null 'name' and 'entryUrl' attribute will be listed.
+Each display entry will include 'name', 'description'. The 'name' attribute being a link on 'entryURL' value.
+Style will be the same as the resource/templates/login.gohtml. Put the css in a separate file 
+
 ----
 
 
