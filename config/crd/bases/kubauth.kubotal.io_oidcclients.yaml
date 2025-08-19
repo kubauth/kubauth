@@ -21,8 +21,14 @@ spec:
     - jsonPath: .spec.public
       name: Pub.
       type: boolean
+    - jsonPath: .spec.name
+      name: Name
+      type: string
     - jsonPath: .spec.description
       name: Description
+      type: string
+    - jsonPath: .spec.entryURL
+      name: Link
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -59,6 +65,10 @@ spec:
               description:
                 description: A human oriented description
                 type: string
+              entryURL:
+                description: The application entry URL. May be used to build a user-friendly
+                  list
+                type: string
               grantTypes:
                 description: The client's allowed grant types.
                 items:
@@ -69,6 +79,16 @@ spec:
                 type: string
               id:
                 description: The client ID.
+                type: string
+              name:
+                description: Application name. May be used to be displayed in an application
+                  list
+                type: string
+              postLogoutURL:
+                description: |-
+                  Where to redirected user on logout.
+                  Will take precedence on the same global configuration value.
+                  May be overridden by a query parameter on the logout url
                 type: string
               public:
                 default: false

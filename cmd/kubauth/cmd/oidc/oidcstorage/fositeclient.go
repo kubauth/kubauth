@@ -1,21 +1,29 @@
-package fositeclient
+package oidcstorage
 
 import (
 	"github.com/ory/fosite"
 	"kubauth/api/kubauth/v1alpha1"
 )
 
+type FositeClient interface {
+	fosite.Client
+	GetName() string
+	GetDescription() string
+	GetEntryURL() string
+	GetPostLogoutURL() string
+}
+
 type fositeClient struct {
 	spec *v1alpha1.OidcClientSpec
 }
 
-func NewFositeClient(spec *v1alpha1.OidcClientSpec) fosite.Client {
+func NewFositeClient(spec *v1alpha1.OidcClientSpec) FositeClient {
 	return &fositeClient{
 		spec: spec,
 	}
 }
 
-var _ fosite.Client = &fositeClient{}
+var _ FositeClient = &fositeClient{}
 
 func (k *fositeClient) GetID() string {
 	return k.spec.Id
@@ -47,4 +55,19 @@ func (k *fositeClient) IsPublic() bool {
 
 func (k *fositeClient) GetAudience() fosite.Arguments {
 	return k.spec.Audiences
+}
+
+func (k *fositeClient) GetName() string {
+	return k.spec.Name
+}
+func (k *fositeClient) GetDescription() string {
+	return k.spec.Description
+}
+
+func (k *fositeClient) GetEntryURL() string {
+	return k.spec.EntryURL
+}
+
+func (k *fositeClient) GetPostLogoutURL() string {
+	return k.spec.PostLogoutURL
 }

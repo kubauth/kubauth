@@ -36,10 +36,6 @@ type OidcClientSpec struct {
 	// +required
 	Id string `json:"id"`
 
-	// A human oriented description
-	// +optional
-	Description string `json:"description,omitempty"`
-
 	// The hashed secret. (Required if !public)
 	// +optional
 	HashedSecret string `json:"hashedSecret,omitempty"`
@@ -69,6 +65,24 @@ type OidcClientSpec struct {
 	// The allowed audience(s) for this client.
 	// +optional
 	Audiences []string `json:"audiences"`
+
+	// Where to redirected user on logout.
+	// Will take precedence on the same global configuration value.
+	// May be overridden by a query parameter on the logout url
+	// +optional
+	PostLogoutURL string `json:"postLogoutURL,omitempty"`
+
+	// Application name. May be used to be displayed in an application list
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// A human oriented description
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// The application entry URL. May be used to build a user-friendly list
+	// +optional
+	EntryURL string `json:"entryURL,omitempty"`
 }
 
 // OidcClientStatus defines the observed state of OidcClient.
@@ -79,7 +93,9 @@ type OidcClientStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ID",type=string,JSONPath=`.spec.id`
 // +kubebuilder:printcolumn:name="Pub.",type=boolean,JSONPath=`.spec.public`
+// +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
+// +kubebuilder:printcolumn:name="Link",type=string,JSONPath=`.spec.entryURL`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 type OidcClient struct {

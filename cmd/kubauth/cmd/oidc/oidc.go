@@ -64,8 +64,9 @@ var flags struct {
 	// OIDC config
 	oidcClientNamespace string
 	oidcHttpConfig      httpsrv.Config
-	Issuer              string
-	Resources           string
+	issuer              string
+	resources           string
+	postLogoutURL       string
 
 	// SSO Config
 	ssoNamespace  string
@@ -107,8 +108,9 @@ func init() {
 	Cmd.PersistentFlags().IntVarP(&flags.oidcHttpConfig.BindPort, "bindPort", "p", 8101, "Bind port")
 	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
 	//Cmd.PersistentFlags().StringArrayVarP(&flags.oidcHttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
-	Cmd.PersistentFlags().StringVarP(&flags.Issuer, "issuer", "i", "http://localhost:8101", "Issuer URL")
-	Cmd.PersistentFlags().StringVarP(&flags.Resources, "resources", "", "resources", "Resources folders")
+	Cmd.PersistentFlags().StringVarP(&flags.issuer, "issuer", "i", "http://localhost:8101", "issuer URL")
+	Cmd.PersistentFlags().StringVar(&flags.resources, "resources", "resources", "resources folders")
+	Cmd.PersistentFlags().StringVar(&flags.postLogoutURL, "postLogoutURL", "", "Where to redirect user on logout (last resort default)")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -156,6 +158,10 @@ var Cmd = &cobra.Command{
 		}
 		if flags.ssoNamespace == "" {
 			setupLog.Error(nil, "ssoNamespace must be specified and non null")
+			os.Exit(1)
+		}
+		if flags.postLogoutURL == "" {
+			setupLog.Error(nil, "postLogoutURL must be specified and non null")
 			os.Exit(1)
 		}
 
@@ -323,7 +329,7 @@ var Cmd = &cobra.Command{
 		sm.Cookie.Persist = flags.stickySso // Session lifecycle is browser based or not
 		sm.HashTokenInStore = true
 		// Secure cookie only if issuer is https
-		if strings.HasPrefix(flags.Issuer, "https://") {
+		if strings.HasPrefix(flags.issuer, "https://") {
 			sm.Cookie.Secure = true
 		}
 
@@ -337,7 +343,7 @@ var Cmd = &cobra.Command{
 
 		// ---------------------- Setup our OIDC server
 		router := http.NewServeMux()
-		router.Handle("GET /favicon.ico", handlers.FaviconHandler(path.Join(flags.Resources, "static", "favicon.ico")))
+		router.Handle("GET /favicon.ico", handlers.FaviconHandler(path.Join(flags.resources, "static", "favicon.ico")))
 
 		userDb, err := idprovider.New(&flags.idpHttpConfig)
 		if err != nil {
@@ -347,12 +353,13 @@ var Cmd = &cobra.Command{
 		//userDb := memory.NewUserDb()
 
 		(&oidcserver.OIDCServer{
-			Issuer:         flags.Issuer,
+			Issuer:         flags.issuer,
 			Storage:        storage,
 			UserDb:         userDb,
-			Resources:      flags.Resources,
-			LoginTemplate:  template.Must(template.ParseFiles(path.Join(flags.Resources, "templates", "login.gohtml"))),
+			Resources:      flags.resources,
+			LoginTemplate:  template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "login.gohtml"))),
 			SessionManager: sm,
+			PostLogoutURL:  flags.postLogoutURL,
 		}).Setup(router)
 
 		server := httpsrv.New("oidcSrv", &flags.oidcHttpConfig, router)

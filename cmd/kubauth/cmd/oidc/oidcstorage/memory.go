@@ -7,7 +7,6 @@ package oidcstorage
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/go-logr/logr"
 	"sync"
 	"time"
@@ -39,7 +38,7 @@ type PublicKeyScopes struct {
 }
 
 type MemoryStore struct {
-	Clients         map[string]fosite.Client
+	Clients         map[string]FositeClient
 	AuthorizeCodes  map[string]StoreAuthorizeCode
 	IDSessions      map[string]fosite.Requester
 	AccessTokens    map[string]fosite.Requester
@@ -70,7 +69,7 @@ type MemoryStore struct {
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		Clients:                make(map[string]fosite.Client),
+		Clients:                make(map[string]FositeClient),
 		AuthorizeCodes:         make(map[string]StoreAuthorizeCode),
 		IDSessions:             make(map[string]fosite.Requester),
 		AccessTokens:           make(map[string]fosite.Requester),
@@ -142,7 +141,7 @@ func (s *MemoryStore) GetClient(_ context.Context, id string) (fosite.Client, er
 	return cl, nil
 }
 
-func (s *MemoryStore) SetClients(_ context.Context, clients map[string]fosite.Client) {
+func (s *MemoryStore) SetClients(_ context.Context, clients map[string]FositeClient) {
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()
 	s.Clients = clients
@@ -150,7 +149,8 @@ func (s *MemoryStore) SetClients(_ context.Context, clients map[string]fosite.Cl
 
 func (s *MemoryStore) SetTokenLifespans(clientID string, lifespans *fosite.ClientLifespanConfig) error {
 	if client, ok := s.Clients[clientID]; ok {
-		if clc, ok := client.(*fosite.DefaultClientWithCustomTokenLifespans); ok {
+		c2 := client.(fosite.Client)
+		if clc, ok := c2.(*fosite.DefaultClientWithCustomTokenLifespans); ok {
 			clc.SetTokenLifespans(lifespans)
 			return nil
 		}
@@ -212,7 +212,7 @@ func (s *MemoryStore) GetAuthorizeCodeSession(_ context.Context, code string, _ 
 	return rel.Requester, nil
 }
 
-func (s *MemoryStore) InvalidateAuthorizeCodeSession(ctx context.Context, code string) error {
+func (s *MemoryStore) InvalidateAuthorizeCodeSession(_ context.Context, code string) error {
 	s.authorizeCodesMutex.Lock()
 	defer s.authorizeCodesMutex.Unlock()
 
@@ -333,7 +333,7 @@ func (s *MemoryStore) Authenticate(_ context.Context, name string, secret string
 	return uuid.New().String(), nil
 }
 
-func (s *MemoryStore) RevokeRefreshToken(ctx context.Context, requestID string) error {
+func (s *MemoryStore) RevokeRefreshToken(_ context.Context, requestID string) error {
 	s.refreshTokenRequestIDsMutex.Lock()
 	defer s.refreshTokenRequestIDsMutex.Unlock()
 
@@ -360,7 +360,7 @@ func (s *MemoryStore) RevokeAccessToken(ctx context.Context, requestID string) e
 	return nil
 }
 
-func (s *MemoryStore) GetPublicKey(ctx context.Context, issuer string, subject string, keyId string) (*jose.JSONWebKey, error) {
+func (s *MemoryStore) GetPublicKey(_ context.Context, issuer string, subject string, keyId string) (*jose.JSONWebKey, error) {
 	s.issuerPublicKeysMutex.RLock()
 	defer s.issuerPublicKeysMutex.RUnlock()
 
@@ -374,7 +374,7 @@ func (s *MemoryStore) GetPublicKey(ctx context.Context, issuer string, subject s
 
 	return nil, fosite.ErrNotFound
 }
-func (s *MemoryStore) GetPublicKeys(ctx context.Context, issuer string, subject string) (*jose.JSONWebKeySet, error) {
+func (s *MemoryStore) GetPublicKeys(_ context.Context, issuer string, subject string) (*jose.JSONWebKeySet, error) {
 	s.issuerPublicKeysMutex.RLock()
 	defer s.issuerPublicKeysMutex.RUnlock()
 
@@ -396,7 +396,7 @@ func (s *MemoryStore) GetPublicKeys(ctx context.Context, issuer string, subject 
 	return nil, fosite.ErrNotFound
 }
 
-func (s *MemoryStore) GetPublicKeyScopes(ctx context.Context, issuer string, subject string, keyId string) ([]string, error) {
+func (s *MemoryStore) GetPublicKeyScopes(_ context.Context, issuer string, subject string, keyId string) ([]string, error) {
 	s.issuerPublicKeysMutex.RLock()
 	defer s.issuerPublicKeysMutex.RUnlock()
 
@@ -425,22 +425,19 @@ func (s *MemoryStore) MarkJWTUsedForTime(ctx context.Context, jti string, exp ti
 }
 
 // CreatePARSession stores the pushed authorization request context. The requestURI is used to derive the key.
-func (s *MemoryStore) CreatePARSession(ctx context.Context, requestURI string, request fosite.AuthorizeRequester) error {
+func (s *MemoryStore) CreatePARSession(_ context.Context, requestURI string, request fosite.AuthorizeRequester) error {
 	s.parSessionsMutex.Lock()
 	defer s.parSessionsMutex.Unlock()
 
-	fmt.Printf("+++++++++++++++++ Creating PAR session for requestURI: %s\n", requestURI)
 	s.PARSessions[requestURI] = request
 	return nil
 }
 
 // GetPARSession gets the push authorization request context. If the request is nil, a new request object
 // is created. Otherwise, the same object is updated.
-func (s *MemoryStore) GetPARSession(ctx context.Context, requestURI string) (fosite.AuthorizeRequester, error) {
+func (s *MemoryStore) GetPARSession(_ context.Context, requestURI string) (fosite.AuthorizeRequester, error) {
 	s.parSessionsMutex.RLock()
 	defer s.parSessionsMutex.RUnlock()
-
-	fmt.Printf("+++++++++++++++++ Getting PAR session for requestURI: %s\n", requestURI)
 
 	r, ok := s.PARSessions[requestURI]
 	if !ok {
@@ -451,18 +448,16 @@ func (s *MemoryStore) GetPARSession(ctx context.Context, requestURI string) (fos
 }
 
 // DeletePARSession deletes the context.
-func (s *MemoryStore) DeletePARSession(ctx context.Context, requestURI string) (err error) {
+func (s *MemoryStore) DeletePARSession(_ context.Context, requestURI string) (err error) {
 	s.parSessionsMutex.Lock()
 	defer s.parSessionsMutex.Unlock()
-
-	fmt.Printf("+++++++++++++++++ Deleting PAR session for requestURI: %s\n", requestURI)
 
 	delete(s.PARSessions, requestURI)
 	return nil
 }
 
 func (s *MemoryStore) RotateRefreshToken(ctx context.Context, requestID string, refreshTokenSignature string) (err error) {
-	// Graceful token rotation can be implemented here but it's beyond the scope of this example. Check
+	// Graceful token rotation can be implemented here, but it's beyond the scope of this example. Check
 	// the Ory Hydra implementation for reference.
 	if err := s.RevokeRefreshToken(ctx, requestID); err != nil {
 		return err

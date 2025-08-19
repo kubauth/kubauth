@@ -27,6 +27,7 @@ type OIDCServer struct {
 	UserDb         userdb.UserDb
 	LoginTemplate  *template.Template
 	SessionManager *scsV2.SessionManager
+	PostLogoutURL  string
 
 	oauth2     fosite.OAuth2Provider
 	config     *fosite.Config
