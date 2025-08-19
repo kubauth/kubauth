@@ -11,6 +11,7 @@ type FositeClient interface {
 	GetDescription() string
 	GetEntryURL() string
 	GetPostLogoutURL() string
+	GetDisplayName() string
 }
 
 type fositeClient struct {
@@ -58,8 +59,9 @@ func (k *fositeClient) GetAudience() fosite.Arguments {
 }
 
 func (k *fositeClient) GetName() string {
-	return k.spec.Name
+	return k.GetName()
 }
+
 func (k *fositeClient) GetDescription() string {
 	return k.spec.Description
 }
@@ -70,4 +72,8 @@ func (k *fositeClient) GetEntryURL() string {
 
 func (k *fositeClient) GetPostLogoutURL() string {
 	return k.spec.PostLogoutURL
+}
+
+func (k *fositeClient) GetDisplayName() string {
+	return k.spec.DisplayName
 }

@@ -358,6 +358,7 @@ var Cmd = &cobra.Command{
 			UserDb:         userDb,
 			Resources:      flags.resources,
 			LoginTemplate:  template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "login.gohtml"))),
+			IndexTemplate:  template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "index.gohtml"))),
 			SessionManager: sm,
 			PostLogoutURL:  flags.postLogoutURL,
 		}).Setup(router)

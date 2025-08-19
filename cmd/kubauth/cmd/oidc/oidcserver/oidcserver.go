@@ -27,6 +27,7 @@ type OIDCServer struct {
 	Resources      string
 	UserDb         userdb.UserDb
 	LoginTemplate  *template.Template
+	IndexTemplate  *template.Template
 	SessionManager *scsV2.SessionManager
 	PostLogoutURL  string
 

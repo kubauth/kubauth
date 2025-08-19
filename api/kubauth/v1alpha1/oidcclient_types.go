@@ -74,7 +74,7 @@ type OidcClientSpec struct {
 
 	// Application name. May be used to be displayed in an application list
 	// +optional
-	Name string `json:"name,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
 
 	// A human oriented description
 	// +optional

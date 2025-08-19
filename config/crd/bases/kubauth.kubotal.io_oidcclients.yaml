@@ -65,6 +65,10 @@ spec:
               description:
                 description: A human oriented description
                 type: string
+              displayName:
+                description: Application name. May be used to be displayed in an application
+                  list
+                type: string
               entryURL:
                 description: The application entry URL. May be used to build a user-friendly
                   list
@@ -79,10 +83,6 @@ spec:
                 type: string
               id:
                 description: The client ID.
-                type: string
-              name:
-                description: Application name. May be used to be displayed in an application
-                  list
                 type: string
               postLogoutURL:
                 description: |-

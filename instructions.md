@@ -48,8 +48,9 @@ Each display entry will include 'name', 'description'. The 'name' attribute bein
 The page template will be in resources/templates/index.gohtml
 Style will be the same as the resource/templates/login.gohtml. Put the css in a separate file
 
-
 Arrange for index and login gohtml to share the same css file, without altering visual aspect of any
+
+In index.gohtml, <div class="app-icon">, display the first letter if the displayName, in uppercase
 
 ----
 

@@ -1,17 +1,14 @@
 package oidcserver
 
 import (
-	"html/template"
-	"net/http"
-	"path"
-
 	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
+	"net/http"
 
 	"github.com/go-logr/logr"
 )
 
 type indexEntry struct {
-	Name        string
+	DisplayName string
 	Description string
 	EntryURL    string
 }
@@ -25,13 +22,13 @@ func (s *OIDCServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	var entries []indexEntry
 	for _, client := range s.Storage.Clients {
 		if fositeClient, ok := client.(oidcstorage.FositeClient); ok {
-			name := fositeClient.GetName()
+			displayName := fositeClient.GetDisplayName()
 			entryURL := fositeClient.GetEntryURL()
 
 			// Only include clients with both name and entryURL
-			if name != "" && entryURL != "" {
+			if displayName != "" && entryURL != "" {
 				entries = append(entries, indexEntry{
-					Name:        name,
+					DisplayName: displayName,
 					Description: fositeClient.GetDescription(),
 					EntryURL:    entryURL,
 				})
@@ -39,24 +36,13 @@ func (s *OIDCServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Parse and execute template
-	tmplPath := path.Join(s.Resources, "templates", "index.gohtml")
-	tmpl, err := template.ParseFiles(tmplPath)
-	if err != nil {
-		logger.Error("Failed to parse index template", "path", tmplPath, "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
 	data := struct {
-		Title   string
 		Entries []indexEntry
 	}{
-		Title:   "Kubauth - Applications",
 		Entries: entries,
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := s.IndexTemplate.Execute(w, data); err != nil {
 		logger.Error("Failed to execute index template", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}}</title>
+    <title>Kubauth - Applications</title>
     <link rel="stylesheet" href="/static/shared.css">
     <link rel="stylesheet" href="/static/index.css">
 </head>
@@ -18,9 +18,9 @@
     <div class="applications-grid">
         {{range .Entries}}
         <a href="{{.EntryURL}}" class="app-card">
-            <div class="app-icon"></div>
+            <div class="app-icon">{{if .DisplayName}}{{printf "%c" (index .DisplayName 0)}}{{end}}</div>
             <div class="app-info">
-                <h3 class="app-name">{{.Name}}</h3>
+                <h3 class="app-name">{{.DisplayName}}</h3>
                 {{if .Description}}
                 <p class="app-description">{{.Description}}</p>
                 {{end}}
