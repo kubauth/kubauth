@@ -3,6 +3,7 @@ package oidcserver
 import (
 	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
 	"net/http"
+	"sort"
 
 	"github.com/go-logr/logr"
 )
@@ -35,6 +36,14 @@ func (s *OIDCServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	// Sort entries by DisplayName, then by EntryURL
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].DisplayName == entries[j].DisplayName {
+			return entries[i].EntryURL < entries[j].EntryURL
+		}
+		return entries[i].DisplayName < entries[j].DisplayName
+	})
 
 	data := struct {
 		Entries []indexEntry

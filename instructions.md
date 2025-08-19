@@ -52,6 +52,14 @@ Arrange for index and login gohtml to share the same css file, without altering 
 
 In index.gohtml, <div class="app-icon">, display the first letter if the displayName, in uppercase
 
+Code has been manually modified.
+
+in index page, sort entries by name and by entryUrl if name are same
+
+
+in the login page, add a checkbox, with the label 'Remember me'. Checked by default.
+If unchecked, then do not persist user
+
 ----
 
 

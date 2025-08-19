@@ -57,6 +57,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		login := r.PostForm.Get("login")
 		password := r.PostForm.Get("password")
 		rawQuery := r.PostForm.Get("rq")
+		remember := r.PostForm.Get("remember") == "on"
 
 		user, err := s.UserDb.Authenticate(login, password)
 		if err != nil {
@@ -69,9 +70,11 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Successful authentication: renew session and persist SSO principal only
+		// Successful authentication: renew session and conditionally persist SSO principal
 		_ = s.SessionManager.RenewToken(ctx)
-		s.SessionManager.Put(ctx, "ssoUser", user)
+		if remember {
+			s.SessionManager.Put(ctx, "ssoUser", user)
+		}
 
 		// Reconstruct original authorize request using preserved raw query
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
