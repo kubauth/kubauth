@@ -62,11 +62,3 @@ If unchecked, then do not persist user
 
 ----
 
-
-
-Add a redirect on logout url in client definition, and globally if no client id
-
-On login, request user to 'remember me', to activate SSO
-Update status with connected application
-
-An index page listing registered apps
