@@ -23,7 +23,7 @@ type HttpAuth struct {
 }
 
 type Config struct {
-	BaseUrl            string
+	BaseURL            string
 	RootCaPaths        []string
 	RootCaDatas        []string
 	InsecureSkipVerify bool
@@ -43,12 +43,12 @@ type httpClient struct {
 
 func New(conf *Config) (HttpClient, error) {
 	// Just a test for validity. Not used in this function
-	u, err := url.Parse(conf.BaseUrl)
+	u, err := url.Parse(conf.BaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse url '%s': %w", conf.BaseUrl, err)
+		return nil, fmt.Errorf("unable to parse url '%s': %w", conf.BaseURL, err)
 	}
 	if strings.ToLower(u.Scheme) != "https" && strings.ToLower(u.Scheme) != "http" {
-		return nil, fmt.Errorf("invalid url scheme '%s'", conf.BaseUrl)
+		return nil, fmt.Errorf("invalid url scheme '%s'", conf.BaseURL)
 	}
 	var tlsConfig *tls.Config = nil
 	if strings.ToLower(u.Scheme) == "https" {
@@ -142,9 +142,9 @@ func (c *httpClient) Do(method string, path string, request proto.RequestPayload
 	if err != nil {
 		return fmt.Errorf("unable to marshal request '%s': %w", request, err)
 	}
-	u, err := url.JoinPath(c.BaseUrl, path)
+	u, err := url.JoinPath(c.BaseURL, path)
 	if err != nil {
-		return fmt.Errorf("unable to join %s to %s: %w", path, c.BaseUrl, err)
+		return fmt.Errorf("unable to join %s to %s: %w", path, c.BaseURL, err)
 	}
 	req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
 	if err != nil {

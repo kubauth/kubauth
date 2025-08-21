@@ -1,0 +1,45 @@
+{{- if .Values.oidc.enabled }}
+{{- if not .Values.oidc.webhooks.certificateClusterIssuer }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "kubauth.oidc.webhooks.certificateSelfSignedIssuerName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selfSigned: {}
+{{- end }}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kubauth.oidc.webhooks.certificateName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  dnsNames:
+    - {{ include "kubauth.oidc.webhooks.serviceName" . }}.{{ .Release.Namespace }}.svc
+    - {{ include "kubauth.oidc.webhooks.serviceName" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+{{- if not .Values.oidc.webhooks.certificateClusterIssuer }}
+    kind: Issuer
+    name: {{ include "kubauth.oidc.webhooks.certificateSelfSignedIssuerName" . }}
+{{- else }}
+    kind: ClusterIssuer
+    name: {{ .Values.oidc.webhooks.certificateClusterIssuer }}
+{{- end }}
+  secretName: {{ include "kubauth.oidc.webhooks.secretName" . }}
+
+{{- end }}

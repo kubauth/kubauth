@@ -1,0 +1,192 @@
+
+
+replicaCount: 2
+
+# Following will allow a renaming of all kubauth kubernetes resources
+# Allow overriding base name of all resources
+baseNameOverride:
+
+# Image may be different for containers
+image:
+  pullSecrets: []
+
+
+# -- Annotations to be added to the pod
+podAnnotations: {}
+
+# -- Annotations to be added to all other resources
+commonAnnotations: {}
+
+
+# Security Context for each containers
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - "ALL"
+
+# -- Security Context for the whole pod
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+
+# NodeSelector for the pod to be installed
+nodeSelector: {}
+
+# -- Tolerations for the pod to be installed
+tolerations: []
+
+# -- Affinity for the pod to be installed
+affinity: {}
+
+
+# Will default to "kubauth.baseName"
+deploymentName:
+
+# Will default to "kubauth.baseName"
+serviceAccountName:
+
+# Will default to "kubauth.baseName"
+roleName:
+
+oidc:
+  enabled: true
+
+  # Where to store OidcClient resources.
+  clients:
+    createNamespace: true
+    namespace: kubauth-oidc
+    # Default to {{ include "kubauth.baseName" .}}-oidc-client
+    roleName:
+  issuer: # TBD
+  postLogoutURL: # TBD
+  server:
+    tls: true
+    bindAddr: "0.0.0.0"
+    bindPort:  8101
+    certificateIssuer: # TBD
+    issuerKind: ClusterIssuer
+
+    resourcesFolder: resources
+
+    # Default to {{ include "kubauth.baseName" .}}-oidc-server
+    certificateName:
+    # Default to {{ include "kubauth.baseName" .}}-oidc-server-cert
+    certificateSecretName:
+    # Default to {{ include "kubauth.baseName" .}}-oidc-server
+    serviceName:
+
+  ingress:
+    enabled: true
+    class: nginx  # Only nginx currently supported
+    host: # TBD
+    networkPolicy:
+      enabled: false
+
+  sso:
+    createNamespace: true
+    namespace: kubauth-sso
+    sticky: true
+    lifeTime: "8h"
+    cleanupPeriod: "5m"
+    # Default to {{ include "kubauth.baseName" .}}-oidc-sso
+    roleName:
+
+  idp:
+    baseURL: http://localhost:8201
+    # TODO: Refactor this and add a secret for auth
+    rootCAPath: # TBD if https.
+    insecureSkipVerify: false
+
+  # Default to {{ include "kubauth.baseName" .}}-oidc
+  ingressName:
+  # Default to {{ include "kubauth.baseName" .}}-oidc
+  networkPolicyName:
+
+  image:
+    repository: quay.io/kubauth/kubauth
+    # -- Overrides the image tag whose default is the chart appVersion.
+    tag:
+    pullPolicy: IfNotPresent
+
+  # Allow to change some logger configuration
+  logger:
+    mode: json  # "Log mode (dev or json)
+    level: info # Log level(DEBUG, INFO, WARN, ERROR)
+  # Dump all http server req/resp
+  dumpExchanges: false
+  # Display all command line flags on boot
+  displayFlags: true
+
+  # The address the probe endpoint binds to.
+  healthProbeBindPort: 8110
+  disableProbes: false
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+  extraEnv:
+  additionalArgs: []
+
+  # Container specific securityContext
+  securityContext:
+
+  metrics:
+    enabled: false
+    bindPort: 8443
+    secured: false  # Set both TLS and client auth (see https://book.kubebuilder.io/reference/metrics)
+    # This will be used to validate communication with the metrics endpoint
+    # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
+    certificateClusterIssuer:
+    serviceMonitor:
+      enabled: false
+      name:  # -- Will default to {{ include "kubauth.baseName" . }}-oidc
+
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    serviceName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    certificateName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    secretName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    certificateSelfSignedIssuerName:
+
+  webhooks:
+    enabled: true
+
+    # This will be used to validate communication between the API server and this webhook server
+    # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
+    certificateClusterIssuer:
+
+    # Following will allow a renaming of kubauth webhook related kubernetes resources
+    # Leave it empty to use default values will works in most cases
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    serviceName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    certificateName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    secretName:
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-webhook
+    certificateSelfSignedIssuerName:
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-validating-webhook-configuration
+    validatingWebhookConfiguration:
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-mutating-webhook-configuration
+    mutatingWebhookConfiguration:
+
+
+userdb:
+  enabled: false
+  image:
+    repository: quay.io/kubauth/kubauth
+    # -- Overrides the image tag whose default is the chart appVersion.
+    tag:
+    pullPolicy: IfNotPresent
+

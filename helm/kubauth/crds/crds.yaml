@@ -29,6 +29,9 @@ spec:
     - jsonPath: .spec.group
       name: Group
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -91,6 +94,9 @@ spec:
     - jsonPath: .spec.comment
       name: Comment
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -115,9 +121,7 @@ spec:
           spec:
             properties:
               claims:
-                additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
-                type: object
+                x-kubernetes-preserve-unknown-fields: true
               comment:
                 description: Whatever extra information related to this group.
                 type: string
@@ -153,9 +157,18 @@ spec:
     - jsonPath: .spec.public
       name: Pub.
       type: boolean
+    - jsonPath: .spec.name
+      name: Name
+      type: string
     - jsonPath: .spec.description
       name: Description
       type: string
+    - jsonPath: .spec.entryURL
+      name: Link
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -188,6 +201,14 @@ spec:
               description:
                 description: A human oriented description
                 type: string
+              displayName:
+                description: Application name. May be used to be displayed in an application
+                  list
+                type: string
+              entryURL:
+                description: The application entry URL. May be used to build a user-friendly
+                  list
+                type: string
               grantTypes:
                 description: The client's allowed grant types.
                 items:
@@ -198,6 +219,12 @@ spec:
                 type: string
               id:
                 description: The client ID.
+                type: string
+              postLogoutURL:
+                description: |-
+                  Where to redirected user on logout.
+                  Will take precedence on the same global configuration value.
+                  May be overridden by a query parameter on the logout url
                 type: string
               public:
                 default: false
@@ -245,6 +272,102 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
+  name: ssosessions.kubauth.kubotal.io
+spec:
+  group: kubauth.kubotal.io
+  names:
+    kind: SsoSession
+    listKind: SsoSessionList
+    plural: ssosessions
+    singular: ssosession
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.login
+      name: Login
+      type: string
+    - jsonPath: .spec.fullName
+      name: Name
+      type: string
+    - jsonPath: .spec.deadline
+      name: Deadline
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          SsoSession is the Schema for the ssosessions API
+          The name is the session token (The session cookie value)
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of SsoSession
+            properties:
+              claims:
+                description: The OIDC Claims
+                x-kubernetes-preserve-unknown-fields: true
+              deadline:
+                description: The absolute deadline, from SessionManager.Lifetime
+                format: date-time
+                type: string
+              expiry:
+                description: |-
+                  time limit from SessionManage.IdleTimeout
+                  IdleTimeout is meaningless, as this session is cross application. So it is unactivated in most case.
+                  Anyway, we store this for technical coherency, even if it will be same as deadLine in all cases.
+                format: date-time
+                type: string
+              fullName:
+                description: The user full name
+                type: string
+              login:
+                type: string
+              webToken:
+                description: |-
+                  The original token (cookie value) of the web session.
+                  Stored as the SsoSession name is a sanitized non-reversible version of this
+                type: string
+            required:
+            - deadline
+            - expiry
+            - login
+            - webToken
+            type: object
+          status:
+            description: status defines the observed state of SsoSession
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: users.kubauth.kubotal.io
 spec:
   group: kubauth.kubotal.io
@@ -274,6 +397,9 @@ spec:
     - jsonPath: .spec.disabled
       name: Disabled
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -299,14 +425,15 @@ spec:
           spec:
             properties:
               claims:
-                additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
-                type: object
+                description: The oidc Claims
+                x-kubernetes-preserve-unknown-fields: true
               comment:
                 description: Whatever extra information related to this user.
                 type: string
               commonNames:
-                description: The user common name(s).
+                description: |-
+                  The user common name(s).
+                  First is used as fullName
                 items:
                   type: string
                 type: array

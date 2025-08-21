@@ -1,0 +1,115 @@
+
+{{/*
+Expand oidc container
+*/}}
+{{- define "container.oidc" -}}
+- name: oidc
+  command:
+    - /kubauth
+  args:
+    - oidc
+    - --logMode={{ .Values.oidc.logger.mode }}
+    - --logLevel={{ .Values.oidc.logger.level }}
+    - --displayFlags={{ .Values.oidc.displayFlags }}
+    - --healthProbeBindAddress={{ printf ":%.0f" .Values.oidc.healthProbeBindPort }}
+    - --leaderElect={{ ne .Values.replicaCount 1.0 }}
+    - --enableWebhook={{ .Values.oidc.webhooks.enabled }}
+    {{- if .Values.oidc.webhooks.enabled }}
+    - --webhookCertPath=/tmp/k8s-webhooks-server/serving-certs
+    - --webhookCertName=tls.crt
+    - --webhookCertKey=tls.key
+    {{- end }}
+    {{- if .Values.oidc.metrics.enabled }}
+    - --metricsBindAddress={{ printf ":%.0f" .Values.oidc.metrics.bindPort }}
+        {{- if .Values.oidc.metrics.secured }}
+    - --metricsSecure=true
+    - --metricsCertPath=/tmp/k8s-metrics-server/metrics-certs
+        {{- else }}
+    - --metricsSecure=false
+        {{- end }}
+    {{- else }}
+    - --metricsBindAddress=0
+    {{- end }}
+    - --oidcClientNamespace={{ .Values.oidc.clients.namespace }}
+    - --tls={{ .Values.oidc.server.tls }}
+    - --dumpExchanges={{ .Values.oidc.dumpExchanges }}
+    - --bindAddr={{ .Values.oidc.server.bindAddr }}
+    - --bindPort={{ .Values.oidc.server.bindPort }}
+    - --certDir=/tmp/server/cert
+    - --issuer={{ required "'oidc.issuer' must be defined" .Values.oidc.issuer }}
+    - --resources={{ .Values.oidc.server.resourcesFolder }}
+    - --postLogoutURL={{ required "'oidc.postLogoutURL' must be defined" .Values.oidc.postLogoutURL }}
+    - --ssoNamespace={{ .Values.oidc.sso.namespace }}
+    - --stickySso={{ .Values.oidc.sso.sticky }}
+    - --ssoLifetime={{ .Values.oidc.sso.lifeTime }}
+    - --cleanupPeriod={{ .Values.oidc.sso.cleanupPeriod }}
+    - --idpBaseURL={{ .Values.oidc.idp.baseURL }}
+    {{-  range .Values.oidc.additionalArgs }}
+    - {{ . }}
+    {{- end }}
+  {{- if not .Values.oidc.disableProbes }}
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: {{ .Values.oidc.healthProbeBindPort }}
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: {{ .Values.oidc.healthProbeBindPort }}
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  {{- end }}
+  image: "{{ .Values.oidc.image.repository }}:{{ .Values.oidc.image.tag | default .Chart.AppVersion }}"
+  imagePullPolicy: {{ .Values.oidc.image.pullPolicy }}
+  {{- with .Values.oidc.extraEnv }}
+  env:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.oidc.resources }}
+  resources:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  securityContext:
+    {{- toYaml .Values.containerSecurityContext | nindent 4 }}
+    {{- with .Values.oidc.securityContext }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  ports:
+  volumeMounts:
+    {{- if .Values.oidc.metrics.enabled }}
+    - mountPath: /tmp/k8s-metrics-server/metrics-certs
+      name: metrics-certs
+      readOnly: true
+    {{- end }}
+    {{- if .Values.oidc.webhooks.enabled }}
+    - mountPath: /tmp/k8s-webhooks-server/serving-certs
+      name: webhooks-certs
+      readOnly: true
+    {{- end }}
+{{- end }}
+
+{{/*
+Expand oidc volumes in pod
+*/}}
+{{- define "volumes.oidc" -}}
+{{- if .Values.oidc.metrics.enabled }}
+- name: metrics-certs
+  secret:
+    items:
+      - key: ca.crt
+        path: ca.crt
+      - key: tls.crt
+        path: tls.crt
+      - key: tls.key
+        path: tls.key
+    optional: false
+    secretName: {{ include "kubauth.oidc.metrics.secretName" . }}
+{{- end }}
+{{- if .Values.oidc.webhooks.enabled }}
+- name: webhooks-certs
+  secret:
+    secretName: {{ include "kubauth.oidc.webhooks.secretName" . }}
+{{- end }}
+{{- end }}

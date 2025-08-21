@@ -1,0 +1,27 @@
+{{- if .Values.oidc.enabled }}
+{{- if .Values.oidc.server.tls }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kubauth.oidc.server.certificateName" . }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  dnsNames:
+    - {{ include "kubauth.oidc.server.serviceName" . }}
+    - {{ include "kubauth.oidc.server.serviceName" . }}.{{ .Release.Namespace }}.svc
+    - localhost
+  {{- if .Values.oidc.ingress.enabled }}
+    - {{ required "'oidc.ingress.host' must be defined if ingress is enabled" .Values.oidc.ingress.host }}
+  {{- end }}
+  secretName: {{ include "kubauth.oidc.server.certificateSecretName" . }}
+  issuerRef:
+    kind: {{ required ".Values.oidc.server.issuerKind is not defined while tls: true" .Values.oidc.server.issuerKind }}
+    name: {{ required ".Values.oidc.server.certificateIssuer  is not defined while tls: true" .Values.oidc.server.certificateIssuer }}
+{{- end }}
+{{- end }}

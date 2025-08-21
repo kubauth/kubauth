@@ -59,6 +59,7 @@ type SsoSessionStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:printcolumn:name="Login",type=string,JSONPath=`.spec.login`
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.fullName`
 // +kubebuilder:printcolumn:name="Deadline",type=string,JSONPath=`.spec.deadline`

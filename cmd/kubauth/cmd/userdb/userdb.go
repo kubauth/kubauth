@@ -74,7 +74,7 @@ func init() {
 
 	// userdb server config
 	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.Tls, "tls", "t", false, "enable TLS")
-	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.DumpExchange, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
+	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.DumpExchanges, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
 	Cmd.PersistentFlags().StringVarP(&flags.HttpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
 	Cmd.PersistentFlags().IntVarP(&flags.HttpConfig.BindPort, "bindPort", "p", 8201, "Bind port")
 	Cmd.PersistentFlags().StringVarP(&flags.HttpConfig.CertDir, "certDir", "", "", "Certificate Directory")

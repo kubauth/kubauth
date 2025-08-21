@@ -22,7 +22,7 @@ type Config struct {
 	CertDir        string   `yaml:"certDir"`  // CertDir is the directory that contains the server key and certificate.
 	CertName       string   `yaml:"certName"` // CertName is the server certificate name. Defaults to tls.crt.
 	KeyName        string   `yaml:"keyName"`  // KeyName is the server key name. Defaults to tls.key.
-	DumpExchange   bool     `yaml:"dumpExchange"`
+	DumpExchanges  bool     `yaml:"dumpExchanges"`
 	AllowedOrigins []string `yaml:"allowedOrigins"`
 }
 
@@ -46,7 +46,7 @@ func New(name string, config *Config, router http.Handler) HttpServer {
 		})
 		router = c.Handler(router)
 	}
-	if config.DumpExchange {
+	if config.DumpExchanges {
 		router = LoggingMiddleware(router)
 	}
 	return &httpServer{

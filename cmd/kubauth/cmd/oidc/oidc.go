@@ -103,7 +103,7 @@ func init() {
 	// OIDC config
 	Cmd.PersistentFlags().StringVar(&flags.oidcClientNamespace, "oidcClientNamespace", "", "The namespace hosting OidcClient resources.")
 	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.Tls, "tls", "t", false, "enable TLS")
-	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.DumpExchange, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
+	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.DumpExchanges, "dumpExchanges", "", false, "Dump http server req/resp")
 	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
 	Cmd.PersistentFlags().IntVarP(&flags.oidcHttpConfig.BindPort, "bindPort", "p", 8101, "Bind port")
 	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
@@ -119,8 +119,8 @@ func init() {
 	Cmd.PersistentFlags().DurationVar(&flags.cleanupPeriod, "cleanupPeriod", time.Minute*5, "SSO Session cleanup period")
 
 	// Idp (Identity provider) config
-	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseUrl, "idpBaseUrl", "http://localhost:8201", "The Identity provider base URL")
-	Cmd.PersistentFlags().StringArrayVar(&flags.idpHttpConfig.RootCaPaths, "idpRootCA", []string{}, "The Identity provider root CA paths (Several values possible)")
+	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseURL, "idpBaseURL", "http://localhost:8201", "The Identity provider base URL")
+	Cmd.PersistentFlags().StringArrayVar(&flags.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
 	Cmd.PersistentFlags().BoolVar(&flags.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
