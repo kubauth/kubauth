@@ -1,7 +1,6 @@
 package oidcserver
 
 import (
-	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
 	"net/http"
 	"sort"
 
@@ -22,18 +21,16 @@ func (s *OIDCServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	// Collect applications with non-empty name and entryURL
 	var entries []indexEntry
 	for _, client := range s.Storage.Clients {
-		if fositeClient, ok := client.(oidcstorage.FositeClient); ok {
-			displayName := fositeClient.GetDisplayName()
-			entryURL := fositeClient.GetEntryURL()
+		displayName := client.GetDisplayName()
+		entryURL := client.GetEntryURL()
 
-			// Only include clients with both name and entryURL
-			if displayName != "" && entryURL != "" {
-				entries = append(entries, indexEntry{
-					DisplayName: displayName,
-					Description: fositeClient.GetDescription(),
-					EntryURL:    entryURL,
-				})
-			}
+		// Only include clients with both name and entryURL
+		if displayName != "" && entryURL != "" {
+			entries = append(entries, indexEntry{
+				DisplayName: displayName,
+				Description: client.GetDescription(),
+				EntryURL:    entryURL,
+			})
 		}
 	}
 

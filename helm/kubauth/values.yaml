@@ -101,11 +101,6 @@ oidc:
     rootCAPath: # TBD if https.
     insecureSkipVerify: false
 
-  # Default to {{ include "kubauth.baseName" .}}-oidc
-  ingressName:
-  # Default to {{ include "kubauth.baseName" .}}-oidc
-  networkPolicyName:
-
   image:
     repository: quay.io/kubauth/kubauth
     # -- Overrides the image tag whose default is the chart appVersion.
@@ -181,6 +176,10 @@ oidc:
     # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-mutating-webhook-configuration
     mutatingWebhookConfiguration:
 
+  # Default to {{ include "kubauth.baseName" .}}-oidc
+  ingressName:
+  # Default to {{ include "kubauth.baseName" .}}-oidc
+  networkPolicyName:
 
 userdb:
   enabled: false

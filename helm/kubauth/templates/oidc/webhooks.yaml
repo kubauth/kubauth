@@ -1,0 +1,78 @@
+
+{{- if .Values.oidc.enabled }}
+
+{{- if.Values.oidc.webhooks.enabled }}
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "kubauth.oidc.webhooks.mutatingWebhookConfiguration" .}}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kubauth.oidc.webhooks.secretName" . }}
+  {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name:  {{ include "kubauth.oidc.webhooks.serviceName" . }}
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-kubauth-kubotal-io-v1alpha1-oidcclient
+  failurePolicy: Fail
+  name: moidcclient-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - oidcclients
+  sideEffects: None
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "kubauth.oidc.webhooks.validatingWebhookConfiguration" .}}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kubauth.oidc.webhooks.secretName" . }}
+  {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name:  {{ include "kubauth.oidc.webhooks.serviceName" . }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-kubauth-kubotal-io-v1alpha1-oidcclient
+  failurePolicy: Fail
+  name: voidcclient-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - oidcclients
+  sideEffects: None
+
+{{- end }}
+{{- end }}
+
+
+

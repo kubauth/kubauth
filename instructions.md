@@ -62,3 +62,10 @@ If unchecked, then do not persist user
 
 ----
 
+
+I got the following error:
+{"time":"10:12:16.662","level":"ERROR","msg":"Failed to watch","logger":"controller-runtime/cache/UnhandledError","err":"failed to list *v1alpha1.OidcClient: oidcclients.kubauth.kubotal.io is forbidden: User │
+│  \"system:serviceaccount:kubauth:kubauth\" cannot list resource \"oidcclients\" in API group \"kubauth.kubotal.io\" at the cluster scope","reflector":"pkg/mod/k8s.io/client-go@v0.33.0/tools/cache/reflector.g │
+│ o:285","type":"*v1alpha1.OidcClient"}
+The resource is namespaced, and I want to grant access to the controller on the namespace, not cluster width 
+

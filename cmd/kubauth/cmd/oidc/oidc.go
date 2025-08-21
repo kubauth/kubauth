@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"strings"
 	"time"
 
@@ -106,7 +107,9 @@ func init() {
 	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.DumpExchanges, "dumpExchanges", "", false, "Dump http server req/resp")
 	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
 	Cmd.PersistentFlags().IntVarP(&flags.oidcHttpConfig.BindPort, "bindPort", "p", 8101, "Bind port")
-	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&flags.oidcHttpConfig.CertDir, "certDir", "", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&flags.oidcHttpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&flags.oidcHttpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
 	//Cmd.PersistentFlags().StringArrayVarP(&flags.oidcHttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
 	Cmd.PersistentFlags().StringVarP(&flags.issuer, "issuer", "i", "http://localhost:8101", "issuer URL")
 	Cmd.PersistentFlags().StringVar(&flags.resources, "resources", "resources", "resources folders")
@@ -259,6 +262,11 @@ var Cmd = &cobra.Command{
 			LeaderElection:         flags.enableLeaderElection,
 			LeaderElectionID:       "33b8e6ab.kubotal.io",
 			BaseContext:            func() context.Context { return ctx },
+			Cache: cache.Options{
+				DefaultNamespaces: map[string]cache.Config{
+					flags.oidcClientNamespace: {},
+				},
+			},
 		})
 		if err != nil {
 			setupLog.Error(err, "unable to start manager")

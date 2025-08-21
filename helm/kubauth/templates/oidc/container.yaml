@@ -35,7 +35,7 @@ Expand oidc container
     - --dumpExchanges={{ .Values.oidc.dumpExchanges }}
     - --bindAddr={{ .Values.oidc.server.bindAddr }}
     - --bindPort={{ .Values.oidc.server.bindPort }}
-    - --certDir=/tmp/server/cert
+    - --certDir=/cert/server
     - --issuer={{ required "'oidc.issuer' must be defined" .Values.oidc.issuer }}
     - --resources={{ .Values.oidc.server.resourcesFolder }}
     - --postLogoutURL={{ required "'oidc.postLogoutURL' must be defined" .Values.oidc.postLogoutURL }}
@@ -47,6 +47,10 @@ Expand oidc container
     {{-  range .Values.oidc.additionalArgs }}
     - {{ . }}
     {{- end }}
+  ports:
+    - containerPort: {{ .Values.oidc.server.bindPort }}
+      name: oidc
+      protocol: TCP
   {{- if not .Values.oidc.disableProbes }}
   livenessProbe:
     httpGet:
@@ -88,6 +92,11 @@ Expand oidc container
       name: webhooks-certs
       readOnly: true
     {{- end }}
+    {{- if .Values.oidc.server.tls }}
+    - mountPath: /cert/server
+      name: cert-server
+      readOnly: true
+    {{- end }}
 {{- end }}
 
 {{/*
@@ -97,19 +106,17 @@ Expand oidc volumes in pod
 {{- if .Values.oidc.metrics.enabled }}
 - name: metrics-certs
   secret:
-    items:
-      - key: ca.crt
-        path: ca.crt
-      - key: tls.crt
-        path: tls.crt
-      - key: tls.key
-        path: tls.key
-    optional: false
     secretName: {{ include "kubauth.oidc.metrics.secretName" . }}
 {{- end }}
 {{- if .Values.oidc.webhooks.enabled }}
 - name: webhooks-certs
   secret:
     secretName: {{ include "kubauth.oidc.webhooks.secretName" . }}
+{{- end }}
+{{- if .Values.oidc.server.tls }}
+- name: cert-server
+  secret:
+    defaultMode: 420
+    secretName: {{ include "kubauth.oidc.server.certificateSecretName" . }}
 {{- end }}
 {{- end }}

@@ -1,0 +1,71 @@
+{{- if .Values.oidc.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubauth.oidc.server.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+    - port: {{ .Values.oidc.server.bindPort }}
+      name: oidc
+      protocol: TCP
+      targetPort: {{ .Values.oidc.server.bindPort }}
+  selector:
+    {{- include "kubauth.selectorLabels" . | nindent 6 }}
+
+
+{{- if .Values.oidc.metrics.enabled}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubauth.oidc.metrics.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+    - name: https
+      port: {{ .Values.oidc.metrics.bindPort }}
+      protocol: TCP
+      targetPort: {{ .Values.oidc.metrics.bindPort }}
+  selector:
+    {{- include "kubauth.selectorLabels" . | nindent 6 }}
+{{- end }}
+
+
+{{- if .Values.oidc.webhooks.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubauth.oidc.webhooks.serviceName" .}}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: 9443
+  selector:
+    {{- include "kubauth.selectorLabels" . | nindent 6 }}
+
+{{- end }}
+
+{{- end }}

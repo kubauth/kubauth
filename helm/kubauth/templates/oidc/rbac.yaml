@@ -16,7 +16,7 @@ rules:
   - apiGroups:
       - kubauth.kubotal.io
     resources:
-      - oidcClients
+      - oidcclients
     verbs:
       - get
       - list
@@ -62,7 +62,7 @@ rules:
   - apiGroups:
       - kubauth.kubotal.io
     resources:
-      - ssoSessions
+      - ssosessions
     verbs:
       - get
       - list
@@ -94,3 +94,4 @@ subjects:
     namespace: {{ .Release.Namespace }}
 
 {{- end }}
+

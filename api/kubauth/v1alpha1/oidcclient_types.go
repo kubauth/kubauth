@@ -62,9 +62,8 @@ type OidcClientSpec struct {
 	// +default:value=false
 	Public bool `json:"public"`
 
-	// The allowed audience(s) for this client.
 	// +optional
-	Audiences []string `json:"audiences"`
+	Audiences []string `json:"audiences,omitempty"`
 
 	// Where to redirected user on logout.
 	// Will take precedence on the same global configuration value.
@@ -83,6 +82,9 @@ type OidcClientSpec struct {
 	// The application entry URL. May be used to build a user-friendly list
 	// +optional
 	EntryURL string `json:"entryURL,omitempty"`
+
+	// +optional
+	Xxxx []string `json:"xxxx,omitempty"`
 }
 
 // OidcClientStatus defines the observed state of OidcClient.

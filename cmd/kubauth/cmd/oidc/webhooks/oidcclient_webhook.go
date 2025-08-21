@@ -19,10 +19,10 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -31,7 +31,7 @@ import (
 
 // nolint:unused
 // log is for logging in this package.
-var oidcclientlog = logf.Log.WithName("oidcclient-resource")
+// var oidcclientlog = logf.Log.WithName("oidcclient-resource")
 
 // SetupOidcClientWebhookWithManager registers the webhook for OidcClient in the manager.
 func SetupOidcClientWebhookWithManager(mgr ctrl.Manager) error {
@@ -57,13 +57,14 @@ type OidcClientCustomDefaulter struct {
 var _ webhook.CustomDefaulter = &OidcClientCustomDefaulter{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind OidcClient.
-func (d *OidcClientCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
+func (d *OidcClientCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	oidcclient, ok := obj.(*kubautv1alpha1.OidcClient)
 
 	if !ok {
 		return fmt.Errorf("expected an OidcClient object but got %T", obj)
 	}
-	oidcclientlog.Info("Defaulting for OidcClient", "name", oidcclient.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Defaulting for OidcClient", "name", oidcclient.GetName())
 
 	// TODO(user): fill in your defaulting logic.
 
@@ -87,12 +88,13 @@ type OidcClientCustomValidator struct {
 var _ webhook.CustomValidator = &OidcClientCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type OidcClient.
-func (v *OidcClientCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *OidcClientCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	oidcclient, ok := obj.(*kubautv1alpha1.OidcClient)
 	if !ok {
 		return nil, fmt.Errorf("expected a OidcClient object but got %T", obj)
 	}
-	oidcclientlog.Info("Validation for OidcClient upon creation", "name", oidcclient.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for OidcClient upon creation", "name", oidcclient.GetName())
 
 	// TODO(user): fill in your validation logic upon object creation.
 
@@ -100,12 +102,13 @@ func (v *OidcClientCustomValidator) ValidateCreate(_ context.Context, obj runtim
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type OidcClient.
-func (v *OidcClientCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *OidcClientCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oidcclient, ok := newObj.(*kubautv1alpha1.OidcClient)
 	if !ok {
 		return nil, fmt.Errorf("expected a OidcClient object for the newObj but got %T", newObj)
 	}
-	oidcclientlog.Info("Validation for OidcClient upon update", "name", oidcclient.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for OidcClient upon update", "name", oidcclient.GetName())
 
 	// TODO(user): fill in your validation logic upon object update.
 
@@ -118,7 +121,8 @@ func (v *OidcClientCustomValidator) ValidateDelete(ctx context.Context, obj runt
 	if !ok {
 		return nil, fmt.Errorf("expected a OidcClient object but got %T", obj)
 	}
-	oidcclientlog.Info("Validation for OidcClient upon deletion", "name", oidcclient.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for OidcClient upon deletion", "name", oidcclient.GetName())
 
 	// TODO(user): fill in your validation logic upon object deletion.
 

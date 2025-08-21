@@ -194,7 +194,6 @@ spec:
             description: spec defines the desired state of OidcClient
             properties:
               audiences:
-                description: The allowed audience(s) for this client.
                 items:
                   type: string
                 type: array
@@ -245,6 +244,10 @@ spec:
                 type: array
               scopes:
                 description: The scopes this client is allowed to request.
+                items:
+                  type: string
+                type: array
+              xxxx:
                 items:
                   type: string
                 type: array
