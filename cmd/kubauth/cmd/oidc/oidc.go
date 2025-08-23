@@ -17,6 +17,7 @@ import (
 	"kubauth/cmd/kubauth/global"
 	"kubauth/internal/httpclient"
 	"kubauth/internal/httpsrv"
+	"kubauth/internal/k8sapi"
 	"kubauth/internal/misc"
 	"log/slog"
 	"net/http"
@@ -52,6 +53,7 @@ var flags struct {
 	enableHTTP2          bool
 
 	enableWebhook   bool
+	webhookPort     int
 	webhookCertPath string
 	webhookCertName string
 	webhookCertKey  string
@@ -92,6 +94,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", true, "Enable leader election for controller manager. Must be set, as memory storage require a single instance")
 	Cmd.PersistentFlags().BoolVar(&flags.enableHTTP2, "enableHttp2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	Cmd.PersistentFlags().BoolVar(&flags.enableWebhook, "enableWebhook", true, "If set the webhook server will be enabled")
+	Cmd.PersistentFlags().IntVar(&flags.webhookPort, "webhookPort", 9443, "The port webhooks server in bound on.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertPath, "webhookCertPath", "", "The directory that contains the webhook certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertName, "webhookCertName", "tls.crt", "The name of the webhook certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertKey, "webhookCertKey", "tls.key", "The name of the webhook key file.")
@@ -210,6 +213,7 @@ var Cmd = &cobra.Command{
 
 		webhookServer := webhook.NewServer(webhook.Options{
 			TLSOpts: webhookTLSOpts,
+			Port:    flags.webhookPort,
 		})
 
 		// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
@@ -322,13 +326,19 @@ var Cmd = &cobra.Command{
 		}
 
 		// Setup SSO session manager
+		// We need to set up our own dedicated kubeClient, as mgr.GetClient() is dedicated to cache data from oidc client namespace
+		kubeClient, err := k8sapi.GetKubeClientFromConfig(ctrl.GetConfigOrDie(), scheme)
+		if err != nil {
+			setupLog.Error(err, "unable to create kube client")
+			os.Exit(1)
+		}
 
 		// Session manager only for /oauth2/login
 		sm := scsV2.New()
 		// IdleTimeout is meaningless, as this session is cross application
 		//s.SessionManager.IdleTimeout = time.Minute * 10
 		// Use Kubernetes-backed store for SSO sessions
-		sm.Store = sessionstore.NewKubeSsoStore(mgr.GetClient(), flags.ssoNamespace)
+		sm.Store = sessionstore.NewKubeSsoStore(kubeClient, flags.ssoNamespace)
 		sm.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
 		sm.Lifetime = flags.ssoLifetime
 		sm.Cookie.Name = "kubauth_login"

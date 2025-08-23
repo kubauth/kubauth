@@ -1,4 +1,5 @@
 {{- if .Values.oidc.enabled }}
+{{- if .Values.oidc.webhooks.enabled }}
 {{- if not .Values.oidc.webhooks.certificateClusterIssuer }}
 ---
 apiVersion: cert-manager.io/v1
@@ -42,4 +43,5 @@ spec:
 {{- end }}
   secretName: {{ include "kubauth.oidc.webhooks.secretName" . }}
 
+{{- end }}
 {{- end }}

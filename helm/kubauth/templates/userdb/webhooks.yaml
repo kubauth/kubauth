@@ -1,0 +1,157 @@
+{{- if .Values.userdb.enabled }}
+
+{{- if .Values.userdb.webhooks.enabled }}
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "kubauth.userdb.webhooks.mutatingWebhookConfiguration" .}}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kubauth.userdb.webhooks.secretName" . }}
+  {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: {{ include "kubauth.userdb.webhooks.serviceName" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-kubauth-kubotal-io-v1alpha1-group
+    failurePolicy: Fail
+    name: mgroup-v1alpha1.kb.io
+    rules:
+      - apiGroups:
+          - kubauth.kubotal.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - groups
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: {{ include "kubauth.userdb.webhooks.serviceName" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-kubauth-kubotal-io-v1alpha1-groupbinding
+    failurePolicy: Fail
+    name: mgroupbinding-v1alpha1.kb.io
+    rules:
+      - apiGroups:
+          - kubauth.kubotal.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - groupbindings
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: {{ include "kubauth.userdb.webhooks.serviceName" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-kubauth-kubotal-io-v1alpha1-user
+    failurePolicy: Fail
+    name: muser-v1alpha1.kb.io
+    rules:
+      - apiGroups:
+          - kubauth.kubotal.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - users
+    sideEffects: None
+
+
+    
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "kubauth.userdb.webhooks.validatingWebhookConfiguration" .}}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kubauth.userdb.webhooks.secretName" . }}
+  {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}  
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name:  {{ include "kubauth.userdb.webhooks.serviceName" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-kubauth-kubotal-io-v1alpha1-group
+    failurePolicy: Fail
+    name: vgroup-v1alpha1.kb.io
+    rules:
+      - apiGroups:
+          - kubauth.kubotal.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - groups
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name:  {{ include "kubauth.userdb.webhooks.serviceName" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-kubauth-kubotal-io-v1alpha1-groupbinding
+    failurePolicy: Fail
+    name: vgroupbinding-v1alpha1.kb.io
+    rules:
+      - apiGroups:
+          - kubauth.kubotal.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - groupbindings
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name:  {{ include "kubauth.userdb.webhooks.serviceName" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-kubauth-kubotal-io-v1alpha1-user
+    failurePolicy: Fail
+    name: vuser-v1alpha1.kb.io
+    rules:
+      - apiGroups:
+          - kubauth.kubotal.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - users
+    sideEffects: None
+
+{{- end }}
+{{- end }}
+

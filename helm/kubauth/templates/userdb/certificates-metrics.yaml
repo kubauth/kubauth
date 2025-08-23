@@ -1,0 +1,49 @@
+{{- if .Values.userdb.enabled }}
+
+{{- if  .Values.userdb.metrics.enabled }}
+
+{{- if not .Values.userdb.metrics.certificateClusterIssuer }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "kubauth.userdb.metrics.certificateSelfSignedIssuerName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selfSigned: {}
+{{- end }}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kubauth.userdb.metrics.certificateName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  dnsNames:
+    - {{ include "kubauth.userdb.metrics.serviceName" . }}.{{ .Release.Namespace }}.svc
+    - {{ include "kubauth.userdb.metrics.serviceName" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+{{- if not .Values.userdb.metrics.certificateClusterIssuer }}
+    kind: Issuer
+    name: {{ include "kubauth.userdb.metrics.certificateSelfSignedIssuerName" . }}
+{{- else }}
+    kind: ClusterIssuer
+    name: {{ .Values.userdb.metrics.certificateClusterIssuer }}
+{{- end }}
+  secretName: {{ include "kubauth.userdb.metrics.secretName" . }}
+
+{{- end }}
+{{- end }}

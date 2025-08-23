@@ -1,7 +1,7 @@
 
 {{- if .Values.oidc.enabled }}
 
-{{- if.Values.oidc.webhooks.enabled }}
+{{- if .Values.oidc.webhooks.enabled }}
 
 ---
 apiVersion: admissionregistration.k8s.io/v1

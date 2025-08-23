@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -20,16 +21,20 @@ import (
 	"os"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"strings"
 )
 
 var flags struct {
-	logConfig  misc.LogConfig
+	logConfig    misc.LogConfig
+	displayFlags bool
+
 	HttpConfig httpsrv.Config
 
 	probeAddr            string
@@ -37,6 +42,7 @@ var flags struct {
 	enableHTTP2          bool
 
 	enableWebhook   bool
+	webhookPort     int
 	webhookCertPath string
 	webhookCertName string
 	webhookCertKey  string
@@ -47,7 +53,7 @@ var flags struct {
 	metricsCertName string
 	metricsCertKey  string
 
-	userNamespace string
+	usersNamespace string
 }
 
 var (
@@ -57,11 +63,13 @@ var (
 func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Mode, "logMode", "", "text", "Log mode (dev or json)")
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
+	Cmd.PersistentFlags().BoolVar(&flags.displayFlags, "displayFlags", true, "Dump flags values")
 
 	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8210", "The address the probe endpoint binds to.")
 	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", false, "Enable leader election. Should be false, as we are stateless")
 	Cmd.PersistentFlags().BoolVar(&flags.enableHTTP2, "enableHttp2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	Cmd.PersistentFlags().BoolVar(&flags.enableWebhook, "enableWebhook", true, "If set the webhook server will be enabled")
+	Cmd.PersistentFlags().IntVar(&flags.webhookPort, "webhookPort", 9443, "The port webhooks server in bound on.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertPath, "webhookCertPath", "", "The directory that contains the webhook certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertName, "webhookCertName", "tls.crt", "The name of the webhook certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertKey, "webhookCertKey", "tls.key", "The name of the webhook key file.")
@@ -70,14 +78,17 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertPath, "metricsCertPath", "", "The directory that contains the metrics server certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertName, "metricsCertName", "tls.crt", "The name of the metrics server certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertKey, "metricsCertKey", "tls.key", "The name of the metrics server key file.")
-	Cmd.PersistentFlags().StringVar(&flags.userNamespace, "userNamespace", "", "The namespace hosting users and groups resources.")
+
+	Cmd.PersistentFlags().StringVar(&flags.usersNamespace, "usersNamespace", "", "The namespace hosting users and groups resources.")
 
 	// userdb server config
 	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.Tls, "tls", "t", false, "enable TLS")
-	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.DumpExchanges, "dumpExchange", "", false, "Dump http server req/resp in DEBUG mode")
+	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.DumpExchanges, "dumpExchanges", "", false, "Dump http server req/resp in DEBUG mode")
 	Cmd.PersistentFlags().StringVarP(&flags.HttpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
 	Cmd.PersistentFlags().IntVarP(&flags.HttpConfig.BindPort, "bindPort", "p", 8201, "Bind port")
 	Cmd.PersistentFlags().StringVarP(&flags.HttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&flags.HttpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&flags.HttpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
 	//Cmd.PersistentFlags().StringArrayVarP(&config.Conf.HttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -101,9 +112,15 @@ var Cmd = &cobra.Command{
 		setupLog := ctrl.Log.WithName("setup")
 
 		logger.Info("Starting User DB Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
-
-		if flags.userNamespace == "" {
-			setupLog.Error(nil, "userNamespace must be specified and non null")
+		if flags.displayFlags {
+			sb := new(strings.Builder)
+			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+				_, _ = fmt.Fprintf(sb, "--%s=%q\n", f.Name, f.Value)
+			})
+			fmt.Printf("Flags:\n%s", sb.String())
+		}
+		if flags.usersNamespace == "" {
+			setupLog.Error(nil, "usersNamespace must be specified and non null")
 			os.Exit(1)
 		}
 
@@ -153,6 +170,7 @@ var Cmd = &cobra.Command{
 
 		webhookServer := webhook.NewServer(webhook.Options{
 			TLSOpts: webhookTLSOpts,
+			Port:    flags.webhookPort,
 		})
 
 		// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
@@ -205,6 +223,11 @@ var Cmd = &cobra.Command{
 			LeaderElection:         flags.enableLeaderElection,
 			LeaderElectionID:       "33b8e6ab.kubotal.io",
 			BaseContext:            func() context.Context { return ctx },
+			Cache: cache.Options{
+				DefaultNamespaces: map[string]cache.Config{
+					flags.usersNamespace: {},
+				},
+			},
 		})
 		if err != nil {
 			setupLog.Error(err, "unable to start manager")
@@ -254,7 +277,7 @@ var Cmd = &cobra.Command{
 
 		// ---------------------- Setup our user identity server
 		router := http.NewServeMux()
-		router.Handle("/v1/identity", handlers.IdentityHandler(mgr.GetClient(), flags.userNamespace))
+		router.Handle("/v1/identity", handlers.IdentityHandler(mgr.GetClient(), flags.usersNamespace))
 		server := httpsrv.New("userIdSrv", &flags.HttpConfig, router)
 		err = mgr.Add(server)
 		if err != nil {

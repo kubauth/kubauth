@@ -1,9 +1,11 @@
-{{- if .Values.oidc.enabled }}
+{{- if .Values.userdb.enabled }}
+
+{{- if .Values.userdb.server.service.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kubauth.oidc.server.serviceName" . }}
+  name: {{ include "kubauth.userdb.server.serviceName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
@@ -14,19 +16,19 @@ metadata:
 spec:
   ports:
     - port: 443
-      name: oidc
+      name: userdb
       protocol: TCP
-      targetPort: {{ .Values.oidc.server.bindPort }}
+      targetPort: {{ .Values.userdb.server.bindPort }}
   selector:
     {{- include "kubauth.selectorLabels" . | nindent 6 }}
+{{- end }}
 
-
-{{- if .Values.oidc.metrics.enabled}}
+{{- if .Values.userdb.metrics.enabled}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kubauth.oidc.metrics.serviceName" . }}
+  name: {{ include "kubauth.userdb.metrics.serviceName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
@@ -37,20 +39,20 @@ metadata:
 spec:
   ports:
     - name: https
-      port: {{ .Values.oidc.metrics.bindPort }}
+      port: {{ .Values.userdb.metrics.bindPort }}
       protocol: TCP
-      targetPort: {{ .Values.oidc.metrics.bindPort }}
+      targetPort: {{ .Values.userdb.metrics.bindPort }}
   selector:
     {{- include "kubauth.selectorLabels" . | nindent 6 }}
 {{- end }}
 
 
-{{- if .Values.oidc.webhooks.enabled }}
+{{- if .Values.userdb.webhooks.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kubauth.oidc.webhooks.serviceName" .}}
+  name: {{ include "kubauth.userdb.webhooks.serviceName" .}}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
@@ -62,7 +64,7 @@ spec:
   ports:
     - port: 443
       protocol: TCP
-      targetPort: {{ .Values.oidc.webhooks.port }}
+      targetPort: {{ .Values.userdb.webhooks.port }}
   selector:
     {{- include "kubauth.selectorLabels" . | nindent 6 }}
 

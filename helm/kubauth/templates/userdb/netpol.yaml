@@ -1,15 +1,15 @@
-{{- if .Values.oidc.enabled }}
-{{- if .Values.oidc.networkPolicies.enabled }}
+{{- if .Values.userdb.enabled }}
+{{- if .Values.userdb.networkPolicies.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "kubauth.oidc.networkPolicyName" .}}
+  name: {{ include "kubauth.userdb.networkPolicyName" .}}
   namespace: {{ .Release.Namespace }}
 spec:
   ingress:
     - from:
-      {{ if  eq .Values.oidc.ingress.class "nginx" }}
+      {{ if  eq .Values.userdb.ingress.class "nginx" }}
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
@@ -17,7 +17,7 @@ spec:
         {{- fail "Unmanaged ingress class" }}
       {{ end }}
       ports:
-        - port: {{ .Values.oidc.server.bindPort }}
+        - port: {{ .Values.userdb.server.bindPort }}
           protocol: TCP
   podSelector:
     matchLabels:

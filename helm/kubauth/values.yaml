@@ -55,6 +55,15 @@ roleName:
 oidc:
   enabled: true
 
+  # Allow to change some logger configuration
+  logger:
+    mode: json  # "Log mode (dev or json)
+    level: debug # Log level(DEBUG, INFO, WARN, ERROR)
+  # Dump all http server req/resp
+  dumpExchanges: false
+  # Display all command line flags on boot
+  displayFlags: true
+
   # Where to store OidcClient resources.
   clients:
     createNamespace: true
@@ -83,8 +92,9 @@ oidc:
     enabled: true
     class: nginx  # Only nginx currently supported
     host: # TBD
-    networkPolicy:
-      enabled: false
+
+  networkPolicies:
+    enabled: false
 
   sso:
     createNamespace: true
@@ -107,17 +117,8 @@ oidc:
     tag:
     pullPolicy: IfNotPresent
 
-  # Allow to change some logger configuration
-  logger:
-    mode: json  # "Log mode (dev or json)
-    level: info # Log level(DEBUG, INFO, WARN, ERROR)
-  # Dump all http server req/resp
-  dumpExchanges: false
-  # Display all command line flags on boot
-  displayFlags: true
-
   # The address the probe endpoint binds to.
-  healthProbeBindPort: 8110
+  healthProbeBindPort: 8111
   disableProbes: false
 
   resources:
@@ -136,7 +137,7 @@ oidc:
 
   metrics:
     enabled: false
-    bindPort: 8443
+    bindPort: 8444
     secured: false  # Set both TLS and client auth (see https://book.kubebuilder.io/reference/metrics)
     # This will be used to validate communication with the metrics endpoint
     # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
@@ -156,6 +157,7 @@ oidc:
 
   webhooks:
     enabled: true
+    port: 9444
 
     # This will be used to validate communication between the API server and this webhook server
     # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
@@ -182,10 +184,113 @@ oidc:
   networkPolicyName:
 
 userdb:
-  enabled: false
+  enabled: true
+
+  namespace: kubauth-users
+  createNamespace: true
+
+  # Allow to change some logger configuration
+  logger:
+    mode: json  # "Log mode (dev or json)
+    level: info # Log level(DEBUG, INFO, WARN, ERROR)
+  # Dump all http server req/resp
+  dumpExchanges: false
+  # Display all command line flags on boot
+  displayFlags: true
+
   image:
     repository: quay.io/kubauth/kubauth
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
 
+  server:
+    tls: false
+    bindAddr: "0.0.0.0"
+    bindPort:  8101
+    certificateIssuer: # TBD
+    issuerKind: ClusterIssuer
+
+    # Default to {{ include "kubauth.baseName" .}}-userdb-server
+    certificateName:
+    # Default to {{ include "kubauth.baseName" .}}-userdb-server-cert
+    certificateSecretName:
+    # Default to {{ include "kubauth.baseName" .}}-userdb-server
+    serviceName:
+
+    service:
+      enabled: false
+
+  ingress:
+    enabled: false
+    class: nginx  # Only nginx currently supported
+    host: # TBD
+
+  networkPolicies:
+    enabled: false
+
+  # The address the probe endpoint binds to.
+  healthProbeBindPort: 8112
+  disableProbes: false
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+  extraEnv:
+  additionalArgs: []
+
+  # Container specific securityContext
+  securityContext:
+
+  metrics:
+    enabled: false
+    bindPort: 8445
+    secured: false  # Set both TLS and client auth (see https://book.kubebuilder.io/reference/metrics)
+    # This will be used to validate communication with the metrics endpoint
+    # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
+    certificateClusterIssuer:
+    serviceMonitor:
+      enabled: false
+      name:  # -- Will default to {{ include "kubauth.baseName" . }}-oidc
+
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    serviceName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    certificateName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    secretName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    certificateSelfSignedIssuerName:
+
+  webhooks:
+    enabled: true
+    port: 9445
+
+    # This will be used to validate communication between the API server and this webhook server
+    # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
+    certificateClusterIssuer:
+
+    # Following will allow a renaming of kubauth webhook related kubernetes resources
+    # Leave it empty to use default values will works in most cases
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    serviceName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    certificateName:
+    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    secretName:
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-webhook
+    certificateSelfSignedIssuerName:
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-validating-webhook-configuration
+    validatingWebhookConfiguration:
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-mutating-webhook-configuration
+    mutatingWebhookConfiguration:
+
+  # Default to {{ include "kubauth.baseName" .}}-oidc
+  ingressName:
+  # Default to {{ include "kubauth.baseName" .}}-oidc
+  networkPolicyName:

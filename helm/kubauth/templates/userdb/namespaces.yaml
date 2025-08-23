@@ -1,0 +1,18 @@
+{{- if .Values.userdb.enabled }}
+{{- if .Values.userdb.createNamespace }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.userdb.namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec: {}
+{{- end }}
+{{- end }}
+
+

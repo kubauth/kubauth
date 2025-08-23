@@ -1,15 +1,15 @@
-{{ if .Values.oidc.enabled }}
-{{ if .Values.oidc.ingress.enabled }}
-{{ if  eq .Values.oidc.ingress.class "nginx" }}
+{{ if .Values.userdb.enabled }}
+{{ if .Values.userdb.ingress.enabled }}
+{{ if  eq .Values.userdb.ingress.class "nginx" }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "kubauth.oidc.ingressName" . }}
+  name: {{ include "kubauth.userdb.ingressName" . }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   annotations:
-  {{ if .Values.oidc.server.tls }}
+  {{ if .Values.userdb.server.tls }}
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
   {{ end }}
   {{- with .Values.commonAnnotations }}
@@ -18,12 +18,12 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: {{ required "ingress.host must be defined!" .Values.oidc.ingress.host }}
+    - host: {{ required "ingress.host must be defined!" .Values.userdb.ingress.host }}
       http:
         paths:
           - backend:
               service:
-                name: {{ include "kubauth.oidc.server.serviceName" . }}
+                name: {{ include "kubauth.userdb.server.serviceName" . }}
                 port:
                   number: 443
             path: /

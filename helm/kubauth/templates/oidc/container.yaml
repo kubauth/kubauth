@@ -15,6 +15,7 @@ Expand oidc container
     - --leaderElect={{ ne .Values.replicaCount 1.0 }}
     - --enableWebhook={{ .Values.oidc.webhooks.enabled }}
     {{- if .Values.oidc.webhooks.enabled }}
+    - --webhookPort={{ .Values.oidc.webhooks.port }}
     - --webhookCertPath=/tmp/k8s-webhooks-server/serving-certs
     - --webhookCertName=tls.crt
     - --webhookCertKey=tls.key
@@ -44,6 +45,8 @@ Expand oidc container
     - --ssoLifetime={{ .Values.oidc.sso.lifeTime }}
     - --cleanupPeriod={{ .Values.oidc.sso.cleanupPeriod }}
     - --idpBaseURL={{ .Values.oidc.idp.baseURL }}
+    - --idpRootCAPath={{ .Values.oidc.idp.rootCAPath }}
+    - --idpInsecureSkipVerify={{ .Values.oidc.idp.insecureSkipVerify }}
     {{-  range .Values.oidc.additionalArgs }}
     - {{ . }}
     {{- end }}
@@ -51,6 +54,16 @@ Expand oidc container
     - containerPort: {{ .Values.oidc.server.bindPort }}
       name: oidc
       protocol: TCP
+    {{- if .Values.oidc.metrics.enabled }}
+    - containerPort: {{ .Values.oidc.metrics.bindPort }}
+      name: metrics
+      protocol: TCP
+    {{- end }}
+    {{- if .Values.oidc.webhooks.enabled }}
+    - containerPort: {{ .Values.oidc.webhooks.port }}
+      name: webhook
+      protocol: TCP
+    {{- end }}
   {{- if not .Values.oidc.disableProbes }}
   livenessProbe:
     httpGet:

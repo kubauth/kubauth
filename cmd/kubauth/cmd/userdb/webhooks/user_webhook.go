@@ -19,19 +19,15 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 )
-
-// nolint:unused
-// log is for logging in this package.
-var userlog = logf.Log.WithName("user-resource")
 
 // SetupUserWebhookWithManager registers the webhook for User in the manager.
 func SetupUserWebhookWithManager(mgr ctrl.Manager) error {
@@ -57,13 +53,14 @@ type UserCustomDefaulter struct {
 var _ webhook.CustomDefaulter = &UserCustomDefaulter{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind User.
-func (d *UserCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
+func (d *UserCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	user, ok := obj.(*kubauthv1alpha1.User)
 
 	if !ok {
 		return fmt.Errorf("expected an User object but got %T", obj)
 	}
-	userlog.Info("Defaulting for User", "name", user.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Defaulting for User", "name", user.GetName())
 
 	// TODO(user): fill in your defaulting logic.
 
@@ -87,12 +84,13 @@ type UserCustomValidator struct {
 var _ webhook.CustomValidator = &UserCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type User.
-func (v *UserCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *UserCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	user, ok := obj.(*kubauthv1alpha1.User)
 	if !ok {
 		return nil, fmt.Errorf("expected a User object but got %T", obj)
 	}
-	userlog.Info("Validation for User upon creation", "name", user.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for User upon creation", "name", user.GetName())
 
 	// TODO(user): fill in your validation logic upon object creation.
 
@@ -100,12 +98,13 @@ func (v *UserCustomValidator) ValidateCreate(_ context.Context, obj runtime.Obje
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type User.
-func (v *UserCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *UserCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	user, ok := newObj.(*kubauthv1alpha1.User)
 	if !ok {
 		return nil, fmt.Errorf("expected a User object for the newObj but got %T", newObj)
 	}
-	userlog.Info("Validation for User upon update", "name", user.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for User upon update", "name", user.GetName())
 
 	// TODO(user): fill in your validation logic upon object update.
 
@@ -118,7 +117,8 @@ func (v *UserCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Ob
 	if !ok {
 		return nil, fmt.Errorf("expected a User object but got %T", obj)
 	}
-	userlog.Info("Validation for User upon deletion", "name", user.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for User upon deletion", "name", user.GetName())
 
 	// TODO(user): fill in your validation logic upon object deletion.
 

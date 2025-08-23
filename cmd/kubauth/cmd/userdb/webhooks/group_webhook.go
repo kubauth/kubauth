@@ -19,19 +19,15 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 )
-
-// nolint:unused
-// log is for logging in this package.
-var groupLog = logf.Log.WithName("group-resource")
 
 // SetupGroupWebhookWithManager registers the webhook for Group in the manager.
 func SetupGroupWebhookWithManager(mgr ctrl.Manager) error {
@@ -57,13 +53,14 @@ type GroupCustomDefaulter struct {
 var _ webhook.CustomDefaulter = &GroupCustomDefaulter{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Group.
-func (d *GroupCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
+func (d *GroupCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	group, ok := obj.(*kubauthv1alpha1.Group)
 
 	if !ok {
 		return fmt.Errorf("expected an Group object but got %T", obj)
 	}
-	groupLog.Info("Defaulting for Group", "name", group.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Defaulting for Group", "name", group.GetName())
 
 	// TODO(user): fill in your defaulting logic.
 
@@ -87,12 +84,13 @@ type GroupCustomValidator struct {
 var _ webhook.CustomValidator = &GroupCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Group.
-func (v *GroupCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *GroupCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	group, ok := obj.(*kubauthv1alpha1.Group)
 	if !ok {
 		return nil, fmt.Errorf("expected a Group object but got %T", obj)
 	}
-	groupLog.Info("Validation for Group upon creation", "name", group.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for Group upon creation", "name", group.GetName())
 
 	// TODO(user): fill in your validation logic upon object creation.
 
@@ -100,12 +98,13 @@ func (v *GroupCustomValidator) ValidateCreate(_ context.Context, obj runtime.Obj
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Group.
-func (v *GroupCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *GroupCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	group, ok := newObj.(*kubauthv1alpha1.Group)
 	if !ok {
 		return nil, fmt.Errorf("expected a Group object for the newObj but got %T", newObj)
 	}
-	groupLog.Info("Validation for Group upon update", "name", group.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for Group upon update", "name", group.GetName())
 
 	// TODO(user): fill in your validation logic upon object update.
 
@@ -118,7 +117,8 @@ func (v *GroupCustomValidator) ValidateDelete(ctx context.Context, obj runtime.O
 	if !ok {
 		return nil, fmt.Errorf("expected a Group object but got %T", obj)
 	}
-	groupLog.Info("Validation for Group upon deletion", "name", group.GetName())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	logger.Debug("Validation for Group upon deletion", "name", group.GetName())
 
 	// TODO(user): fill in your validation logic upon object deletion.
 
