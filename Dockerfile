@@ -1,3 +1,5 @@
+ARG RUNTIME_BASE=gcr.io/distroless/static:nonroot
+
 # Build the manager binary
 FROM --platform=$BUILDPLATFORM docker.io/golang:1.24 AS builder
 ARG TARGETOS
@@ -23,9 +25,9 @@ COPY internal/ internal/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o kubauth cmd/kubauth/main.go
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+# Use a configurable minimal base image to package the manager binary
+# Default to distroless. Override with --build-arg RUNTIME_BASE=ubuntu:22.04, etc.
+FROM ${RUNTIME_BASE}
 WORKDIR /
 COPY --from=builder /workspace/kubauth .
 COPY resources/ resources/

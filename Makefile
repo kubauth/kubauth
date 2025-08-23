@@ -5,6 +5,8 @@ DOCKER_TAG=${APP_VERSION}
 
 IMG ?= quay.io/kubauth/kubauth:${DOCKER_TAG}
 
+IMG_UBUNTU ?= quay.io/kubauth/kubauth:${DOCKER_TAG}-ubuntu
+
 HELM_DOCKER_REPO := quay.io/kubauth/charts
 
 # To authenticate for pushing in quay repo (img) (Use encrypted password):
@@ -106,6 +108,20 @@ docker-build: version ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
+
+
+.PHONY: docker-ubuntu
+docker-ubuntu: version docker-ubuntu-build docker-ubuntu-push  ## Build controller docker image using Ubuntu 22.04  and push
+
+.PHONY: docker-ubuntu-build
+docker-ubuntu-build: version ## Build docker image using Ubuntu 22.04 as base
+	$(CONTAINER_TOOL) build --build-arg RUNTIME_BASE=ubuntu:22.04 -t ${IMG_UBUNTU} .
+
+.PHONY: docker-ubuntu-push
+docker-ubuntu-push: ## Push docker image using Ubuntu 22.04  with the manager.
+	$(CONTAINER_TOOL) push ${IMG_UBUNTU}
+
+
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:

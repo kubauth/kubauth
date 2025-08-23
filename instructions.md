@@ -69,3 +69,7 @@ I got the following error:
 │ o:285","type":"*v1alpha1.OidcClient"}
 The resource is namespaced, and I want to grant access to the controller on the namespace, not cluster width 
 
+
+Modify the Dockerfile to have the base image (currently gcr.io/distroless/static:nonroot) configurable. Set the current value (gcr.io/distroless/static:nonroot) as default value.
+Create a docker-ubuntu entry in the Makefile which build the image with ubuntu 22.04 instead of distroless
+
