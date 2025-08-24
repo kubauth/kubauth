@@ -70,18 +70,22 @@ func (s *KubeSsoStore) Commit(token string, b []byte, expiry time.Time) error {
 // CommitCtx stores or updates the SsoSession resource using provided context.
 func (s *KubeSsoStore) CommitCtx(ctx context.Context, token string, b []byte, expiry time.Time) error {
 	// Decode the envelope to extract mirrored fields
+	logger := logr.FromContextAsSlogLogger(ctx)
 	var env sessionEnvelope
 	if len(b) > 0 {
 		if err := json.Unmarshal(b, &env); err != nil {
 			return err
 		}
 	}
-
 	login, claims, fullName := extractUser(env.Values)
+	if login == "" {
+		// We don't store empty session
+		logger.Debug("No login on SsoSession", "token", token, "encoded", env.Values)
+		return nil
+	}
 	// Upsert SsoSession
 	var existing kubauthv1alpha1.SsoSession
 	name := encodeName(token)
-	logger := logr.FromContextAsSlogLogger(ctx)
 	logger.Debug("Commiting session", "login", login, "claims", claims, "fullName", fullName, "token", token, "expiry", expiry, "encoded", name)
 	key := types.NamespacedName{Namespace: s.namespace, Name: name}
 	err := s.client.Get(ctx, key, &existing)

@@ -82,9 +82,6 @@ type OidcClientSpec struct {
 	// The application entry URL. May be used to build a user-friendly list
 	// +optional
 	EntryURL string `json:"entryURL,omitempty"`
-
-	// +optional
-	Xxxx []string `json:"xxxx,omitempty"`
 }
 
 // OidcClientStatus defines the observed state of OidcClient.

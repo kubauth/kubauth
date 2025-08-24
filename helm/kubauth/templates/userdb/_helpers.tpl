@@ -31,10 +31,10 @@ Create the name of the ingress
 {{- end }}
 
 {{/*
-Create the name of the netpol to allow access
+Create the name of the netpol to allow ingress => service
 */}}
-{{- define "kubauth.userdb.networkPolicyName" -}}
-{{- default (printf "%s-userdb" (include "kubauth.baseName" .)) .Values.userdb.networkPolicyName }}
+{{- define "kubauth.userdb.ingressNetworkPolicyName" -}}
+{{- default (printf "%s-userdb-ingress" (include "kubauth.baseName" .)) .Values.userdb.ingressNetworkPolicyName }}
 {{- end }}
 
 

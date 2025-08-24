@@ -1,0 +1,42 @@
+{{- if .Values.data.enabled}}
+{{- if .Values.data.userdb.enabled }}
+
+{{- range .Values.data.userdb.users }}
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: User
+metadata:
+  name: {{ .login }}
+  namespace: {{ $.Values.userdb.namespace }}
+spec:
+  {{- toYaml .spec | nindent 2 }}
+{{- end }}
+
+
+{{- range .Values.data.userdb.groups }}
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: Group
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.userdb.namespace }}
+spec:
+  {{- toYaml .spec | nindent 2 }}
+{{- end }}
+
+
+{{- range .Values.data.userdb.groupBindings }}
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: GroupBinding
+metadata:
+  name: {{ .group }}-{{ .user }}
+  namespace: kubauth-users
+spec:
+  user: {{ .user }}
+  group: {{ .group }}
+{{- end }}
+
+
+{{- end }}
+{{- end }}

@@ -1,0 +1,20 @@
+{{- if .Values.data.enabled}}
+{{- if .Values.data.oidc.enabled }}
+
+{{- range .Values.data.oidc.oidcClients }}
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.oidc.clients.namespace }}
+spec:
+  {{- toYaml .spec | nindent 2 }}
+{{- end }}
+
+
+
+{{- end }}
+{{- end }}
+
+

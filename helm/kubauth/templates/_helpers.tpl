@@ -61,3 +61,19 @@ Create the name of the associated role
 {{- define "kubauth.roleName" -}}
 {{- default (printf "%s" (include "kubauth.baseName" .)) .Values.roleName }}
 {{- end }}
+
+
+
+{{/*
+Create the name of the netpol to allow communication in the deployment namespace
+*/}}
+{{- define "kubauth.allowIntraNamespacePolicyName" -}}
+{{- default (printf "%s-allow-intra-namespace" (include "kubauth.baseName" .)) .Values.networkPolicies.allowIntraNamespacePolicyName }}
+{{- end }}
+
+{{/*
+Create the name of the netpol to allow to outside
+*/}}
+{{- define "kubauth.allowAllEgressPolicyName" -}}
+{{- default (printf "%s-allow-all-egress" (include "kubauth.baseName" .)) .Values.networkPolicies.allowAllEgressPolicyName }}
+{{- end }}

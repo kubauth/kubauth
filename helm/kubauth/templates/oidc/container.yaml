@@ -110,6 +110,16 @@ Expand oidc container
       name: cert-server
       readOnly: true
     {{- end }}
+    {{- range .Values.oidc.extraVolumes }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+    {{- end }}
+    {{- range .Values.oidc.extraSecrets }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
+
 {{- end }}
 
 {{/*
@@ -131,5 +141,15 @@ Expand oidc volumes in pod
   secret:
     defaultMode: 420
     secretName: {{ include "kubauth.oidc.server.certificateSecretName" . }}
+{{- end }}
+{{- range .Values.oidc.extraVolumes }}
+- name: {{ .name }}
+  persistentVolumeClaim:
+    claimName: {{ .claimName }}
+{{- end }}
+{{- range .Values.oidc.extraSecrets }}
+- name: {{ .name }}
+  secret:
+    secretName: {{ .secretName }}
 {{- end }}
 {{- end }}

@@ -1,10 +1,11 @@
 {{- if .Values.userdb.enabled }}
-{{- if .Values.userdb.networkPolicies.enabled }}
+{{- if .Values.networkPolicies.enabled }}
+{{- if .Values.userdb.ingress.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "kubauth.userdb.networkPolicyName" .}}
+  name: {{ include "kubauth.userdb.ingressNetworkPolicyName" .}}
   namespace: {{ .Release.Namespace }}
 spec:
   ingress:
@@ -24,5 +25,6 @@ spec:
       {{- include "kubauth.selectorLabels" . | nindent 6 }}
   policyTypes:
     - Ingress
+{{- end }}
 {{- end }}
 {{- end }}

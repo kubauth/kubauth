@@ -52,6 +52,23 @@ serviceAccountName:
 # Will default to "kubauth.baseName"
 roleName:
 
+networkPolicies:
+  # If false, no network policy will be defined at all. For system which does not support them.
+  enabled: true
+  # NOTE: There will be network policies in some submodule, to allow ingress => service
+
+  # Following are for special cases. Should be false in usual deployment
+  # Allow all pods communication in deployment namespace. Also allow pod to resolve name using core dns
+  # Set if kubauth modules are spread on several pods
+  allowIntraNamespace: false
+  # Allow outgoing connection from deployment namespaces
+  allowAllEgress: false
+
+  # Default to {{ include "kubauth.baseName" .}}-allow-intra-namespace
+  allowIntraNamespacePolicyName:
+  # Default to {{ include "kubauth.baseName" .}}-allow-all-egress
+  allowAllEgressPolicyName:
+
 oidc:
   enabled: true
 
@@ -93,9 +110,6 @@ oidc:
     class: nginx  # Only nginx currently supported
     host: # TBD
 
-  networkPolicies:
-    enabled: false
-
   sso:
     createNamespace: true
     namespace: kubauth-sso
@@ -131,6 +145,14 @@ oidc:
 
   extraEnv:
   additionalArgs: []
+  extraVolumes: []
+  #   - name:
+  #     mountPath:
+  #     claimName:
+  extraSecrets: []
+  #  - name:
+  #    mountPath:
+  #    secretName:
 
   # Container specific securityContext
   securityContext:
@@ -180,8 +202,9 @@ oidc:
 
   # Default to {{ include "kubauth.baseName" .}}-oidc
   ingressName:
-  # Default to {{ include "kubauth.baseName" .}}-oidc
-  networkPolicyName:
+  # Default to {{ include "kubauth.baseName" .}}-oidc-ingress
+  ingressNetworkPolicyName:
+
 
 userdb:
   enabled: true
@@ -226,9 +249,6 @@ userdb:
     class: nginx  # Only nginx currently supported
     host: # TBD
 
-  networkPolicies:
-    enabled: false
-
   # The address the probe endpoint binds to.
   healthProbeBindPort: 8112
   disableProbes: false
@@ -243,6 +263,15 @@ userdb:
 
   extraEnv:
   additionalArgs: []
+  extraVolumes: []
+  #   - name:
+  #     mountPath:
+  #     claimName:
+  extraSecrets: []
+  #  - name:
+  #    mountPath:
+  #    secretName:
+
 
   # Container specific securityContext
   securityContext:
@@ -256,15 +285,15 @@ userdb:
     certificateClusterIssuer:
     serviceMonitor:
       enabled: false
-      name:  # -- Will default to {{ include "kubauth.baseName" . }}-oidc
+      name:  # -- Will default to {{ include "kubauth.baseName" . }}-userdb
 
-    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-metrics
     serviceName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-metrics
     certificateName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-metrics
     secretName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-metrics
+    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-metrics
     certificateSelfSignedIssuerName:
 
   webhooks:
@@ -277,20 +306,66 @@ userdb:
 
     # Following will allow a renaming of kubauth webhook related kubernetes resources
     # Leave it empty to use default values will works in most cases
-    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-webhook
     serviceName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-webhook
     certificateName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
+    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-webhook
     secretName:
-    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-webhook
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-userdb-webhook
     certificateSelfSignedIssuerName:
-    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-validating-webhook-configuration
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-userdb-validating-webhook-configuration
     validatingWebhookConfiguration:
-    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-mutating-webhook-configuration
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-userdb-mutating-webhook-configuration
     mutatingWebhookConfiguration:
 
-  # Default to {{ include "kubauth.baseName" .}}-oidc
+  # Default to {{ include "kubauth.baseName" .}}-userdb
   ingressName:
-  # Default to {{ include "kubauth.baseName" .}}-oidc
-  networkPolicyName:
+  # Default to {{ include "kubauth.baseName" .}}-userdb-ingress
+  ingressNetworkPolicyName:
+
+
+
+
+data:
+  # Must be false on initial deployment, as webhooks must be ready for data to be deployed
+  enabled: false
+  userdb:
+    enabled: true
+    users: []
+    #  - login: john
+    #    spec:
+    #      passwordHash: "$2a$12$iw.ywr.87sGXAkK1HSIU6OIBTyVs4/at1T7I1ueLPPt9CPxOpkmbW"
+    #      claims:
+    #        job: boss
+    #        email: john@thecompany.com
+    #      commonNames:
+    #        - John THEBOSS
+    #      emails:
+    #        - john@thecompany.com
+    #      comment: The CEO
+    #      disabled: false
+    groupBindings: []
+    #  - user: john
+    #    group: managers
+    #  - user: john
+    #    group: golfPlayers
+    groups: []
+    #  - name: managers
+    #    spec:
+    #      claims:
+    #        access: full
+  oidc:
+    enabled: true
+    oidcClients: []
+    #  - name: example
+    #    spec:
+    #      id: example-app
+    #      hashedSecret: "$2a$12$pxfZs1UOw3y.4IJAOVqG8OIr4n6304Y2QRBefiQpB3AnDGthYF4ba" # // hash of ZXhhbXBsZS1hcHAtc2VjcmV0
+    #      redirectURIs:
+    #        - "http://example.local/callback"
+    #      grantTypes: [ "implicit", "refresh_token", "authorization_code", "password", "client_credentials" ]
+    #      responseTypes: ["id_token", "code", "token", "id_token token", "code id_token", "code token", "code id_token token"]
+    #      scopes: [ "openid", "offline", "profile", "groups", "email"]
+
+
