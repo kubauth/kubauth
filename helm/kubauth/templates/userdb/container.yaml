@@ -83,21 +83,20 @@ Expand userdb container
     {{- with .Values.userdb.securityContext }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  ports:
   volumeMounts:
     {{- if .Values.userdb.metrics.enabled }}
     - mountPath: /tmp/k8s-metrics-server/metrics-certs
-      name: metrics-certs
+      name: userdb-metrics-certs
       readOnly: true
     {{- end }}
     {{- if .Values.userdb.webhooks.enabled }}
     - mountPath: /tmp/k8s-webhooks-server/serving-certs
-      name: webhooks-certs
+      name: userdb-webhooks-certs
       readOnly: true
     {{- end }}
     {{- if .Values.userdb.server.tls }}
     - mountPath: /cert/server
-      name: cert-server
+      name: userdb-cert-server
       readOnly: true
     {{- end }}
     {{- range .Values.userdb.extraVolumes }}
@@ -117,17 +116,17 @@ Expand userdb volumes in pod
 */}}
 {{- define "volumes.userdb" -}}
 {{- if .Values.userdb.metrics.enabled }}
-- name: metrics-certs
+- name: userdb-metrics-certs
   secret:
     secretName: {{ include "kubauth.userdb.metrics.secretName" . }}
 {{- end }}
 {{- if .Values.userdb.webhooks.enabled }}
-- name: webhooks-certs
+- name: userdb-webhooks-certs
   secret:
     secretName: {{ include "kubauth.userdb.webhooks.secretName" . }}
 {{- end }}
 {{- if .Values.userdb.server.tls }}
-- name: cert-server
+- name: userdb-cert-server
   secret:
     defaultMode: 420
     secretName: {{ include "kubauth.userdb.server.certificateSecretName" . }}

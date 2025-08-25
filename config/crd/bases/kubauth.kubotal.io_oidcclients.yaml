@@ -21,8 +21,8 @@ spec:
     - jsonPath: .spec.public
       name: Pub.
       type: boolean
-    - jsonPath: .spec.name
-      name: Name
+    - jsonPath: .spec.displayName
+      name: Display
       type: string
     - jsonPath: .spec.description
       name: Description

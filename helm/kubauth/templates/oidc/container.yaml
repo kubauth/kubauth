@@ -93,21 +93,20 @@ Expand oidc container
     {{- with .Values.oidc.securityContext }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  ports:
   volumeMounts:
     {{- if .Values.oidc.metrics.enabled }}
     - mountPath: /tmp/k8s-metrics-server/metrics-certs
-      name: metrics-certs
+      name: oidc-metrics-certs
       readOnly: true
     {{- end }}
     {{- if .Values.oidc.webhooks.enabled }}
     - mountPath: /tmp/k8s-webhooks-server/serving-certs
-      name: webhooks-certs
+      name: oidc-webhooks-certs
       readOnly: true
     {{- end }}
     {{- if .Values.oidc.server.tls }}
     - mountPath: /cert/server
-      name: cert-server
+      name: oidc-cert-server
       readOnly: true
     {{- end }}
     {{- range .Values.oidc.extraVolumes }}
@@ -127,17 +126,17 @@ Expand oidc volumes in pod
 */}}
 {{- define "volumes.oidc" -}}
 {{- if .Values.oidc.metrics.enabled }}
-- name: metrics-certs
+- name: oidc-metrics-certs
   secret:
     secretName: {{ include "kubauth.oidc.metrics.secretName" . }}
 {{- end }}
 {{- if .Values.oidc.webhooks.enabled }}
-- name: webhooks-certs
+- name: oidc-webhooks-certs
   secret:
     secretName: {{ include "kubauth.oidc.webhooks.secretName" . }}
 {{- end }}
 {{- if .Values.oidc.server.tls }}
-- name: cert-server
+- name: oidc-cert-server
   secret:
     defaultMode: 420
     secretName: {{ include "kubauth.oidc.server.certificateSecretName" . }}

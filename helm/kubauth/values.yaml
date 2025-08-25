@@ -92,7 +92,7 @@ oidc:
   server:
     tls: true
     bindAddr: "0.0.0.0"
-    bindPort:  8101
+    bindPort:  8102
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
 
@@ -120,7 +120,7 @@ oidc:
     roleName:
 
   idp:
-    baseURL: http://localhost:8201
+    baseURL: http://localhost:8101
     # TODO: Refactor this and add a secret for auth
     rootCAPath: # TBD if https.
     insecureSkipVerify: false

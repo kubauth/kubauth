@@ -93,7 +93,7 @@ type OidcClientStatus struct {
 // +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:printcolumn:name="ID",type=string,JSONPath=`.spec.id`
 // +kubebuilder:printcolumn:name="Pub.",type=boolean,JSONPath=`.spec.public`
-// +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name="Display",type=string,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 // +kubebuilder:printcolumn:name="Link",type=string,JSONPath=`.spec.entryURL`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
