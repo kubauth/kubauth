@@ -60,8 +60,6 @@ in index page, sort entries by name and by entryUrl if name are same
 in the login page, add a checkbox, with the label 'Remember me'. Checked by default.
 If unchecked, then do not persist user
 
-----
-
 
 I got the following error:
 {"time":"10:12:16.662","level":"ERROR","msg":"Failed to watch","logger":"controller-runtime/cache/UnhandledError","err":"failed to list *v1alpha1.OidcClient: oidcclients.kubauth.kubotal.io is forbidden: User │
@@ -73,3 +71,4 @@ The resource is namespaced, and I want to grant access to the controller on the 
 Modify the Dockerfile to have the base image (currently gcr.io/distroless/static:nonroot) configurable. Set the current value (gcr.io/distroless/static:nonroot) as default value.
 Create a docker-ubuntu entry in the Makefile which build the image with ubuntu 22.04 instead of distroless
 
+Implements the user info endpoint from the spec (https://openid.net/specs/openid-connect-basic-1_0.html#UserInfo) in cmd/kubauth/cmd/oidc/oidcserver/handle-user-info.go

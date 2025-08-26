@@ -65,11 +65,13 @@ var flags struct {
 	metricsCertKey  string
 
 	// OIDC config
-	oidcClientNamespace string
-	oidcHttpConfig      httpsrv.Config
-	issuer              string
-	resources           string
-	postLogoutURL       string
+	oidcClientNamespace  string
+	oidcHttpConfig       httpsrv.Config
+	issuer               string
+	resources            string
+	postLogoutURL        string
+	accessTokenLifespan  time.Duration
+	refreshTokenLifespan time.Duration
 
 	// SSO Config
 	ssoNamespace  string
@@ -117,6 +119,8 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.issuer, "issuer", "i", "http://localhost:8101", "issuer URL")
 	Cmd.PersistentFlags().StringVar(&flags.resources, "resources", "resources", "resources folders")
 	Cmd.PersistentFlags().StringVar(&flags.postLogoutURL, "postLogoutURL", "", "Where to redirect user on logout (last resort default)")
+	Cmd.PersistentFlags().DurationVar(&flags.accessTokenLifespan, "accessTokenLifespan", time.Hour*1, "AccessToken lifespan")
+	Cmd.PersistentFlags().DurationVar(&flags.refreshTokenLifespan, "refreshTokenLifespan", time.Hour*1, "RefreshToken lifespan")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -379,7 +383,7 @@ var Cmd = &cobra.Command{
 			IndexTemplate:  template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "index.gohtml"))),
 			SessionManager: sm,
 			PostLogoutURL:  flags.postLogoutURL,
-		}).Setup(router)
+		}).Setup(router, flags.accessTokenLifespan, flags.refreshTokenLifespan)
 
 		server := httpsrv.New("oidcSrv", &flags.oidcHttpConfig, router)
 

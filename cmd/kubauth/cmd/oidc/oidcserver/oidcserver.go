@@ -37,7 +37,7 @@ type OIDCServer struct {
 	keyID      string
 }
 
-func (s *OIDCServer) Setup(router *http.ServeMux) {
+func (s *OIDCServer) Setup(router *http.ServeMux, accessTokenLifespan time.Duration, refreshTokenLifespan time.Duration) {
 	var err error
 	// Generate RSA key for JWT signing
 	s.privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
@@ -48,7 +48,8 @@ func (s *OIDCServer) Setup(router *http.ServeMux) {
 
 	// Configure fosite
 	s.config = &fosite.Config{
-		AccessTokenLifespan:   time.Hour,
+		AccessTokenLifespan:   accessTokenLifespan,
+		RefreshTokenLifespan:  refreshTokenLifespan,
 		TokenEntropy:          32,
 		GlobalSecret:          []byte("some-secret-that-is-32-bytes-long"),
 		RefreshTokenScopes:    []string{"offline"},
@@ -100,8 +101,8 @@ func (s *OIDCServer) newSession(user *userdb.User) *openid.DefaultSession {
 		Claims: &jwt.IDTokenClaims{
 			Issuer:      s.Issuer,
 			Subject:     user.Login,
-			Audience:    []string{"https://my-client.my-application.com"},
-			ExpiresAt:   time.Now().Add(time.Hour * 6),
+			Audience:    []string{},
+			ExpiresAt:   time.Now().Add(s.config.AccessTokenLifespan),
 			IssuedAt:    time.Now(),
 			RequestedAt: time.Now(),
 			AuthTime:    time.Now(),
