@@ -53,12 +53,19 @@ func (rw *responseWriter) WriteHeader(code int) {
 var globalExchangeCount int64 = 0
 
 type requestLog struct {
-	Id       int64  `yaml:"id" json:"id"`
-	Method   string `yaml:"method" json:"method"`
-	Path     string `yaml:"path" json:"path"`
-	RawQuery string `yaml:"rawQuery" json:"rawQuery"`
-	BodySize int64  `yaml:"bodySize" json:"bodySize"`
-	Body     string `yaml:"body" json:"body"`
+	Id            int64       `yaml:"id" json:"id"`
+	Method        string      `yaml:"method" json:"method"`
+	Path          string      `yaml:"path" json:"path"`
+	RawQuery      string      `yaml:"rawQuery" json:"rawQuery"`
+	BodySize      int64       `yaml:"bodySize" json:"bodySize"`
+	Body          string      `yaml:"body" json:"body"`
+	RemoteAddr    string      `yaml:"remoteAddr" json:"remoteAddr"`
+	UserAgent     string      `yaml:"userAgent" json:"userAgent"`
+	Referer       string      `yaml:"referer" json:"referer"`
+	Host          string      `yaml:"host" json:"host"`
+	ContentType   string      `yaml:"contentType" json:"contentType"`
+	ContentLength int64       `yaml:"contentLength" json:"contentLength"`
+	Header        http.Header `yaml:"header" json:"header"`
 }
 
 type responseLog struct {
@@ -94,24 +101,31 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
 				slog.String("raw_query", r.URL.RawQuery),
-				//slog.String("remote_addr", r.RemoteAddr),
-				//slog.String("user_agent", r.UserAgent()),
-				//slog.String("host", r.Host),
-				//slog.String("referer", r.Referer()),
-				//slog.Int64("content_length", r.ContentLength),
+				slog.String("remote_addr", r.RemoteAddr),
+				slog.String("user_agent", r.UserAgent()),
+				slog.String("host", r.Host),
+				slog.String("referer", r.Referer()),
+				slog.Int64("content_length", r.ContentLength),
 				slog.Int64("request_body_size", requestBodySize),
-				//slog.String("content_type", r.Header.Get("Content-Type")),
-				//slog.Any("request_headers", r.Header),
+				slog.String("content_type", r.Header.Get("Content-Type")),
+				slog.Any("request_headers", r.Header),
 				slog.String("request_body", getSafeBodyString(requestBody)),
 			)
 		}
 		reqLog := &requestLog{
-			Id:       atomic.AddInt64(&globalExchangeCount, 1),
-			Method:   r.Method,
-			Path:     r.URL.Path,
-			RawQuery: r.URL.RawQuery,
-			BodySize: requestBodySize,
-			Body:     getSafeBodyString(requestBody),
+			Id:            atomic.AddInt64(&globalExchangeCount, 1),
+			Method:        r.Method,
+			Path:          r.URL.Path,
+			RawQuery:      r.URL.RawQuery,
+			BodySize:      requestBodySize,
+			Body:          getSafeBodyString(requestBody),
+			RemoteAddr:    r.RemoteAddr,
+			UserAgent:     r.UserAgent(),
+			Referer:       r.Referer(),
+			Host:          r.Host,
+			ContentType:   r.Header.Get("Content-Type"),
+			ContentLength: r.ContentLength,
+			Header:        r.Header,
 		}
 		//reqYaml, err := yaml.Marshal(reqLog)
 		//if err != nil {

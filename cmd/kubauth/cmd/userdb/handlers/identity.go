@@ -75,7 +75,7 @@ func getIdentity(ctx context.Context, request proto.IdentityRequest, k8sClient c
 			groupsClaims[idx] = binding.Spec.Group
 		}
 		responsePayload.Claims = map[string]interface{}{"groups": groupsClaims}
-		// Now, handle groups themselves
+		// Now, handle claims hosted in groups
 		responsePayload.Groups = make([]string, 0, len(list.Items))
 		for _, binding := range list.Items {
 			responsePayload.Groups = append(responsePayload.Groups, binding.Spec.Group)
@@ -106,9 +106,11 @@ func getIdentity(ctx context.Context, request proto.IdentityRequest, k8sClient c
 	}
 	if len(usr.Spec.CommonNames) > 0 { // Avoid copying a nil
 		responsePayload.CommonNames = usr.Spec.CommonNames
+		responsePayload.Claims["name"] = usr.Spec.CommonNames[0]
 	}
 	if len(usr.Spec.Emails) > 0 { // Avoid copying a nil
 		responsePayload.Emails = usr.Spec.Emails
+		responsePayload.Claims["email"] = usr.Spec.Emails[0]
 	}
 	// --------- Handle claims
 	responsePayload.Claims, err = merge(responsePayload.Claims, usr.Spec.Claims)
