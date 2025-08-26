@@ -9,6 +9,8 @@ Dockerfile.cross
 tmp
 dist
 
+.DS_Store
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -27,3 +29,4 @@ go.work
 *.swp
 *.swo
 *~
+

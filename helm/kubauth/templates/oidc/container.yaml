@@ -38,6 +38,8 @@ Expand oidc container
     - --bindPort={{ .Values.oidc.server.bindPort }}
     - --certDir=/cert/server
     - --issuer={{ required "'oidc.issuer' must be defined" .Values.oidc.issuer }}
+    - --jwtKeySecretName={{ include "kubauth.oidc.jwtSigningKeySecretName" . }}
+    - --jwtKeySecretNamespace={{ .Release.Namespace }}
     - --resources={{ .Values.oidc.server.resourcesFolder }}
     - --postLogoutURL={{ required "'oidc.postLogoutURL' must be defined" .Values.oidc.postLogoutURL }}
     - --ssoNamespace={{ .Values.oidc.sso.namespace }}

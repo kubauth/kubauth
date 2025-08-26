@@ -37,6 +37,13 @@ Create the name of the netpol to allow access ingrss => service
 {{- default (printf "%s-oidc-ingress" (include "kubauth.baseName" .)) .Values.oidc.ingressNetworkPolicyName }}
 {{- end }}
 
+{{/*
+Create the name of the secret storing the JWT signing keu
+*/}}
+{{- define "kubauth.oidc.jwtSigningKeySecretName" -}}
+{{- default (printf "%s-oidc-jwt-key" (include "kubauth.baseName" .)) .Values.oidc.jwtSigningKeySecretName }}
+{{- end }}
+
 
 
 {{/* --------------------------------------------------------------------- metrics */}}
@@ -136,4 +143,11 @@ Create the name of the SsoSession access role
 */}}
 {{- define "kubauth.oidc.ssoRoleName" -}}
 {{- default (printf "%s-oidc-sso" (include "kubauth.baseName" .)) .Values.oidc.sso.roleName }}
+{{- end }}
+
+{{/*
+Create the name of the JwtKeySecret access role
+*/}}
+{{- define "kubauth.oidc.jwtSecretRoleName" -}}
+{{- default (printf "%s-oidc-jwt-secret" (include "kubauth.baseName" .)) .Values.oidc.jwtSecretRoleName }}
 {{- end }}

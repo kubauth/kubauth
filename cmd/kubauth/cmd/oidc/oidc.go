@@ -24,9 +24,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	scsV2 "github.com/alexedwards/scs/v2"
 	"github.com/spf13/pflag"
@@ -65,13 +66,15 @@ var flags struct {
 	metricsCertKey  string
 
 	// OIDC config
-	oidcClientNamespace  string
-	oidcHttpConfig       httpsrv.Config
-	issuer               string
-	resources            string
-	postLogoutURL        string
-	accessTokenLifespan  time.Duration
-	refreshTokenLifespan time.Duration
+	oidcClientNamespace   string
+	oidcHttpConfig        httpsrv.Config
+	issuer                string
+	resources             string
+	postLogoutURL         string
+	accessTokenLifespan   time.Duration
+	refreshTokenLifespan  time.Duration
+	jwtKeySecretName      string
+	jwtKeySecretNamespace string
 
 	// SSO Config
 	ssoNamespace  string
@@ -121,6 +124,8 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.postLogoutURL, "postLogoutURL", "", "Where to redirect user on logout (last resort default)")
 	Cmd.PersistentFlags().DurationVar(&flags.accessTokenLifespan, "accessTokenLifespan", time.Hour*1, "AccessToken lifespan")
 	Cmd.PersistentFlags().DurationVar(&flags.refreshTokenLifespan, "refreshTokenLifespan", time.Hour*1, "RefreshToken lifespan")
+	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretName, "jwtKeySecretName", "jwt-signing-key", "The secret name storing the JWT signing key")
+	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretNamespace, "jwtKeySecretNamespace", "", "The namespace to store the secret hosting the JWT signing key")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -172,6 +177,10 @@ var Cmd = &cobra.Command{
 		}
 		if flags.postLogoutURL == "" {
 			setupLog.Error(nil, "postLogoutURL must be specified and non null")
+			os.Exit(1)
+		}
+		if flags.jwtKeySecretNamespace == "" {
+			setupLog.Error(nil, "jwtKeySecretNamespace must be specified and non null")
 			os.Exit(1)
 		}
 
@@ -374,16 +383,25 @@ var Cmd = &cobra.Command{
 		}
 		//userDb := memory.NewUserDb()
 
-		(&oidcserver.OIDCServer{
-			Issuer:         flags.issuer,
-			Storage:        storage,
-			UserDb:         userDb,
-			Resources:      flags.resources,
-			LoginTemplate:  template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "login.gohtml"))),
-			IndexTemplate:  template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "index.gohtml"))),
-			SessionManager: sm,
-			PostLogoutURL:  flags.postLogoutURL,
-		}).Setup(router, flags.accessTokenLifespan, flags.refreshTokenLifespan)
+		err = (&oidcserver.OIDCServer{
+			Issuer:                  flags.issuer,
+			Storage:                 storage,
+			UserDb:                  userDb,
+			Resources:               flags.resources,
+			LoginTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "login.gohtml"))),
+			IndexTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "index.gohtml"))),
+			SessionManager:          sm,
+			PostLogoutURL:           flags.postLogoutURL,
+			KubeClient:              kubeClient,
+			JWTSigningKeySecretName: flags.jwtKeySecretName,
+			JWTSigningKeySecretNS:   flags.jwtKeySecretNamespace,
+			AccessTokenLifespan:     flags.accessTokenLifespan,
+			RefreshTokenLifespan:    flags.refreshTokenLifespan,
+		}).Setup(ctx, router)
+		if err != nil {
+			setupLog.Error(err, "unable to setup oidc server")
+			os.Exit(1)
+		}
 
 		server := httpsrv.New("oidcSrv", &flags.oidcHttpConfig, router)
 

@@ -1,9 +1,14 @@
 package oidcserver
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"github.com/go-logr/logr"
 	"html/template"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
@@ -19,6 +24,10 @@ import (
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/token/jwt"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type OIDCServer struct {
@@ -31,25 +40,29 @@ type OIDCServer struct {
 	SessionManager *scsV2.SessionManager
 	PostLogoutURL  string
 
-	oauth2     fosite.OAuth2Provider
-	config     *fosite.Config
-	privateKey *rsa.PrivateKey
-	keyID      string
+	KubeClient              client.Client
+	JWTSigningKeySecretName string
+	JWTSigningKeySecretNS   string
+
+	oauth2               fosite.OAuth2Provider
+	config               *fosite.Config
+	privateKey           *rsa.PrivateKey
+	keyID                string
+	AccessTokenLifespan  time.Duration
+	RefreshTokenLifespan time.Duration
 }
 
-func (s *OIDCServer) Setup(router *http.ServeMux, accessTokenLifespan time.Duration, refreshTokenLifespan time.Duration) {
-	var err error
-	// Generate RSA key for JWT signing
-	s.privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to generate RSA key: %v", err))
+func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
+	logger := logr.FromContextAsSlogLogger(ctx)
+	// Load or generate RSA key from Kubernetes Secret if configured
+	if err := s.ensureJwtSigningKey(ctx); err != nil {
+		return fmt.Errorf("failed to load/generate JWT signing key: %w", err)
 	}
-	s.keyID = uuid.NewString()
 
 	// Configure fosite
 	s.config = &fosite.Config{
-		AccessTokenLifespan:   accessTokenLifespan,
-		RefreshTokenLifespan:  refreshTokenLifespan,
+		AccessTokenLifespan:   s.AccessTokenLifespan,
+		RefreshTokenLifespan:  s.RefreshTokenLifespan,
 		TokenEntropy:          32,
 		GlobalSecret:          []byte("some-secret-that-is-32-bytes-long"),
 		RefreshTokenScopes:    []string{"offline"},
@@ -76,11 +89,88 @@ func (s *OIDCServer) Setup(router *http.ServeMux, accessTokenLifespan time.Durat
 	staticDir := path.Join(s.Resources, "static")
 	router.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 
-	fmt.Printf("OIDC Server starting on %s\n", s.Issuer)
-	fmt.Printf("OpenID Configuration: %s/.well-known/openid-configuration\n", s.Issuer)
-	fmt.Printf("Authorization endpoint: %s/oauth2/auth\n", s.Issuer)
-	fmt.Printf("Token endpoint: %s/oauth2/token\n", s.Issuer)
+	logger.Info("OIDC Server starting", "issuer", s.Issuer, "configuration", fmt.Sprintf("%s/.well-known/openid-configuration", s.Issuer))
+	return nil
+}
 
+// ensureJwtSigningKey loads an RSA private key and key ID from a Secret, or creates them if absent.
+func (s *OIDCServer) ensureJwtSigningKey(ctx context.Context) error {
+	logger := logr.FromContextAsSlogLogger(ctx)
+	secret := &corev1.Secret{}
+	key := types.NamespacedName{Name: s.JWTSigningKeySecretName, Namespace: s.JWTSigningKeySecretNS}
+	var err error
+	if err = s.KubeClient.Get(ctx, key, secret); err == nil {
+		// Secret exists: decode key and kid
+		pemBytes, ok := secret.Data["key.pem"]
+		kidBytes, ok2 := secret.Data["kid"]
+		if !ok || !ok2 {
+			return fmt.Errorf("secret %s missing required data keys", key)
+		}
+
+		block, _ := pem.Decode(pemBytes)
+		if block == nil {
+			return fmt.Errorf("failed to decode PEM from secret %s", key)
+		}
+
+		var priv *rsa.PrivateKey
+		switch block.Type {
+		case "RSA PRIVATE KEY":
+			p, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+			if err != nil {
+				return fmt.Errorf("failed parsing PKCS1 private key from secret: %w", err)
+			}
+			priv = p
+		case "PRIVATE KEY":
+			anyKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				return fmt.Errorf("failed parsing PKCS8 private key from secret: %w", err)
+			}
+			k, ok := anyKey.(*rsa.PrivateKey)
+			if !ok {
+				return fmt.Errorf("unsupported private key type in secret: %T", anyKey)
+			}
+			priv = k
+		default:
+			return fmt.Errorf("unsupported PEM block type in secret: %s", block.Type)
+		}
+		logger.Info("Using existing secret for JWT signing key")
+		s.privateKey = priv
+		s.keyID = string(kidBytes)
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to load JWT signing key: %w", err)
+	}
+
+	// Secret not found or get error: create new key and store
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return fmt.Errorf("failed to generate RSA key: %w", err)
+	}
+	// Marshal to PKCS1 PEM
+	pkcs1 := x509.MarshalPKCS1PrivateKey(priv)
+	pemBlock := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: pkcs1}
+	var buf bytes.Buffer
+	if err := pem.Encode(&buf, pemBlock); err != nil {
+		return fmt.Errorf("failed to encode PEM: %w", err)
+	}
+	newKID := uuid.NewString()
+	sec := &corev1.Secret{}
+	sec.Name = s.JWTSigningKeySecretName
+	sec.Namespace = s.JWTSigningKeySecretNS
+	sec.Type = corev1.SecretTypeOpaque
+	sec.Data = map[string][]byte{
+		"key.pem": buf.Bytes(),
+		"kid":     []byte(newKID),
+	}
+	if err := s.KubeClient.Create(ctx, sec); err != nil {
+		return fmt.Errorf("failed creating secret: %w", err)
+	}
+	logger.Info("Generating a new secret for JWT signing key")
+	// Assign
+	s.privateKey = priv
+	s.keyID = newKID
+	return nil
 }
 
 // A session is passed from the `/auth` to the `/token` endpoint. You probably want to store data like: "Who made the request",

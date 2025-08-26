@@ -58,7 +58,7 @@ func (s *OIDCServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	// Logout locally
 	if err := s.SessionManager.Destroy(ctx); err != nil {
-		logger.Error("failed to destroy session", "error", err, "errType", fmt.Sprintf("%T", err))
+		logger.Error("failed to destroy local session", "error", err, "errType", fmt.Sprintf("%T", err))
 	}
 	http.Redirect(w, r, postLogoutURL, http.StatusFound)
 }

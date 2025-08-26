@@ -72,3 +72,22 @@ Modify the Dockerfile to have the base image (currently gcr.io/distroless/static
 Create a docker-ubuntu entry in the Makefile which build the image with ubuntu 22.04 instead of distroless
 
 Implements the user info endpoint from the spec (https://openid.net/specs/openid-connect-basic-1_0.html#UserInfo) in cmd/kubauth/cmd/oidc/oidcserver/handle-user-info.go
+
+
+Here is the beginning of the oidc server setup, in oidcserver.go.
+```
+func (s *OIDCServer) Setup(router *http.ServeMux, accessTokenLifespan time.Duration, refreshTokenLifespan time.Duration) {
+	var err error
+	// Generate RSA key for JWT signing
+	s.privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to generate RSA key: %v", err))
+	}
+	s.keyID = uuid.NewString()
+
+```
+A key is generated to sign the JWT token. Problem is this key is generated on each restart.
+Implements code read the key from a kubernetes secret. And to generate such secret if not existing.
+Secret location is defined by jwtSigningKeySecretName and jwtSigningKeySecretNamespace flags parameters, already in place
+
+

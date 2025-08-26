@@ -204,7 +204,10 @@ oidc:
   ingressName:
   # Default to {{ include "kubauth.baseName" .}}-oidc-ingress
   ingressNetworkPolicyName:
-
+  # Default to {{ include "kubauth.baseName" .}}-oidc-jwt-key
+  jwtSigningKeySecretName:
+  # Default to {{ include "kubauth.baseName" .}}-oidc-jwt-secret
+  jwtSecretRoleName:
 
 userdb:
   enabled: true
@@ -229,7 +232,7 @@ userdb:
 
   server:
     tls: false
-    bindAddr: "0.0.0.0"
+    bindAddr: "127.0.0.1"
     bindPort:  8101
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer

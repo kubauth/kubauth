@@ -35,6 +35,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 								session := s.newSession(&userdb.User{Login: login, Claims: claims})
 								response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
 								if err == nil {
+									logger.Info("Successfully logged in using existing SSO session", "login", login)
 									s.oauth2.WriteAuthorizeResponse(ctx, w, ar, response)
 									return
 								}
@@ -97,6 +98,8 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		ar.GrantScope("openid")
 
 		session := s.newSession(user)
+
+		logger.Info("Successfully logged in a new SSO session", "login", login)
 
 		// Generate authorize response (typically a redirect)
 		response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
