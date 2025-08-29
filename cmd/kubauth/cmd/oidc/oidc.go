@@ -366,7 +366,7 @@ var Cmd = &cobra.Command{
 
 		// Add SSO session cleanup runnable if enabled (similar to scs memstore)
 		if flags.cleanupPeriod > 0 {
-			if err := mgr.Add(sessionstore.NewKubeSsoCleaner(mgr.GetClient(), flags.ssoNamespace, flags.cleanupPeriod)); err != nil {
+			if err := mgr.Add(sessionstore.NewKubeSsoCleaner(kubeClient, flags.ssoNamespace, flags.cleanupPeriod)); err != nil {
 				setupLog.Error(err, "unable to add SsoCleaner to the manager")
 				os.Exit(1)
 			}

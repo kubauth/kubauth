@@ -41,14 +41,17 @@ func (c *KubeSsoCleaner) Start(ctx context.Context) error {
 
 func (c *KubeSsoCleaner) cleanupOnce(ctx context.Context) {
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Info("cleaning up sso session store")
+	logger.Info("cleaning up sso session store", "namespace", c.namespace)
 	now := time.Now()
 	var list kubauthv1alpha1.SsoSessionList
-	if err := c.client.List(ctx, &list, client.InNamespace(c.namespace)); err != nil {
+	err := c.client.List(ctx, &list, client.InNamespace(c.namespace))
+	if err != nil {
+		logger.Error("failed to list SSOSessions", "err", err)
 		return
 	}
 	for i := range list.Items {
 		item := &list.Items[i]
+		//logger.Info("Cleaning up SSO session", "session", item.Name)
 		expired := false
 		if !item.Spec.Expiry.IsZero() && now.After(item.Spec.Expiry.Time) {
 			expired = true
