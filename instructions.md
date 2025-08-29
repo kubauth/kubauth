@@ -91,3 +91,11 @@ Implements code read the key from a kubernetes secret. And to generate such secr
 Secret location is defined by jwtSigningKeySecretName and jwtSigningKeySecretNamespace flags parameters, already in place
 
 
+
+The jwt token signing key is defined in OIDCServer, as
+```
+privateKey           *rsa.PrivateKey
+keyID                string
+```
+Problem is the 'kid' field is missing in generated id_token header
+

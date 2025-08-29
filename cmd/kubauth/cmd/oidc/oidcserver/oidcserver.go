@@ -8,12 +8,13 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/go-logr/logr"
 	"html/template"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
 	"path"
 	"time"
+
+	"github.com/go-logr/logr"
 
 	scsV2 "github.com/alexedwards/scs/v2"
 	"github.com/google/uuid"
@@ -59,6 +60,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 		return fmt.Errorf("failed to load/generate JWT signing key: %w", err)
 	}
 
+	logger.Debug("Setting up OIDC server", "kid", s.keyID)
 	// Configure fosite
 	s.config = &fosite.Config{
 		AccessTokenLifespan:   s.AccessTokenLifespan,
@@ -183,23 +185,28 @@ func (s *OIDCServer) ensureJwtSigningKey(ctx context.Context) error {
 // Usually, you could do:
 //
 //	session = new(fosite.DefaultSession)
-func (s *OIDCServer) newSession(user *userdb.User) *openid.DefaultSession {
+func (s *OIDCServer) newSession(user *userdb.User, clientId string) *openid.DefaultSession {
 	if user == nil {
 		return &openid.DefaultSession{}
 	}
+	claims := &jwt.IDTokenClaims{
+		Issuer:      s.Issuer,
+		Subject:     user.Login,
+		Audience:    []string{clientId},
+		ExpiresAt:   time.Now().Add(s.config.AccessTokenLifespan),
+		IssuedAt:    time.Now(),
+		RequestedAt: time.Now(),
+		AuthTime:    time.Now(),
+		Extra:       user.Claims,
+	}
+	// fosite does not explicitly handle azp claims
+	claims.Add("azp", clientId)
 	return &openid.DefaultSession{
-		Claims: &jwt.IDTokenClaims{
-			Issuer:      s.Issuer,
-			Subject:     user.Login,
-			Audience:    []string{},
-			ExpiresAt:   time.Now().Add(s.config.AccessTokenLifespan),
-			IssuedAt:    time.Now(),
-			RequestedAt: time.Now(),
-			AuthTime:    time.Now(),
-			Extra:       user.Claims,
-		},
+		Claims: claims,
 		Headers: &jwt.Headers{
-			Extra: make(map[string]interface{}),
+			Extra: map[string]interface{}{
+				"kid": s.keyID,
+			},
 		},
 	}
 }

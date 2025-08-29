@@ -2,6 +2,7 @@ package oidcserver
 
 import (
 	"net/http"
+	"net/url"
 
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 
@@ -15,6 +16,8 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
+		clientId := r.URL.Query().Get("client_id")
+		logger.Debug("client id:", clientId)
 		// If user already authenticated (SSO), complete the OIDC flow directly
 		if v := s.SessionManager.Get(ctx, "ssoUser"); v != nil {
 			//fmt.Printf("============ v.type: %T  v:%v\n", v, v)
@@ -32,7 +35,8 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 							if err == nil {
 								ar.GrantScope("offline")
 								ar.GrantScope("openid")
-								session := s.newSession(&userdb.User{Login: login, Claims: claims})
+
+								session := s.newSession(&userdb.User{Login: login, Claims: claims}, clientId)
 								response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
 								if err == nil {
 									logger.Info("Successfully logged in using existing SSO session", "login", login)
@@ -60,6 +64,13 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		rawQuery := r.PostForm.Get("rq")
 		remember := r.PostForm.Get("remember") == "on"
 
+		query, err := url.ParseQuery(rawQuery)
+		if err != nil {
+			logger.Error("failed to parse initial query", "query", rawQuery, "error", err)
+			http.Error(w, "Internal error on ID provider subsystem. Contact your system administrator", http.StatusInternalServerError)
+			return
+		}
+		clientId := query.Get("client_id")
 		user, err := s.UserDb.Authenticate(login, password)
 		if err != nil {
 			logger.Error("failed to authenticate", "login", login, "error", err)
@@ -97,7 +108,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		ar.GrantScope("offline") // To have a refresh token
 		ar.GrantScope("openid")
 
-		session := s.newSession(user)
+		session := s.newSession(user, clientId)
 
 		logger.Info("Successfully logged in a new SSO session", "login", login)
 

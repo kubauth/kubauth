@@ -47,7 +47,7 @@ Example:
 		fmt.Printf("Secret: %s\n", secret)
 		fmt.Printf("Hash: %s\n", string(hash))
 		fmt.Printf(`
-Use ths has in your User 'passwordHash' field
+Use this hash in your User 'passwordHash' field
 
 Example:
   apiVersion: kubauth.kubotal.io/v1alpha1

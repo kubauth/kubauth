@@ -11,7 +11,7 @@ func (s *OIDCServer) handleToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// This will create an access request object and iterate through the registered TokenEndpointHandlers to validate the request.
-	session := s.newSession(nil)
+	session := s.newSession(nil, "")
 	accessRequest, err := s.oauth2.NewAccessRequest(ctx, r, session) // access_request_handler/46
 	if err != nil {
 		err2 := fosite.ErrorToRFC6749Error(err)
