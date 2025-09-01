@@ -150,6 +150,7 @@ func (c *httpClient) Do(method string, path string, request proto.RequestPayload
 	if err != nil {
 		return fmt.Errorf("unable to build request '%s': %w", request, err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 	if c.Config.HttpAuth != nil {
 		auth := c.Config.HttpAuth
 		if auth.Login != "" {

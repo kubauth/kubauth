@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -53,28 +54,32 @@ func (rw *responseWriter) WriteHeader(code int) {
 var globalExchangeCount int64 = 0
 
 type requestLog struct {
-	Id            int64       `yaml:"id" json:"id"`
-	Method        string      `yaml:"method" json:"method"`
-	Path          string      `yaml:"path" json:"path"`
-	RawQuery      string      `yaml:"rawQuery" json:"rawQuery"`
-	BodySize      int64       `yaml:"bodySize" json:"bodySize"`
-	Body          string      `yaml:"body" json:"body"`
-	RemoteAddr    string      `yaml:"remoteAddr" json:"remoteAddr"`
-	UserAgent     string      `yaml:"userAgent" json:"userAgent"`
-	Referer       string      `yaml:"referer" json:"referer"`
-	Host          string      `yaml:"host" json:"host"`
-	ContentType   string      `yaml:"contentType" json:"contentType"`
-	ContentLength int64       `yaml:"contentLength" json:"contentLength"`
-	Header        http.Header `yaml:"header" json:"header"`
+	Id            int64                  `yaml:"id" json:"id"`
+	Method        string                 `yaml:"method" json:"method"`
+	Path          string                 `yaml:"path" json:"path"`
+	RawQuery      string                 `yaml:"rawQuery" json:"rawQuery"`
+	BodySize      int64                  `yaml:"bodySize" json:"bodySize"`
+	BodyAsString  string                 `yaml:"bodyAsString" json:"bodyAsString,omitempty"`
+	BodyAsJson    map[string]interface{} `yaml:"bodyAsJson" json:"bodyAsJson,omitempty"`
+	RemoteAddr    string                 `yaml:"remoteAddr" json:"remoteAddr"`
+	UserAgent     string                 `yaml:"userAgent" json:"userAgent"`
+	Referer       string                 `yaml:"referer" json:"referer"`
+	Host          string                 `yaml:"host" json:"host"`
+	ContentType   string                 `yaml:"contentType" json:"contentType"`
+	ContentLength int64                  `yaml:"contentLength" json:"contentLength"`
+	Header        http.Header            `yaml:"header" json:"header"`
+	Cookies       []*http.Cookie         `yaml:"cookies" json:"cookies"`
 }
 
 type responseLog struct {
-	Id           int64         `yaml:"id" json:"id"`
-	StatusCode   int           `yaml:"statusCode" json:"statusCode"`
-	ResponseSize int64         `yaml:"responseSize" json:"responseSize"`
-	Duration     time.Duration `yaml:"duration" json:"duration"`
-	Headers      http.Header   `yaml:"headers" json:"headers"`
-	Body         string        `yaml:"body" json:"body"`
+	Id           int64                  `yaml:"id" json:"id"`
+	StatusCode   int                    `yaml:"statusCode" json:"statusCode"`
+	ResponseSize int64                  `yaml:"responseSize" json:"responseSize"`
+	Duration     time.Duration          `yaml:"duration" json:"duration"`
+	Headers      http.Header            `yaml:"headers" json:"headers"`
+	ContentType  string                 `yaml:"contentType" json:"contentType"`
+	BodyAsString string                 `yaml:"bodyAsString" json:"bodyAsString,omitempty"`
+	BodyAsJson   map[string]interface{} `yaml:"bodyAsJson" json:"bodyAsJson,omitempty"`
 }
 
 // LoggingMiddleware wraps an HTTP handler to log request and response details
@@ -118,7 +123,6 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			Path:          r.URL.Path,
 			RawQuery:      r.URL.RawQuery,
 			BodySize:      requestBodySize,
-			Body:          getSafeBodyString(requestBody),
 			RemoteAddr:    r.RemoteAddr,
 			UserAgent:     r.UserAgent(),
 			Referer:       r.Referer(),
@@ -126,13 +130,17 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			ContentType:   r.Header.Get("Content-Type"),
 			ContentLength: r.ContentLength,
 			Header:        r.Header,
+			Cookies:       r.Cookies(),
 		}
-		//reqYaml, err := yaml.Marshal(reqLog)
-		//if err != nil {
-		//	fmt.Printf("\nERROR marshalling request log to yaml: %v\n", err)
-		//} else {
-		//	fmt.Println(string(reqYaml))
-		//}
+		if strings.HasPrefix(reqLog.ContentType, "application/json") {
+			err := json.Unmarshal(requestBody, &reqLog.BodyAsJson)
+			if err != nil {
+				fmt.Printf("Error unmarshalling request body: %s\n", err.Error())
+				reqLog.BodyAsString = getSafeBodyString(requestBody)
+			}
+		} else {
+			reqLog.BodyAsString = getSafeBodyString(requestBody)
+		}
 		fmt.Println()
 		reqJson, err := json.MarshalIndent(reqLog, "", "  ")
 		if err != nil {
@@ -170,8 +178,20 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			ResponseSize: rw.size,
 			Duration:     duration,
 			Headers:      rw.Header(),
-			Body:         getSafeBodyString(rw.body.Bytes()),
 		}
+		respLog.ContentType = respLog.Headers.Get("Content-Type")
+
+		responseBody := rw.body.Bytes()
+		if strings.HasPrefix(respLog.ContentType, "application/json") {
+			err := json.Unmarshal(responseBody, &respLog.BodyAsJson)
+			if err != nil {
+				fmt.Printf("Error unmarshalling response body: %s\n", err.Error())
+				respLog.BodyAsString = getSafeBodyString(responseBody)
+			}
+		} else {
+			respLog.BodyAsString = getSafeBodyString(responseBody)
+		}
+
 		//respYaml, err := yaml.Marshal(respLog)
 		//if err != nil {
 		//	fmt.Printf("\nERROR marshalling response to yaml: %v\n", err)
