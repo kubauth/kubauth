@@ -99,3 +99,40 @@ keyID                string
 ```
 Problem is the 'kid' field is missing in generated id_token header
 
+
+
+Modify /kubauth/cmd/kubauth/cmd/oidc/fositepatch/flow_resource_owner.go to return an OIDC (jwt) token if openid is in requested scope
+
+
+There is no id_token in the response.
+I modify the code with the following:
+
+```
+	// Handle OpenID Connect ID token if openid scope is requested
+	if request.GetGrantedScopes().Has("openid") {
+		fmt.Printf("########### yes\n")
+		idTokenLifespan := fosite.GetEffectiveLifespan(request.GetClient(), fosite.GrantTypePassword, fosite.IDToken, c.Config.GetIDTokenLifespan(ctx))
+		request.GetSession().SetExpiresAt(fosite.IDToken, time.Now().UTC().Add(idTokenLifespan).Round(time.Second))
+	} else {
+		fmt.Printf("########### no\n")
+	}
+```
+
+And a test prompt '########### no', meaning request.GetGrantedScopes().Has("openid") return false.
+
+Here is my request:
+
+```
+curl --request POST   --url 'http://localhost:8101/oauth2/token'   --header 'content-type: application/x-www-form-urlencoded'   --data grant_type=password   --data 'username=ml'   --data 'password=lm'   --data 'scope=openid'   --data 'client_id=example-app'   --data 'client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0'
+```
+
+
+
+Instead of using 'ResourceOwnerPasswordCredentialsGrantStorage.Authenticate', I want to user userdb.Authenticate and set the id_token with its value, as done in 'func (s *OIDCServer) newSession(user *userdb.User, clientId string) *openid.DefaultSession"
+
+
+Got a panic in line 109. So, I have replaced c.userDb.Authenticate(username, password) by globalUserDb.Authenticate(username, password) and now it works.
+
+But, I don't like global variable. Can we remove them.
+
+You can explore fosite library at /Users/sa/dev/d1/git/fosite

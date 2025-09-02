@@ -290,8 +290,15 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		userDb, err := idprovider.New(&flags.idpHttpConfig)
+		if err != nil {
+			setupLog.Error(err, "unable to initialize user db")
+			os.Exit(1)
+		}
+		//userDb := memory.NewUserDb()
+
 		// ------------------------------------- Create our storage
-		storage := oidcstorage.NewMemoryStore()
+		storage := oidcstorage.NewMemoryStore(userDb)
 
 		// Setup OidcClient Reconciler
 		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
@@ -375,13 +382,6 @@ var Cmd = &cobra.Command{
 		// ---------------------- Setup our OIDC server
 		router := http.NewServeMux()
 		router.Handle("GET /favicon.ico", handlers.FaviconHandler(path.Join(flags.resources, "static", "favicon.ico")))
-
-		userDb, err := idprovider.New(&flags.idpHttpConfig)
-		if err != nil {
-			setupLog.Error(err, "unable to initialize user db")
-			os.Exit(1)
-		}
-		//userDb := memory.NewUserDb()
 
 		err = (&oidcserver.OIDCServer{
 			Issuer:                  flags.issuer,

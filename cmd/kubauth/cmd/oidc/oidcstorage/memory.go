@@ -7,13 +7,13 @@ package oidcstorage
 import (
 	"context"
 	"errors"
-	"github.com/go-logr/logr"
+	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"sync"
 	"time"
 
-	"github.com/go-jose/go-jose/v3"
-	"github.com/google/uuid"
+	"github.com/go-logr/logr"
 
+	"github.com/go-jose/go-jose/v3"
 	"github.com/ory/fosite"
 )
 
@@ -38,13 +38,13 @@ type PublicKeyScopes struct {
 }
 
 type MemoryStore struct {
-	Clients         map[string]FositeClient
-	AuthorizeCodes  map[string]StoreAuthorizeCode
-	IDSessions      map[string]fosite.Requester
-	AccessTokens    map[string]fosite.Requester
-	RefreshTokens   map[string]StoreRefreshToken
-	PKCES           map[string]fosite.Requester
-	Users           map[string]MemoryUserRelation
+	Clients        map[string]FositeClient
+	AuthorizeCodes map[string]StoreAuthorizeCode
+	IDSessions     map[string]fosite.Requester
+	AccessTokens   map[string]fosite.Requester
+	RefreshTokens  map[string]StoreRefreshToken
+	PKCES          map[string]fosite.Requester
+	//Users           map[string]MemoryUserRelation
 	BlacklistedJTIs map[string]time.Time
 	// In-memory request ID to token signatures
 	AccessTokenRequestIDs  map[string]string
@@ -52,6 +52,9 @@ type MemoryStore struct {
 	// Public keys to check signature in auth grant jwt assertion.
 	IssuerPublicKeys map[string]IssuerPublicKeys
 	PARSessions      map[string]fosite.AuthorizeRequester
+	UserDb           userdb.UserDb
+	Issuer           string
+	KeyID            string
 
 	clientsMutex                sync.RWMutex
 	authorizeCodesMutex         sync.RWMutex
@@ -67,20 +70,21 @@ type MemoryStore struct {
 	parSessionsMutex            sync.RWMutex
 }
 
-func NewMemoryStore() *MemoryStore {
+func NewMemoryStore(userDb userdb.UserDb) *MemoryStore {
 	return &MemoryStore{
-		Clients:                make(map[string]FositeClient),
-		AuthorizeCodes:         make(map[string]StoreAuthorizeCode),
-		IDSessions:             make(map[string]fosite.Requester),
-		AccessTokens:           make(map[string]fosite.Requester),
-		RefreshTokens:          make(map[string]StoreRefreshToken),
-		PKCES:                  make(map[string]fosite.Requester),
-		Users:                  make(map[string]MemoryUserRelation),
+		Clients:        make(map[string]FositeClient),
+		AuthorizeCodes: make(map[string]StoreAuthorizeCode),
+		IDSessions:     make(map[string]fosite.Requester),
+		AccessTokens:   make(map[string]fosite.Requester),
+		RefreshTokens:  make(map[string]StoreRefreshToken),
+		PKCES:          make(map[string]fosite.Requester),
+		//Users:                  make(map[string]MemoryUserRelation),
 		AccessTokenRequestIDs:  make(map[string]string),
 		RefreshTokenRequestIDs: make(map[string]string),
 		BlacklistedJTIs:        make(map[string]time.Time),
 		IssuerPublicKeys:       make(map[string]IssuerPublicKeys),
 		PARSessions:            make(map[string]fosite.AuthorizeRequester),
+		UserDb:                 userDb,
 	}
 }
 
@@ -323,14 +327,37 @@ func (s *MemoryStore) Authenticate(_ context.Context, name string, secret string
 	s.usersMutex.RLock()
 	defer s.usersMutex.RUnlock()
 
-	rel, ok := s.Users[name]
-	if !ok {
-		return "", fosite.ErrNotFound
+	//rel, ok := s.Users[name]
+	//if !ok {
+	//	return "", fosite.ErrNotFound
+	//}
+	//if rel.Password != secret {
+	//	return "", fosite.ErrNotFound.WithDebug("Invalid credentials")
+	//}
+	//return uuid.New().String(), nil
+	usr, err := s.UserDb.Authenticate(name, secret)
+	if err != nil {
+		return "", err
 	}
-	if rel.Password != secret {
-		return "", fosite.ErrNotFound.WithDebug("Invalid credentials")
-	}
-	return uuid.New().String(), nil
+	return usr.Login, nil
+}
+
+// AuthenticateUserWithClaims returns the full user object with claims
+func (s *MemoryStore) AuthenticateUserWithClaims(_ context.Context, name string, secret string) (*userdb.User, error) {
+	s.usersMutex.RLock()
+	defer s.usersMutex.RUnlock()
+
+	return s.UserDb.Authenticate(name, secret)
+}
+
+// GetIssuer returns the configured issuer
+func (s *MemoryStore) GetIssuer() string {
+	return s.Issuer
+}
+
+// GetKeyID returns the configured key ID
+func (s *MemoryStore) GetKeyID() string {
+	return s.KeyID
 }
 
 func (s *MemoryStore) RevokeRefreshToken(_ context.Context, requestID string) error {

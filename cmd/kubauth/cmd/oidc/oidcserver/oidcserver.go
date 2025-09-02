@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"html/template"
+	"kubauth/cmd/kubauth/cmd/oidc/fositepatch"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"net/http"
 	"path"
@@ -22,7 +23,6 @@ import (
 	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
 
 	"github.com/ory/fosite"
-	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/token/jwt"
 	corev1 "k8s.io/api/core/v1"
@@ -61,6 +61,12 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 	}
 
 	logger.Debug("Setting up OIDC server", "kid", s.keyID)
+
+	// Configure storage with UserDb and other dependencies
+	s.Storage.UserDb = s.UserDb
+	s.Storage.Issuer = s.Issuer
+	s.Storage.KeyID = s.keyID
+
 	// Configure fosite
 	s.config = &fosite.Config{
 		AccessTokenLifespan:   s.AccessTokenLifespan,
@@ -73,7 +79,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 		IDTokenIssuer:         s.Issuer,
 	}
 
-	s.oauth2 = compose.ComposeAllEnabled(s.config, s.Storage, s.privateKey)
+	s.oauth2 = fositepatch.ComposeAllEnabled(s.config, s.Storage, s.privateKey)
 
 	// Set up routes
 	router.HandleFunc("/oauth2/auth", s.handleAuthorize)

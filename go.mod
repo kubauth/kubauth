@@ -4,6 +4,8 @@ go 1.24.6
 
 // replace github.com/alexedwards/scs/v2 v2.9.0 => ../../nih/scs
 
+// replace github.com/ory/fosite v0.49.0 => ../fosite
+
 require (
 	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/go-jose/go-jose/v3 v3.0.3
