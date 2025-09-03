@@ -1,12 +1,11 @@
 package httpclient
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"kubauth/cmd/kubauth/proto"
+	"io"
 	"kubauth/internal/misc"
 	"net"
 	"net/http"
@@ -30,16 +29,24 @@ type Config struct {
 	HttpAuth           *HttpAuth
 }
 
-type HttpClient interface {
-	Do(method string, path string, request proto.RequestPayload, response proto.ResponsePayload) error
-}
+/*
+	After calling HttpClient.Do() add the following:
+	if resp != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
+	https://medium.easyread.co/avoiding-memory-leak-in-golang-api-1843ef45fca8
+*/
 
-var _ HttpClient = &httpClient{}
+type HttpClient interface {
+	Do(method string, path string, contentType string, body io.Reader) (*http.Response, error)
+}
 
 type httpClient struct {
 	Config
 	httpClient *http.Client
 }
+
+var _ HttpClient = &httpClient{}
 
 func New(conf *Config) (HttpClient, error) {
 	// Just a test for validity. Not used in this function
@@ -137,20 +144,17 @@ func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("Resource '%s' not found", e.url)
 }
 
-func (c *httpClient) Do(method string, path string, request proto.RequestPayload, response proto.ResponsePayload) error {
-	body, err := request.ToJson()
-	if err != nil {
-		return fmt.Errorf("unable to marshal request '%s': %w", request, err)
-	}
+func (c *httpClient) Do(method string, path string, contentType string, body io.Reader) (*http.Response, error) {
 	u, err := url.JoinPath(c.BaseURL, path)
 	if err != nil {
-		return fmt.Errorf("unable to join %s to %s: %w", path, c.BaseURL, err)
+		return nil, fmt.Errorf("unable to join %s to %s: %w", path, c.BaseURL, err)
 	}
-	req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
+	req, err := http.NewRequest(method, u, body)
 	if err != nil {
-		return fmt.Errorf("unable to build request '%s': %w", request, err)
+		return nil, fmt.Errorf("unable to build request '%s:%s': %w", method, u, err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+
+	req.Header.Set("Content-Type", contentType)
 	if c.Config.HttpAuth != nil {
 		auth := c.Config.HttpAuth
 		if auth.Login != "" {
@@ -161,29 +165,21 @@ func (c *httpClient) Do(method string, path string, request proto.RequestPayload
 		}
 	}
 	resp, err := c.httpClient.Do(req)
-	if resp != nil {
-		// https://medium.easyread.co/avoiding-memory-leak-in-golang-api-1843ef45fca8
-		defer func() { _ = resp.Body.Close() }()
-	}
 	if err != nil {
-		return fmt.Errorf("error on http connection on request '%s': %w", request, err)
+		return nil, fmt.Errorf("error on http connection on request '%s:%s': %w", method, u, err)
 	}
 	if resp.StatusCode == 401 {
 		// This is not a system error, but a user's one. So this special handling
-		return &UnauthorizedError{}
+		return nil, &UnauthorizedError{}
 	}
 	if resp.StatusCode == 404 {
 		// Some caller may need to handle this specifically
-		return &NotFoundError{
+		return nil, &NotFoundError{
 			url: u,
 		}
 	}
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("invalid status code: %d (%s) on request '%s'", resp.StatusCode, resp.Status, request)
+		return nil, fmt.Errorf("invalid status code: %d (%s) on request '%s:%s'", resp.StatusCode, resp.Status, method, u)
 	}
-	err = response.FromJson(resp.Body)
-	if err != nil {
-		return fmt.Errorf("unable to unmarshal response: %w", err)
-	}
-	return nil
+	return resp, nil
 }

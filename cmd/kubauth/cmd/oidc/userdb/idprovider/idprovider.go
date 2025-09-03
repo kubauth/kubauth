@@ -30,7 +30,7 @@ func (u *idProvider) Authenticate(login string, password string) (*userdb.User, 
 		Detailed: false,
 	}
 	response := &proto.IdentityResponse{}
-	err := u.httpClient.Do("GET", "v1/identity", request, response)
+	err := proto.Exchange(u.httpClient, "GET", "v1/identity", request, response)
 	if err != nil {
 		return nil, err
 	}

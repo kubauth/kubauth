@@ -5,6 +5,7 @@ package fositepatch
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"time"
 
 	"github.com/ory/fosite/handler/oauth2"
@@ -79,6 +80,7 @@ type Session interface {
 
 // HandleTokenEndpointRequest implements https://tools.ietf.org/html/rfc6749#section-4.3.2
 func (c *ResourceOwnerPasswordCredentialsGrantHandler) HandleTokenEndpointRequest(ctx context.Context, request fosite.AccessRequester) error {
+	logger := logr.FromContextAsSlogLogger(ctx)
 	if !c.CanHandleTokenEndpointRequest(ctx, request) {
 		return errorsx.WithStack(fosite.ErrUnknownRequest)
 	}
@@ -109,6 +111,7 @@ func (c *ResourceOwnerPasswordCredentialsGrantHandler) HandleTokenEndpointReques
 	// Use extended storage to get user with claims
 	user, err := c.ExtendedStorage.AuthenticateUserWithClaims(ctx, username, password)
 	if err != nil {
+		logger.Error("Failed to authenticate user:", "error", err)
 		return errorsx.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
 	}
 	if user == nil {
