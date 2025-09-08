@@ -58,7 +58,7 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (c
 
 	fositeClients := make(map[string]oidcstorage.FositeClient)
 	for idx := range clients.Items {
-		fositeClients[clients.Items[idx].Spec.Id] = oidcstorage.NewFositeClient(&clients.Items[idx].Spec)
+		fositeClients[clients.Items[idx].Name] = oidcstorage.NewFositeClient(&clients.Items[idx])
 	}
 	r.Storage.SetClients(ctx, fositeClients)
 

@@ -73,7 +73,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 		RefreshTokenLifespan:  s.RefreshTokenLifespan,
 		TokenEntropy:          32,
 		GlobalSecret:          []byte("some-secret-that-is-32-bytes-long"),
-		RefreshTokenScopes:    []string{"offline"},
+		RefreshTokenScopes:    []string{"offline", "offline_access"},
 		AuthorizeCodeLifespan: time.Minute * 10,
 		AccessTokenIssuer:     s.Issuer,
 		IDTokenIssuer:         s.Issuer,

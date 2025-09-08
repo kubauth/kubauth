@@ -12,22 +12,25 @@ type FositeClient interface {
 	GetEntryURL() string
 	GetPostLogoutURL() string
 	GetDisplayName() string
+	IsForceOpenIdScope() bool
 }
 
 type fositeClient struct {
-	spec *v1alpha1.OidcClientSpec
+	clientId string // From metadata.name
+	spec     *v1alpha1.OidcClientSpec
 }
 
-func NewFositeClient(spec *v1alpha1.OidcClientSpec) FositeClient {
+func NewFositeClient(cli *v1alpha1.OidcClient) FositeClient {
 	return &fositeClient{
-		spec: spec,
+		clientId: cli.GetName(),
+		spec:     &cli.Spec,
 	}
 }
 
 var _ FositeClient = &fositeClient{}
 
 func (k *fositeClient) GetID() string {
-	return k.spec.Id
+	return k.clientId
 }
 
 func (k *fositeClient) GetHashedSecret() []byte {
@@ -76,4 +79,11 @@ func (k *fositeClient) GetPostLogoutURL() string {
 
 func (k *fositeClient) GetDisplayName() string {
 	return k.spec.DisplayName
+}
+
+func (k *fositeClient) IsForceOpenIdScope() bool {
+	if k.spec.ForceOpenIdScope == nil {
+		return false
+	}
+	return *k.spec.ForceOpenIdScope
 }

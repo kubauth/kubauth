@@ -17,7 +17,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		clientId := r.URL.Query().Get("client_id")
-		logger.Debug("client id:", clientId)
+		logger.Debug("handleLogin(GET)", "clientID", clientId)
 		// If user already authenticated (SSO), complete the OIDC flow directly
 		if v := s.SessionManager.Get(ctx, "ssoUser"); v != nil {
 			//fmt.Printf("============ v.type: %T  v:%v\n", v, v)
@@ -33,8 +33,14 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 						if err == nil {
 							ar, err := s.oauth2.NewAuthorizeRequest(ctx, req)
 							if err == nil {
-								ar.GrantScope("offline")
-								ar.GrantScope("openid")
+
+								for _, sc := range ar.GetRequestedScopes() {
+									logger.Debug("Adding scope", "scope", sc, "method", "GET")
+									ar.GrantScope(sc)
+								}
+
+								//ar.GrantScope("offline")
+								//ar.GrantScope("openid")
 
 								session := s.newSession(&userdb.User{Login: login, Claims: claims}, clientId)
 								response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
@@ -104,9 +110,13 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		for _, sc := range ar.GetRequestedScopes() {
+			logger.Debug("Adding scope", "scope", sc, "method", "POST")
+			ar.GrantScope(sc)
+		}
 		// Grant required scopes and create session
-		ar.GrantScope("offline") // To have a refresh token
-		ar.GrantScope("openid")
+		//ar.GrantScope("offline") // To have a refresh token
+		//ar.GrantScope("openid")
 
 		session := s.newSession(user, clientId)
 

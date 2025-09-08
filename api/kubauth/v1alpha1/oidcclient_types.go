@@ -28,13 +28,10 @@ Not (yet?) implemented
 */
 
 // OidcClientSpec defines the desired state of OidcClient
+// client_id is metadata.name
 type OidcClientSpec struct {
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
-
-	// The client ID.
-	// +required
-	Id string `json:"id"`
 
 	// The hashed secret. (Required if !public)
 	// +optional
@@ -65,6 +62,10 @@ type OidcClientSpec struct {
 	// +optional
 	Audiences []string `json:"audiences,omitempty"`
 
+	// Force openid scope, even if not requested.
+	// +optional
+	ForceOpenIdScope *bool `json:"forceOpenIdScope,omitempty"`
+	
 	// Where to redirected user on logout.
 	// Will take precedence on the same global configuration value.
 	// May be overridden by a query parameter on the logout url
