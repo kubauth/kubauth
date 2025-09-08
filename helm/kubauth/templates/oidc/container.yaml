@@ -49,6 +49,7 @@ Expand oidc container
     - --idpBaseURL={{ .Values.oidc.idp.baseURL }}
     - --idpRootCAPath={{ .Values.oidc.idp.rootCAPath }}
     - --idpInsecureSkipVerify={{ .Values.oidc.idp.insecureSkipVerify }}
+    - --allowPasswordGrant={{.Values.oidc.allowPasswordGrant}}
     {{-  range .Values.oidc.additionalArgs }}
     - {{ . }}
     {{- end }}

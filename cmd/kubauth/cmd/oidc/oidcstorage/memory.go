@@ -7,6 +7,7 @@ package oidcstorage
 import (
 	"context"
 	"errors"
+	"kubauth/cmd/kubauth/cmd/oidc/fositepatch"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"sync"
 	"time"
@@ -50,11 +51,12 @@ type MemoryStore struct {
 	AccessTokenRequestIDs  map[string]string
 	RefreshTokenRequestIDs map[string]string
 	// Public keys to check signature in auth grant jwt assertion.
-	IssuerPublicKeys map[string]IssuerPublicKeys
-	PARSessions      map[string]fosite.AuthorizeRequester
-	UserDb           userdb.UserDb
-	Issuer           string
-	KeyID            string
+	IssuerPublicKeys   map[string]IssuerPublicKeys
+	PARSessions        map[string]fosite.AuthorizeRequester
+	UserDb             userdb.UserDb
+	Issuer             string
+	KeyID              string
+	AllowPasswordGrant bool
 
 	clientsMutex                sync.RWMutex
 	authorizeCodesMutex         sync.RWMutex
@@ -87,6 +89,8 @@ func NewMemoryStore(userDb userdb.UserDb) *MemoryStore {
 		UserDb:                 userDb,
 	}
 }
+
+var _ fositepatch.ExtendedResourceOwnerStorage = &MemoryStore{}
 
 type StoreAuthorizeCode struct {
 	active bool
@@ -358,6 +362,10 @@ func (s *MemoryStore) GetIssuer() string {
 // GetKeyID returns the configured key ID
 func (s *MemoryStore) GetKeyID() string {
 	return s.KeyID
+}
+
+func (s *MemoryStore) IsAllowPasswordGrant() bool {
+	return s.AllowPasswordGrant
 }
 
 func (s *MemoryStore) RevokeRefreshToken(_ context.Context, requestID string) error {

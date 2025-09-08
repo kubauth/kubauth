@@ -25,6 +25,7 @@ type ExtendedResourceOwnerStorage interface {
 	AuthenticateUserWithClaims(ctx context.Context, name string, secret string) (*userdb.User, error)
 	GetIssuer() string
 	GetKeyID() string
+	IsAllowPasswordGrant() bool
 }
 
 var _ fosite.TokenEndpointHandler = (*ResourceOwnerPasswordCredentialsGrantHandler)(nil)
@@ -83,6 +84,9 @@ func (c *ResourceOwnerPasswordCredentialsGrantHandler) HandleTokenEndpointReques
 	logger := logr.FromContextAsSlogLogger(ctx)
 	if !c.CanHandleTokenEndpointRequest(ctx, request) {
 		return errorsx.WithStack(fosite.ErrUnknownRequest)
+	}
+	if !c.ExtendedStorage.IsAllowPasswordGrant() {
+		return errorsx.WithStack(fosite.ErrRequestForbidden.WithHint("This server does not  allow to use authorization grant 'password'. Check server configuration"))
 	}
 
 	if !request.GetClient().GetGrantTypes().Has("password") {

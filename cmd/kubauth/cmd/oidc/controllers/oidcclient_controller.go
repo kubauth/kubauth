@@ -18,6 +18,7 @@ package kubauthmodel
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
@@ -48,7 +49,7 @@ type OidcClientReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
 func (r *OidcClientReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
 	// _ = logf.FromContext(ctx)
-
+	logger := logr.FromContextAsSlogLogger(ctx)
 	// We don't care about who trigger this. We fetch all clients which are in our namespace and store them in configStore
 	clients := &kubauthv1alpha1.OidcClientList{}
 	err := r.List(ctx, clients, client.InNamespace(r.Namespace))
@@ -60,6 +61,7 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (c
 	for idx := range clients.Items {
 		fositeClients[clients.Items[idx].Name] = oidcstorage.NewFositeClient(&clients.Items[idx])
 	}
+	logger.Info("Reconciling OidcClient")
 	r.Storage.SetClients(ctx, fositeClients)
 
 	return ctrl.Result{}, nil

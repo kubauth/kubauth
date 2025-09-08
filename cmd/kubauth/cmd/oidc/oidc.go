@@ -75,6 +75,7 @@ var flags struct {
 	refreshTokenLifespan  time.Duration
 	jwtKeySecretName      string
 	jwtKeySecretNamespace string
+	allowPasswordGrant    bool
 
 	// SSO Config
 	ssoNamespace  string
@@ -126,6 +127,7 @@ func init() {
 	Cmd.PersistentFlags().DurationVar(&flags.refreshTokenLifespan, "refreshTokenLifespan", time.Hour*1, "RefreshToken lifespan")
 	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretName, "jwtKeySecretName", "jwt-signing-key", "The secret name storing the JWT signing key")
 	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretNamespace, "jwtKeySecretNamespace", "", "The namespace to store the secret hosting the JWT signing key")
+	Cmd.PersistentFlags().BoolVar(&flags.allowPasswordGrant, "allowPasswordGrant", false, "Allow password grant to use for authentication")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -397,6 +399,7 @@ var Cmd = &cobra.Command{
 			JWTSigningKeySecretNS:   flags.jwtKeySecretNamespace,
 			AccessTokenLifespan:     flags.accessTokenLifespan,
 			RefreshTokenLifespan:    flags.refreshTokenLifespan,
+			AllowPasswordGrant:      flags.allowPasswordGrant,
 		}).Setup(ctx, router)
 		if err != nil {
 			setupLog.Error(err, "unable to setup oidc server")

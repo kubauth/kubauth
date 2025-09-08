@@ -51,6 +51,7 @@ type OIDCServer struct {
 	keyID                string
 	AccessTokenLifespan  time.Duration
 	RefreshTokenLifespan time.Duration
+	AllowPasswordGrant   bool
 }
 
 func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
@@ -66,6 +67,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 	s.Storage.UserDb = s.UserDb
 	s.Storage.Issuer = s.Issuer
 	s.Storage.KeyID = s.keyID
+	s.Storage.AllowPasswordGrant = s.AllowPasswordGrant
 
 	// Configure fosite
 	s.config = &fosite.Config{
