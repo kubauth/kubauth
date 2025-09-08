@@ -112,7 +112,7 @@ func init() {
 	// OIDC config
 	Cmd.PersistentFlags().StringVar(&flags.oidcClientNamespace, "oidcClientNamespace", "", "The namespace hosting OidcClient resources.")
 	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.Tls, "tls", "t", false, "enable TLS")
-	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.DumpExchanges, "dumpExchanges", "", false, "Dump http server req/resp")
+	Cmd.PersistentFlags().IntVar(&flags.oidcHttpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3")
 	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
 	Cmd.PersistentFlags().IntVarP(&flags.oidcHttpConfig.BindPort, "bindPort", "p", 8101, "Bind port")
 	Cmd.PersistentFlags().StringVar(&flags.oidcHttpConfig.CertDir, "certDir", "", "Certificate Directory")

@@ -83,7 +83,10 @@ type responseLog struct {
 }
 
 // LoggingMiddleware wraps an HTTP handler to log request and response details
-func LoggingMiddleware(next http.Handler) http.Handler {
+// level == 1: Short info message
+// level == 2: long info message
+// level >= 3: full dump
+func LoggingMiddleware(next http.Handler, level int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -101,8 +104,14 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Log request information
-		if logger != nil {
-			logger.Debug("HTTP Request",
+		if logger != nil && level == 1 {
+			logger.Info("HTTP Request",
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+				slog.String("raw_query", r.URL.RawQuery),
+			)
+		} else if logger != nil && level == 2 {
+			logger.Info("HTTP Request",
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
 				slog.String("raw_query", r.URL.RawQuery),
@@ -116,38 +125,39 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 				slog.Any("request_headers", r.Header),
 				slog.String("request_body", getSafeBodyString(requestBody)),
 			)
-		}
-		reqLog := &requestLog{
-			Id:            atomic.AddInt64(&globalExchangeCount, 1),
-			Method:        r.Method,
-			Path:          r.URL.Path,
-			RawQuery:      r.URL.RawQuery,
-			BodySize:      requestBodySize,
-			RemoteAddr:    r.RemoteAddr,
-			UserAgent:     r.UserAgent(),
-			Referer:       r.Referer(),
-			Host:          r.Host,
-			ContentType:   r.Header.Get("Content-Type"),
-			ContentLength: r.ContentLength,
-			Header:        r.Header,
-			Cookies:       r.Cookies(),
-		}
-		if strings.HasPrefix(reqLog.ContentType, "application/json") {
-			err := json.Unmarshal(requestBody, &reqLog.BodyAsJson)
-			if err != nil {
-				fmt.Printf("Error unmarshalling request body: %s\n", err.Error())
+		} else if level >= 3 {
+			reqLog := &requestLog{
+				Id:            atomic.AddInt64(&globalExchangeCount, 1),
+				Method:        r.Method,
+				Path:          r.URL.Path,
+				RawQuery:      r.URL.RawQuery,
+				BodySize:      requestBodySize,
+				RemoteAddr:    r.RemoteAddr,
+				UserAgent:     r.UserAgent(),
+				Referer:       r.Referer(),
+				Host:          r.Host,
+				ContentType:   r.Header.Get("Content-Type"),
+				ContentLength: r.ContentLength,
+				Header:        r.Header,
+				Cookies:       r.Cookies(),
+			}
+			if strings.HasPrefix(reqLog.ContentType, "application/json") {
+				err := json.Unmarshal(requestBody, &reqLog.BodyAsJson)
+				if err != nil {
+					fmt.Printf("Error unmarshalling request body: %s\n", err.Error())
+					reqLog.BodyAsString = getSafeBodyString(requestBody)
+				}
+			} else {
 				reqLog.BodyAsString = getSafeBodyString(requestBody)
 			}
-		} else {
-			reqLog.BodyAsString = getSafeBodyString(requestBody)
-		}
-		fmt.Println()
-		reqJson, err := json.MarshalIndent(reqLog, "", "  ")
-		if err != nil {
-			fmt.Printf("\nERROR marshalling request log to json: %v\n", err)
-		} else {
-			fmt.Printf("-----------> REQUEST\n")
-			fmt.Println(string(reqJson))
+			fmt.Println()
+			reqJson, err := json.MarshalIndent(reqLog, "", "  ")
+			if err != nil {
+				fmt.Printf("\nERROR marshalling request log to json: %v\n", err)
+			} else {
+				fmt.Printf("-----------> REQUEST\n")
+				fmt.Println(string(reqJson))
+			}
 		}
 
 		// Wrap the response writer to capture response details
@@ -160,54 +170,48 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		duration := time.Since(start)
 
 		// Log response information
-		if logger != nil {
-			logger.Debug("HTTP Response",
-				//slog.String("method", r.Method),
-				//slog.String("path", r.URL.Path),
+		if logger != nil && level == 1 {
+			logger.Info("HTTP Response",
+				slog.Int("status_code", rw.statusCode),
+				slog.Int64("response_size", rw.size),
+			)
+		} else if logger != nil && level == 2 {
+			logger.Info("HTTP Response",
 				slog.Int("status_code", rw.statusCode),
 				slog.Int64("response_size", rw.size),
 				slog.Duration("duration", duration),
-				//slog.String("duration_ms", formatDuration(duration)),
 				slog.Any("response_headers", w.Header()),
 				slog.String("response_body", getSafeBodyString(rw.body.Bytes())),
 			)
-		}
-		respLog := &responseLog{
-			Id:           atomic.AddInt64(&globalExchangeCount, 1),
-			StatusCode:   rw.statusCode,
-			ResponseSize: rw.size,
-			Duration:     duration,
-			Headers:      rw.Header(),
-		}
-		respLog.ContentType = respLog.Headers.Get("Content-Type")
+		} else if level >= 3 {
+			respLog := &responseLog{
+				Id:           atomic.AddInt64(&globalExchangeCount, 1),
+				StatusCode:   rw.statusCode,
+				ResponseSize: rw.size,
+				Duration:     duration,
+				Headers:      rw.Header(),
+			}
+			respLog.ContentType = respLog.Headers.Get("Content-Type")
 
-		responseBody := rw.body.Bytes()
-		if strings.HasPrefix(respLog.ContentType, "application/json") {
-			err := json.Unmarshal(responseBody, &respLog.BodyAsJson)
-			if err != nil {
-				fmt.Printf("Error unmarshalling response body: %s\n", err.Error())
+			responseBody := rw.body.Bytes()
+			if strings.HasPrefix(respLog.ContentType, "application/json") {
+				err := json.Unmarshal(responseBody, &respLog.BodyAsJson)
+				if err != nil {
+					fmt.Printf("Error unmarshalling response body: %s\n", err.Error())
+					respLog.BodyAsString = getSafeBodyString(responseBody)
+				}
+			} else {
 				respLog.BodyAsString = getSafeBodyString(responseBody)
 			}
-		} else {
-			respLog.BodyAsString = getSafeBodyString(responseBody)
-		}
+			respJson, err := json.MarshalIndent(respLog, "", "  ")
+			if err != nil {
+				fmt.Printf("\nERROR marshalling response to json: %v\n", err)
+			} else {
+				fmt.Printf("<----------- RESPONSE\n")
+				fmt.Println(string(respJson))
+			}
 
-		//respYaml, err := yaml.Marshal(respLog)
-		//if err != nil {
-		//	fmt.Printf("\nERROR marshalling response to yaml: %v\n", err)
-		//} else {
-		//	fmt.Println(string(respYaml))
-		//}
-		respJson, err := json.MarshalIndent(respLog, "", "  ")
-		if err != nil {
-			fmt.Printf("\nERROR marshalling response to json: %v\n", err)
-		} else {
-			fmt.Printf("<----------- RESPONSE\n")
-			fmt.Println(string(respJson))
 		}
-
-		// Increment counter
-		//atomic.AddInt64(&globalExchangeCount, 1)
 	})
 }
 

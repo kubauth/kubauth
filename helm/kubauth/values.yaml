@@ -76,8 +76,8 @@ oidc:
   logger:
     mode: json  # "Log mode (dev or json)
     level: debug # Log level(DEBUG, INFO, WARN, ERROR)
-  # Dump all http server req/resp
-  dumpExchanges: false
+  # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
+  dumpExchanges: 0
   # Display all command line flags on boot
   displayFlags: true
 
@@ -219,8 +219,8 @@ userdb:
   logger:
     mode: json  # "Log mode (dev or json)
     level: info # Log level(DEBUG, INFO, WARN, ERROR)
-  # Dump all http server req/resp
-  dumpExchanges: false
+  # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
+  dumpExchanges: 0
   # Display all command line flags on boot
   displayFlags: true
 
