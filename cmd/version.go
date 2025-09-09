@@ -19,7 +19,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"kubauth/cmd/kubauth/global"
+	"kubauth/internal/global"
 )
 
 var versionParams struct {

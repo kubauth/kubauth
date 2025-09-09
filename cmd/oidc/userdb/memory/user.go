@@ -1,7 +1,7 @@
 package memory
 
 import (
-	"kubauth/cmd/kubauth/cmd/oidc/userdb"
+	"kubauth/cmd/oidc/userdb"
 )
 
 type memoryUser struct {

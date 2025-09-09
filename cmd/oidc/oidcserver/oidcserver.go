@@ -9,8 +9,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"html/template"
-	"kubauth/cmd/kubauth/cmd/oidc/fositepatch"
-	"kubauth/cmd/kubauth/cmd/oidc/userdb"
+	"kubauth/cmd/oidc/fositepatch"
+	"kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/oidc/userdb"
 	"net/http"
 	"path"
 	"time"
@@ -19,8 +20,6 @@ import (
 
 	scsV2 "github.com/alexedwards/scs/v2"
 	"github.com/google/uuid"
-
-	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/handler/openid"

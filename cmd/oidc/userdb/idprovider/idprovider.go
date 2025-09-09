@@ -1,9 +1,9 @@
 package idprovider
 
 import (
-	"kubauth/cmd/kubauth/cmd/oidc/userdb"
-	"kubauth/cmd/kubauth/proto"
+	"kubauth/cmd/oidc/userdb"
 	"kubauth/internal/httpclient"
+	proto2 "kubauth/internal/proto"
 )
 
 type idProvider struct {
@@ -24,17 +24,17 @@ func New(config *httpclient.Config) (userdb.UserDb, error) {
 }
 
 func (u *idProvider) Authenticate(login string, password string) (*userdb.User, error) {
-	request := &proto.IdentityRequest{
+	request := &proto2.IdentityRequest{
 		Login:    login,
 		Password: password,
 		Detailed: false,
 	}
-	response := &proto.IdentityResponse{}
-	err := proto.Exchange(u.httpClient, "GET", "v1/identity", request, response)
+	response := &proto2.IdentityResponse{}
+	err := proto2.Exchange(u.httpClient, "GET", "v1/identity", request, response)
 	if err != nil {
 		return nil, err
 	}
-	if response.Status != proto.PasswordChecked {
+	if response.Status != proto2.PasswordChecked {
 		return nil, nil
 	}
 	fullName := ""

@@ -16,7 +16,9 @@ limitations under the License.
 
 package main
 
-import "kubauth/cmd/kubauth/cmd"
+import (
+	"kubauth/cmd"
+)
 
 func main() {
 	cmd.Execute()

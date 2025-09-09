@@ -21,7 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
+	oidcstorage2 "kubauth/cmd/oidc/oidcstorage"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -31,7 +31,7 @@ type OidcClientReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Namespace string // Where OidcClient are stored
-	Storage   *oidcstorage.MemoryStore
+	Storage   *oidcstorage2.MemoryStore
 }
 
 // +kubebuilder:rbac:groups=kubauth.kubotal.io,resources=oidcclients,verbs=get;list;watch;create;update;patch;delete
@@ -57,9 +57,9 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	fositeClients := make(map[string]oidcstorage.FositeClient)
+	fositeClients := make(map[string]oidcstorage2.FositeClient)
 	for idx := range clients.Items {
-		fositeClients[clients.Items[idx].Name] = oidcstorage.NewFositeClient(&clients.Items[idx])
+		fositeClients[clients.Items[idx].Name] = oidcstorage2.NewFositeClient(&clients.Items[idx])
 	}
 	logger.Info("Reconciling OidcClient")
 	r.Storage.SetClients(ctx, fositeClients)

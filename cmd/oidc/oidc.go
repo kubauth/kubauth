@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"html/template"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	oidcControllers "kubauth/cmd/kubauth/cmd/oidc/controllers"
-	"kubauth/cmd/kubauth/cmd/oidc/handlers"
-	"kubauth/cmd/kubauth/cmd/oidc/oidcserver"
-	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
-	"kubauth/cmd/kubauth/cmd/oidc/sessioncodec"
-	"kubauth/cmd/kubauth/cmd/oidc/sessionstore"
-	"kubauth/cmd/kubauth/cmd/oidc/userdb/idprovider"
-	oidcWebhooks "kubauth/cmd/kubauth/cmd/oidc/webhooks"
-	"kubauth/cmd/kubauth/global"
+	oidcControllers "kubauth/cmd/oidc/controllers"
+	"kubauth/cmd/oidc/handlers"
+	"kubauth/cmd/oidc/oidcserver"
+	"kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/oidc/sessioncodec"
+	sessionstore2 "kubauth/cmd/oidc/sessionstore"
+	"kubauth/cmd/oidc/userdb/idprovider"
+	oidcWebhooks "kubauth/cmd/oidc/webhooks"
+	"kubauth/internal/global"
 	"kubauth/internal/httpclient"
 	"kubauth/internal/httpsrv"
 	"kubauth/internal/k8sapi"
@@ -360,7 +360,7 @@ var Cmd = &cobra.Command{
 		// IdleTimeout is meaningless, as this session is cross application
 		//s.SessionManager.IdleTimeout = time.Minute * 10
 		// Use Kubernetes-backed store for SSO sessions
-		sm.Store = sessionstore.NewKubeSsoStore(kubeClient, flags.ssoNamespace)
+		sm.Store = sessionstore2.NewKubeSsoStore(kubeClient, flags.ssoNamespace)
 		sm.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
 		sm.Lifetime = flags.ssoLifetime
 		sm.Cookie.Name = "kubauth_login"
@@ -375,7 +375,7 @@ var Cmd = &cobra.Command{
 
 		// Add SSO session cleanup runnable if enabled (similar to scs memstore)
 		if flags.cleanupPeriod > 0 {
-			if err := mgr.Add(sessionstore.NewKubeSsoCleaner(kubeClient, flags.ssoNamespace, flags.cleanupPeriod)); err != nil {
+			if err := mgr.Add(sessionstore2.NewKubeSsoCleaner(kubeClient, flags.ssoNamespace, flags.cleanupPeriod)); err != nil {
 				setupLog.Error(err, "unable to add SsoCleaner to the manager")
 				os.Exit(1)
 			}

@@ -2,7 +2,7 @@ package oidcserver
 
 import (
 	"fmt"
-	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/oidc/oidcstorage"
 	"net/http"
 
 	"github.com/go-logr/logr"

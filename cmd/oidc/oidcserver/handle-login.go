@@ -1,11 +1,10 @@
 package oidcserver
 
 import (
-	"kubauth/cmd/kubauth/cmd/oidc/fositepatch"
+	"kubauth/cmd/oidc/fositepatch"
+	"kubauth/cmd/oidc/userdb"
 	"net/http"
 	"net/url"
-
-	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 
 	"github.com/go-logr/logr"
 )

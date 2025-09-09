@@ -11,9 +11,9 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/kubauth/cmd/userdb/handlers"
-	kubauthWebhooks "kubauth/cmd/kubauth/cmd/userdb/webhooks"
-	"kubauth/cmd/kubauth/global"
+	"kubauth/cmd/userdb/handlers"
+	"kubauth/cmd/userdb/webhooks"
+	"kubauth/internal/global"
 	"kubauth/internal/httpsrv"
 	"kubauth/internal/misc"
 	"log/slog"
@@ -235,15 +235,15 @@ var Cmd = &cobra.Command{
 		}
 
 		if flags.enableWebhook {
-			if err := kubauthWebhooks.SetupUserWebhookWithManager(mgr); err != nil {
+			if err := v1alpha1.SetupUserWebhookWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create webhook", "webhook", "User")
 				os.Exit(1)
 			}
-			if err := kubauthWebhooks.SetupGroupWebhookWithManager(mgr); err != nil {
+			if err := v1alpha1.SetupGroupWebhookWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create webhook", "webhook", "Group")
 				os.Exit(1)
 			}
-			if err := kubauthWebhooks.SetupGroupBindingWebhookWithManager(mgr); err != nil {
+			if err := v1alpha1.SetupGroupBindingWebhookWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create webhook", "webhook", "GroupBinding")
 				os.Exit(1)
 			}

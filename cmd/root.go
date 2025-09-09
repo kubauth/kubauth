@@ -19,8 +19,8 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"kubauth/cmd/kubauth/cmd/oidc"
-	userdb "kubauth/cmd/kubauth/cmd/userdb"
+	"kubauth/cmd/oidc"
+	userdb "kubauth/cmd/userdb"
 	"os"
 )
 

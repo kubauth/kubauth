@@ -14,7 +14,8 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY cmd/kubauth/ cmd/kubauth/
+COPY main.go main.go
+COPY cmd/ cmd/
 COPY api/ api/
 COPY internal/ internal/
 
@@ -23,7 +24,7 @@ COPY internal/ internal/
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o kubauth cmd/kubauth/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o kubauth main.go
 
 # Use a configurable minimal base image to package the manager binary
 # Default to distroless. Override with --build-arg RUNTIME_BASE=ubuntu:22.04, etc.

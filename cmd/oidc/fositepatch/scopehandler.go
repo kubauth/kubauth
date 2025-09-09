@@ -2,7 +2,7 @@ package fositepatch
 
 import (
 	"github.com/ory/fosite"
-	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/oidc/oidcstorage"
 	"log/slog"
 )
 

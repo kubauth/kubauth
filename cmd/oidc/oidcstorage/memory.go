@@ -7,7 +7,7 @@ package oidcstorage
 import (
 	"context"
 	"errors"
-	"kubauth/cmd/kubauth/cmd/oidc/userdb"
+	"kubauth/cmd/oidc/userdb"
 	"sync"
 	"time"
 

@@ -6,7 +6,8 @@ package fositepatch
 import (
 	"context"
 	"github.com/go-logr/logr"
-	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/oidc/userdb"
 	"time"
 
 	"github.com/ory/fosite/handler/oauth2"
@@ -14,8 +15,6 @@ import (
 	"github.com/ory/fosite/token/jwt"
 
 	"github.com/ory/x/errorsx"
-
-	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 
 	"github.com/ory/fosite"
 )
