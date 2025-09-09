@@ -72,6 +72,12 @@ networkPolicies:
 oidc:
   enabled: true
 
+  issuer: # TBD
+  postLogoutURL: # TBD
+  # https://www.scottbrady.io/oauth/why-the-resource-owner-password-credentials-grant-type-is-not-authentication-nor-suitable-for-modern-applications
+  allowPasswordGrant: false   # Allow Resource Owner Password Credentials (ROPC) grant type, aka the password grant.
+  enforcePKCE: false  # If set, all authorization code grand must use PKCE
+
   # Allow to change some logger configuration
   logger:
     mode: json  # "Log mode (dev or json)
@@ -87,10 +93,7 @@ oidc:
     namespace: kubauth-oidc
     # Default to {{ include "kubauth.baseName" .}}-oidc-client
     roleName:
-  issuer: # TBD
-  postLogoutURL: # TBD
-  # https://www.scottbrady.io/oauth/why-the-resource-owner-password-credentials-grant-type-is-not-authentication-nor-suitable-for-modern-applications
-  allowPasswordGrant: false   # Allow Resource Owner Password Credentials (ROPC) grant type, aka the password grant.
+
   server:
     tls: true
     bindAddr: "0.0.0.0"

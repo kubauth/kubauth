@@ -74,6 +74,8 @@ var flags struct {
 	jwtKeySecretName      string
 	jwtKeySecretNamespace string
 	allowPasswordGrant    bool
+	enforcePKCE           bool
+	allowPKCEPlain        bool
 
 	// SSO Config
 	ssoNamespace  string
@@ -124,6 +126,8 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretName, "jwtKeySecretName", "jwt-signing-key", "The secret name storing the JWT signing key")
 	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretNamespace, "jwtKeySecretNamespace", "", "The namespace to store the secret hosting the JWT signing key")
 	Cmd.PersistentFlags().BoolVar(&flags.allowPasswordGrant, "allowPasswordGrant", false, "Allow password grant to use for authentication")
+	Cmd.PersistentFlags().BoolVar(&flags.enforcePKCE, "enforcePKCE", false, "Enforce PKCE for authorization code flows (recommended for security)")
+	Cmd.PersistentFlags().BoolVar(&flags.allowPKCEPlain, "allowPKCEPlain", false, "Allow PKCE 'plain' challenge method (not recommended, use S256 instead)")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -396,6 +400,8 @@ var Cmd = &cobra.Command{
 			AccessTokenLifespan:     time.Hour,
 			RefreshTokenLifespan:    time.Hour,
 			AllowPasswordGrant:      flags.allowPasswordGrant,
+			EnforcePKCE:             flags.enforcePKCE,
+			AllowPKCEPlain:          flags.allowPKCEPlain,
 		}).Setup(ctx, router)
 		if err != nil {
 			setupLog.Error(err, "unable to setup oidc server")

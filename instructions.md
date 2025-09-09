@@ -136,3 +136,13 @@ Got a panic in line 109. So, I have replaced c.userDb.Authenticate(username, pas
 But, I don't like global variable. Can we remove them.
 
 You can explore fosite library at /Users/sa/dev/d1/git/fosite
+
+
+Several manual change. Update your cache if any.
+
+Seems current implementation does not handle PKCE. Could you fix this.
+
+Got Token exchange failed: token request failed with status 400: {"error":"invalid_grant","error_description":"The provided authorization grant (e.g., authorization code, resource owner credentials) or refresh token is invalid, expired, revoked, does not match the redirection URI used in the authorization request, or was issued to another client. The PKCE code challenge did not match the code verifier."}
+This with a test client, with the following command: kc ui --pkce
+The source code of the kc command is at the following location: /Users/sa/dev/d1/git/kc
+May be the error is in the client

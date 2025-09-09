@@ -52,6 +52,8 @@ type OIDCServer struct {
 	AccessTokenLifespan  time.Duration
 	RefreshTokenLifespan time.Duration
 	AllowPasswordGrant   bool
+	EnforcePKCE          bool
+	AllowPKCEPlain       bool
 }
 
 func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
@@ -79,6 +81,11 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 		AuthorizeCodeLifespan: time.Minute * 10,
 		AccessTokenIssuer:     s.Issuer,
 		IDTokenIssuer:         s.Issuer,
+
+		// PKCE Configuration
+		EnforcePKCE:                    s.EnforcePKCE,    // Enforce PKCE for all authorization code flows
+		EnablePKCEPlainChallengeMethod: s.AllowPKCEPlain, // Control whether to allow insecure 'plain' method
+		EnforcePKCEForPublicClients:    s.EnforcePKCE,    // Use same setting as general enforcement
 	}
 
 	s.oauth2 = fositepatch.ComposeAllEnabled(s.config, s.Storage, s.privateKey)

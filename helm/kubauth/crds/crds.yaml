@@ -193,6 +193,8 @@ spec:
           spec:
             description: spec defines the desired state of OidcClient
             properties:
+              accessTokenLifespan:
+                type: string
               audiences:
                 items:
                   type: string
@@ -219,6 +221,8 @@ spec:
               hashedSecret:
                 description: The hashed secret. (Required if !public)
                 type: string
+              idTokenLifespan:
+                type: string
               postLogoutURL:
                 description: |-
                   Where to redirected user on logout.
@@ -234,6 +238,8 @@ spec:
                 items:
                   type: string
                 type: array
+              refreshTokenLifespan:
+                type: string
               responseTypes:
                 description: |-
                   The client's allowed response types.
