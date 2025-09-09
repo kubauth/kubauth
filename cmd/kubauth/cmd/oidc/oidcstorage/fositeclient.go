@@ -3,6 +3,7 @@ package oidcstorage
 import (
 	"github.com/ory/fosite"
 	"kubauth/api/kubauth/v1alpha1"
+	"time"
 )
 
 type FositeClient interface {
@@ -28,6 +29,8 @@ func NewFositeClient(cli *v1alpha1.OidcClient) FositeClient {
 }
 
 var _ FositeClient = &fositeClient{}
+
+var _ fosite.ClientWithCustomTokenLifespans = &fositeClient{}
 
 func (k *fositeClient) GetID() string {
 	return k.clientId
@@ -86,4 +89,28 @@ func (k *fositeClient) IsForceOpenIdScope() bool {
 		return false
 	}
 	return *k.spec.ForceOpenIdScope
+}
+
+func (k *fositeClient) GetEffectiveLifespan(gt fosite.GrantType, tt fosite.TokenType, fallback time.Duration) time.Duration {
+	//fmt.Printf("############### GetEffectiveLifespan client:%s grant type:%s   tokenType:%s   fallBack:%s\n", k.clientId, gt, tt, fallback)
+	if tt == fosite.AccessToken {
+		if k.spec.AccessTokenLifespan.Duration != 0 {
+			return k.spec.AccessTokenLifespan.Duration
+		}
+		return fallback
+	}
+	if tt == fosite.RefreshToken {
+		if k.spec.RefreshTokenLifespan.Duration != 0 {
+			return k.spec.RefreshTokenLifespan.Duration
+		}
+		return fallback
+	}
+	if tt == fosite.IDToken {
+		if k.spec.IDTokenLifespan.Duration != 0 {
+			// fmt.Printf("GetEffectiveLifespan(id_token) => %s\n", k.spec.IDTokenLifespan.Duration)
+			return k.spec.IDTokenLifespan.Duration
+		}
+		return fallback
+	}
+	return fallback
 }

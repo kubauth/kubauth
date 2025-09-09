@@ -65,7 +65,7 @@ type OidcClientSpec struct {
 	// Force openid scope, even if not requested.
 	// +optional
 	ForceOpenIdScope *bool `json:"forceOpenIdScope,omitempty"`
-	
+
 	// Where to redirected user on logout.
 	// Will take precedence on the same global configuration value.
 	// May be overridden by a query parameter on the logout url
@@ -83,6 +83,13 @@ type OidcClientSpec struct {
 	// The application entry URL. May be used to build a user-friendly list
 	// +optional
 	EntryURL string `json:"entryURL,omitempty"`
+
+	// +optional
+	AccessTokenLifespan metav1.Duration `json:"accessTokenLifespan,omitempty"`
+	// +optional
+	RefreshTokenLifespan metav1.Duration `json:"refreshTokenLifespan,omitempty"`
+	// +optional
+	IDTokenLifespan metav1.Duration `json:"idTokenLifespan,omitempty"`
 }
 
 // OidcClientStatus defines the observed state of OidcClient.

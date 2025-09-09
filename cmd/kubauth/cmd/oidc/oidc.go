@@ -71,8 +71,6 @@ var flags struct {
 	issuer                string
 	resources             string
 	postLogoutURL         string
-	accessTokenLifespan   time.Duration
-	refreshTokenLifespan  time.Duration
 	jwtKeySecretName      string
 	jwtKeySecretNamespace string
 	allowPasswordGrant    bool
@@ -123,8 +121,6 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.issuer, "issuer", "i", "http://localhost:8101", "issuer URL")
 	Cmd.PersistentFlags().StringVar(&flags.resources, "resources", "resources", "resources folders")
 	Cmd.PersistentFlags().StringVar(&flags.postLogoutURL, "postLogoutURL", "", "Where to redirect user on logout (last resort default)")
-	Cmd.PersistentFlags().DurationVar(&flags.accessTokenLifespan, "accessTokenLifespan", time.Hour*1, "AccessToken lifespan")
-	Cmd.PersistentFlags().DurationVar(&flags.refreshTokenLifespan, "refreshTokenLifespan", time.Hour*1, "RefreshToken lifespan")
 	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretName, "jwtKeySecretName", "jwt-signing-key", "The secret name storing the JWT signing key")
 	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretNamespace, "jwtKeySecretNamespace", "", "The namespace to store the secret hosting the JWT signing key")
 	Cmd.PersistentFlags().BoolVar(&flags.allowPasswordGrant, "allowPasswordGrant", false, "Allow password grant to use for authentication")
@@ -397,8 +393,8 @@ var Cmd = &cobra.Command{
 			KubeClient:              kubeClient,
 			JWTSigningKeySecretName: flags.jwtKeySecretName,
 			JWTSigningKeySecretNS:   flags.jwtKeySecretNamespace,
-			AccessTokenLifespan:     flags.accessTokenLifespan,
-			RefreshTokenLifespan:    flags.refreshTokenLifespan,
+			AccessTokenLifespan:     time.Hour,
+			RefreshTokenLifespan:    time.Hour,
 			AllowPasswordGrant:      flags.allowPasswordGrant,
 		}).Setup(ctx, router)
 		if err != nil {

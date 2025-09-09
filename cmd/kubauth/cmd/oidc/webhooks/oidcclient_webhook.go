@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,14 +59,33 @@ type OidcClientCustomDefaulter struct {
 
 var _ webhook.CustomDefaulter = &OidcClientCustomDefaulter{}
 
+// This annotation in intended to shortcut all webhook handling.
+// Goal is to be able to easily simulate a configuration without webkook, for testing such cases.
+const skipWebhookAnnotation = "kubauth.kubotal.io/skipWebhooks"
+
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind OidcClient.
 func (d *OidcClientCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	oidcclient, ok := obj.(*kubautv1alpha1.OidcClient)
-
 	if !ok {
 		return fmt.Errorf("expected an OidcClient object but got %T", obj)
 	}
 	logger := logr.FromContextAsSlogLogger(ctx)
+	a, ok := oidcclient.GetAnnotations()[skipWebhookAnnotation]
+	if ok && strings.ToLower(a) != "no" {
+		logger.Info("Skipping defaulting webhook", "kind", oidcclient.GetObjectKind().GroupVersionKind().String(), "name", oidcclient.GetName(), "namespace", oidcclient.GetNamespace())
+		return nil
+	}
+
+	if oidcclient.Spec.AccessTokenLifespan.Duration == 0 {
+		oidcclient.Spec.AccessTokenLifespan = metav1.Duration{Duration: time.Hour * 1}
+	}
+	if oidcclient.Spec.RefreshTokenLifespan.Duration == 0 {
+		oidcclient.Spec.RefreshTokenLifespan = metav1.Duration{Duration: time.Hour * 1}
+	}
+	if oidcclient.Spec.IDTokenLifespan.Duration == 0 {
+		oidcclient.Spec.IDTokenLifespan = metav1.Duration{Duration: time.Hour * 1}
+	}
+
 	logger.Debug("Defaulting for OidcClient", "name", oidcclient.GetName())
 
 	// TODO(user): fill in your defaulting logic.

@@ -135,10 +135,6 @@ func (c *ResourceOwnerPasswordCredentialsGrantHandler) HandleTokenEndpointReques
 	// Grant all requested scopes that the client is allowed to use
 	HandleScopes(request, logger)
 
-	//for _, scope := range request.GetRequestedScopes() {
-	//	request.GrantScope(scope)
-	//}
-
 	atLifespan := fosite.GetEffectiveLifespan(request.GetClient(), fosite.GrantTypePassword, fosite.AccessToken, c.Config.GetAccessTokenLifespan(ctx))
 	request.GetSession().SetExpiresAt(fosite.AccessToken, time.Now().UTC().Add(atLifespan).Round(time.Second))
 
@@ -232,7 +228,6 @@ func (c *ResourceOwnerPasswordCredentialsGrantHandler) createSessionWithUserClai
 		Issuer:      c.ExtendedStorage.GetIssuer(),
 		Subject:     user.Login,
 		Audience:    []string{clientId},
-		ExpiresAt:   time.Now().Add(time.Hour), // Will be overridden by token lifespan
 		IssuedAt:    time.Now(),
 		RequestedAt: time.Now(),
 		AuthTime:    time.Now(),

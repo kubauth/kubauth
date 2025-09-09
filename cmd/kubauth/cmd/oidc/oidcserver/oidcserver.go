@@ -201,7 +201,6 @@ func (s *OIDCServer) newSession(user *userdb.User, clientId string) *openid.Defa
 		Issuer:      s.Issuer,
 		Subject:     user.Login,
 		Audience:    []string{clientId},
-		ExpiresAt:   time.Now().Add(s.config.AccessTokenLifespan),
 		IssuedAt:    time.Now(),
 		RequestedAt: time.Now(),
 		AuthTime:    time.Now(),
