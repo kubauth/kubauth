@@ -6,6 +6,7 @@ package fositepatch
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"kubauth/cmd/kubauth/cmd/oidc/oidcstorage"
 	"time"
 
 	"github.com/ory/fosite/handler/oauth2"
@@ -27,6 +28,8 @@ type ExtendedResourceOwnerStorage interface {
 	GetKeyID() string
 	IsAllowPasswordGrant() bool
 }
+
+var _ ExtendedResourceOwnerStorage = &oidcstorage.MemoryStore{}
 
 var _ fosite.TokenEndpointHandler = (*ResourceOwnerPasswordCredentialsGrantHandler)(nil)
 
@@ -130,9 +133,11 @@ func (c *ResourceOwnerPasswordCredentialsGrantHandler) HandleTokenEndpointReques
 	delete(request.GetRequestForm(), "password")
 
 	// Grant all requested scopes that the client is allowed to use
-	for _, scope := range request.GetRequestedScopes() {
-		request.GrantScope(scope)
-	}
+	HandleScopes(request, logger)
+
+	//for _, scope := range request.GetRequestedScopes() {
+	//	request.GrantScope(scope)
+	//}
 
 	atLifespan := fosite.GetEffectiveLifespan(request.GetClient(), fosite.GrantTypePassword, fosite.AccessToken, c.Config.GetAccessTokenLifespan(ctx))
 	request.GetSession().SetExpiresAt(fosite.AccessToken, time.Now().UTC().Add(atLifespan).Round(time.Second))

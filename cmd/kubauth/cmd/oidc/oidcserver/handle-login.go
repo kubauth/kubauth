@@ -1,6 +1,7 @@
 package oidcserver
 
 import (
+	"kubauth/cmd/kubauth/cmd/oidc/fositepatch"
 	"net/http"
 	"net/url"
 
@@ -34,10 +35,11 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 							ar, err := s.oauth2.NewAuthorizeRequest(ctx, req)
 							if err == nil {
 
-								for _, sc := range ar.GetRequestedScopes() {
-									logger.Debug("Adding scope", "scope", sc, "method", "GET")
-									ar.GrantScope(sc)
-								}
+								fositepatch.HandleScopes(ar, logger)
+								//for _, sc := range ar.GetRequestedScopes() {
+								//	logger.Debug("Adding scope", "scope", sc, "method", "GET")
+								//	ar.GrantScope(sc)
+								//}
 
 								//ar.GrantScope("offline")
 								//ar.GrantScope("openid")
@@ -110,10 +112,22 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		for _, sc := range ar.GetRequestedScopes() {
-			logger.Debug("Adding scope", "scope", sc, "method", "POST")
-			ar.GrantScope(sc)
-		}
+		fositepatch.HandleScopes(ar, logger)
+		//client := ar.GetClient()
+		//for _, sc := range ar.GetRequestedScopes() {
+		//	if client.GetScopes().Has(sc) || client.GetScopes().Has("*") {
+		//		logger.Debug("Adding scope", "scope", sc)
+		//		ar.GrantScope(sc)
+		//	} else {
+		//		logger.Debug("Skipping scope", "scope", sc)
+		//	}
+		//}
+		//if client2, ok := client.(oidcstorage.FositeClient); ok {
+		//	if client2.IsForceOpenIdScope() {
+		//		logger.Debug("Forcing openid scope")
+		//		ar.GrantScope("openid") // Will take care of duplicate
+		//	}
+		//}
 		// Grant required scopes and create session
 		//ar.GrantScope("offline") // To have a refresh token
 		//ar.GrantScope("openid")

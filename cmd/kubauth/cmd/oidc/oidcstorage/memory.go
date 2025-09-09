@@ -7,7 +7,6 @@ package oidcstorage
 import (
 	"context"
 	"errors"
-	"kubauth/cmd/kubauth/cmd/oidc/fositepatch"
 	"kubauth/cmd/kubauth/cmd/oidc/userdb"
 	"sync"
 	"time"
@@ -89,8 +88,6 @@ func NewMemoryStore(userDb userdb.UserDb) *MemoryStore {
 		UserDb:                 userDb,
 	}
 }
-
-var _ fositepatch.ExtendedResourceOwnerStorage = &MemoryStore{}
 
 type StoreAuthorizeCode struct {
 	active bool
