@@ -146,3 +146,11 @@ Got Token exchange failed: token request failed with status 400: {"error":"inval
 This with a test client, with the following command: kc ui --pkce
 The source code of the kc command is at the following location: /Users/sa/dev/d1/git/kc
 May be the error is in the client
+
+
+Write the README.md file for this OIDC server product. 
+Main source of information for configuration and usage are the values.yaml file of the helm chart, and the kubernetes API.
+You can also mention https://github.com/kubauth/kc for testing and generate hash for user's password and oidcclient secrets.
+
+
+Modify the README.md: there is no helm chart repository. The helm chart is provided as OCI image: quay.io/kubauth/charts/kubauth:0.1.1-snapshot
