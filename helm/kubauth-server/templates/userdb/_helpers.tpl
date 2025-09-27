@@ -125,9 +125,16 @@ Create the name of the mutating webhook configuration
 {{/* --------------------------------------------------------------------- RBAC */}}
 
 {{/*
-Create the name of the userdb access role
+Create the name of the role for kubauth server access
 */}}
-{{- define "kubauth.userdb.roleName" -}}
-{{- default (printf "%s-userdb" (include "kubauth.baseName" .)) .Values.userdb.roleName }}
+{{- define "kubauth.userdb.systemRoleName" -}}
+{{- default (printf "%s-userdb-system" (include "kubauth.baseName" .)) .Values.userdb.systemRoleName }}
+{{- end }}
+
+{{/*
+Create the name of the role for kubauth administrator (Manage users and group)
+*/}}
+{{- define "kubauth.userdb.adminRoleName" -}}
+{{- default (printf "%s-userdb-admin" (include "kubauth.baseName" .)) .Values.userdb.adminRoleName }}
 {{- end }}
 

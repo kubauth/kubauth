@@ -14,12 +14,10 @@ spec:
     shortNames:
     - gb
     - gbs
-    - skgroupbinding
-    - skgroupbindings
-    - skgb
-    - skgbs
-    - skasgb
-    - skasgb
+    - kgb
+    - kgbs
+    - kgroupbinding
+    - kgroupbindings
     singular: groupbinding
   scope: Namespaced
   versions:

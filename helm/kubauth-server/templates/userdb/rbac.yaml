@@ -1,10 +1,12 @@
 {{- if .Values.userdb.enabled }}
 
+
+# Following is for kubauth server access
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "kubauth.userdb.roleName" . }}
+  name: {{ include "kubauth.userdb.systemRoleName" . }}
   namespace: {{ .Values.userdb.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
@@ -29,7 +31,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.userdb.roleName" . }}
+  name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.userdb.systemRoleName" . }}
   namespace: {{ .Values.userdb.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
@@ -40,11 +42,42 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "kubauth.userdb.roleName" . }}
+  name: {{ include "kubauth.userdb.systemRoleName" . }}
 subjects:
   - kind: ServiceAccount
     name: {{ include "kubauth.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
+
+
+# Following is for user admin
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kubauth.userdb.adminRoleName" . }}
+  namespace: {{ .Values.userdb.namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  - apiGroups:
+      - kubauth.kubotal.io
+    resources:
+      - users
+      - groups
+      - groupbindings
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
 
 
 

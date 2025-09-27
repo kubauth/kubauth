@@ -1,0 +1,63 @@
+
+namespaces:
+  kubauth:
+    users: kubauth-users
+    oidcClient: kubauth-oidc
+
+users: []
+#  - login: john
+#    spec:
+#      passwordHash: "$2a$12$iw.ywr.87sGXAkK1HSIU6OIBTyVs4/at1T7I1ueLPPt9CPxOpkmbW"
+#      claims:
+#        job: boss
+#        email: john@thecompany.com
+#      commonNames:
+#        - John THEBOSS
+#      emails:
+#        - john@thecompany.com
+#      comment: The CEO
+#      disabled: false
+
+groupBindings: []
+#  - user: john
+#    group: managers
+#  - user: john
+#    group: golfPlayers
+
+groups: []
+#  - name: managers
+#    spec:
+#      claims:
+#        access: full
+
+roleBindings: []
+#  - name
+#    role:
+#    clusterRole
+#    namespace:
+#    users: []
+#    groups: []
+
+clusterRoleBindings: []
+#  - name
+#    clusterRole:
+#    users: []
+#    groups: []
+
+oidcClients: []
+#  - name: example
+#    spec:
+#      id: example-app
+#      hashedSecret: "$2a$12$pxfZs1UOw3y.4IJAOVqG8OIr4n6304Y2QRBefiQpB3AnDGthYF4ba" # // hash of ZXhhbXBsZS1hcHAtc2VjcmV0
+#      redirectURIs:
+#        - "http://example.local/callback"
+#      grantTypes: [ "implicit", "refresh_token", "authorization_code", "password", "client_credentials" ]
+#      responseTypes: ["id_token", "code", "token", "id_token token", "code id_token", "code token", "code id_token token"]
+#      scopes: [ "openid", "offline", "profile", "groups", "email"]
+
+
+
+
+
+# -- Annotations to be added to all other resources
+commonAnnotations: {}
