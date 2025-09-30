@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package userdb
+package authenticator
 
 type User struct {
 	Login    string
@@ -22,6 +22,6 @@ type User struct {
 	FullName string
 }
 
-type UserDb interface {
+type Authenticator interface {
 	Authenticate(login string, password string) (*User, error)
 }

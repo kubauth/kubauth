@@ -14,32 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package idprovider
+package httprovider
 
 import (
-	"kubauth/cmd/oidc/userdb"
+	"kubauth/cmd/oidc/authenticator"
 	"kubauth/internal/httpclient"
 	proto2 "kubauth/internal/proto"
 )
 
-type idProvider struct {
+type httpProvider struct {
 	httpClient httpclient.HttpClient
 }
 
-var _ userdb.UserDb = &idProvider{}
+var _ authenticator.Authenticator = &httpProvider{}
 
-func New(config *httpclient.Config) (userdb.UserDb, error) {
+func New(config *httpclient.Config) (authenticator.Authenticator, error) {
 	httpClient, err := httpclient.New(config)
 	if err != nil {
 		return nil, err
 	}
-	idp := &idProvider{
+	idp := &httpProvider{
 		httpClient: httpClient,
 	}
 	return idp, nil
 }
 
-func (u *idProvider) Authenticate(login string, password string) (*userdb.User, error) {
+func (u *httpProvider) Authenticate(login string, password string) (*authenticator.User, error) {
 	request := &proto2.IdentityRequest{
 		Login:    login,
 		Password: password,
@@ -57,7 +57,7 @@ func (u *idProvider) Authenticate(login string, password string) (*userdb.User, 
 	if len(response.CommonNames) > 0 {
 		fullName = response.CommonNames[0]
 	}
-	return &userdb.User{
+	return &authenticator.User{
 		Login:    login,
 		Claims:   response.Claims,
 		FullName: fullName,

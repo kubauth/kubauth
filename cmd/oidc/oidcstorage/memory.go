@@ -7,7 +7,7 @@ package oidcstorage
 import (
 	"context"
 	"errors"
-	"kubauth/cmd/oidc/userdb"
+	"kubauth/cmd/oidc/authenticator"
 	"sync"
 	"time"
 
@@ -52,7 +52,7 @@ type MemoryStore struct {
 	// Public keys to check signature in auth grant jwt assertion.
 	IssuerPublicKeys   map[string]IssuerPublicKeys
 	PARSessions        map[string]fosite.AuthorizeRequester
-	UserDb             userdb.UserDb
+	UserDb             authenticator.Authenticator
 	Issuer             string
 	KeyID              string
 	AllowPasswordGrant bool
@@ -71,7 +71,7 @@ type MemoryStore struct {
 	parSessionsMutex            sync.RWMutex
 }
 
-func NewMemoryStore(userDb userdb.UserDb) *MemoryStore {
+func NewMemoryStore(userDb authenticator.Authenticator) *MemoryStore {
 	return &MemoryStore{
 		Clients:        make(map[string]FositeClient),
 		AuthorizeCodes: make(map[string]StoreAuthorizeCode),
@@ -344,7 +344,7 @@ func (s *MemoryStore) Authenticate(_ context.Context, name string, secret string
 }
 
 // AuthenticateUserWithClaims returns the full user object with claims
-func (s *MemoryStore) AuthenticateUserWithClaims(_ context.Context, name string, secret string) (*userdb.User, error) {
+func (s *MemoryStore) AuthenticateUserWithClaims(_ context.Context, name string, secret string) (*authenticator.User, error) {
 	s.usersMutex.RLock()
 	defer s.usersMutex.RUnlock()
 

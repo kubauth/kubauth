@@ -6,8 +6,8 @@ package fositepatch
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"kubauth/cmd/oidc/authenticator"
 	"kubauth/cmd/oidc/oidcstorage"
-	"kubauth/cmd/oidc/userdb"
 	"time"
 
 	"github.com/ory/fosite/handler/oauth2"
@@ -19,10 +19,10 @@ import (
 	"github.com/ory/fosite"
 )
 
-// ExtendedResourceOwnerStorage extends the standard storage with UserDb functionality
+// ExtendedResourceOwnerStorage extends the standard storage with Authenticator functionality
 type ExtendedResourceOwnerStorage interface {
 	oauth2.ResourceOwnerPasswordCredentialsGrantStorage
-	AuthenticateUserWithClaims(ctx context.Context, name string, secret string) (*userdb.User, error)
+	AuthenticateUserWithClaims(ctx context.Context, name string, secret string) (*authenticator.User, error)
 	GetIssuer() string
 	GetKeyID() string
 	IsAllowPasswordGrant() bool
@@ -60,7 +60,7 @@ func OAuth2ResourceOwnerPasswordCredentialsFactory(config fosite.Configurator, s
 
 type ResourceOwnerPasswordCredentialsGrantHandler struct {
 	*oauth2.HandleHelper
-	// ExtendedStorage provides extended functionality including UserDb
+	// ExtendedStorage provides extended functionality including Authenticator
 	ExtendedStorage       ExtendedResourceOwnerStorage
 	RefreshTokenStrategy  oauth2.RefreshTokenStrategy
 	OpenIDConnectStrategy openid.OpenIDConnectTokenStrategy
@@ -217,7 +217,7 @@ func (c *ResourceOwnerPasswordCredentialsGrantHandler) CanHandleTokenEndpointReq
 }
 
 // createSessionWithUserClaims creates a session with user claims (similar to OIDCServer.newSession)
-func (c *ResourceOwnerPasswordCredentialsGrantHandler) createSessionWithUserClaims(user *userdb.User, clientId string) *openid.DefaultSession {
+func (c *ResourceOwnerPasswordCredentialsGrantHandler) createSessionWithUserClaims(user *authenticator.User, clientId string) *openid.DefaultSession {
 	if user == nil {
 		return &openid.DefaultSession{}
 	}

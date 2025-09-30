@@ -25,9 +25,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"html/template"
+	"kubauth/cmd/oidc/authenticator"
 	"kubauth/cmd/oidc/fositepatch"
 	"kubauth/cmd/oidc/oidcstorage"
-	"kubauth/cmd/oidc/userdb"
 	"net/http"
 	"path"
 	"time"
@@ -50,7 +50,7 @@ type OIDCServer struct {
 	Issuer         string
 	Storage        *oidcstorage.MemoryStore
 	Resources      string
-	UserDb         userdb.UserDb
+	UserDb         authenticator.Authenticator
 	LoginTemplate  *template.Template
 	IndexTemplate  *template.Template
 	SessionManager *scsV2.SessionManager
@@ -80,7 +80,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 
 	logger.Debug("Setting up OIDC server", "kid", s.keyID)
 
-	// Configure storage with UserDb and other dependencies
+	// Configure storage with Authenticator and other dependencies
 	s.Storage.UserDb = s.UserDb
 	s.Storage.Issuer = s.Issuer
 	s.Storage.KeyID = s.keyID
@@ -215,7 +215,7 @@ func (s *OIDCServer) ensureJwtSigningKey(ctx context.Context) error {
 // Usually, you could do:
 //
 //	session = new(fosite.DefaultSession)
-func (s *OIDCServer) newSession(user *userdb.User, clientId string) *openid.DefaultSession {
+func (s *OIDCServer) newSession(user *authenticator.User, clientId string) *openid.DefaultSession {
 	if user == nil {
 		return &openid.DefaultSession{}
 	}

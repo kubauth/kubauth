@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"html/template"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
+	"kubauth/cmd/oidc/authenticator/httprovider"
 	oidcControllers "kubauth/cmd/oidc/controllers"
 	"kubauth/cmd/oidc/handlers"
 	"kubauth/cmd/oidc/oidcserver"
 	"kubauth/cmd/oidc/oidcstorage"
 	"kubauth/cmd/oidc/sessioncodec"
 	sessionstore2 "kubauth/cmd/oidc/sessionstore"
-	"kubauth/cmd/oidc/userdb/idprovider"
 	oidcWebhooks "kubauth/cmd/oidc/webhooks"
 	"kubauth/internal/global"
 	"kubauth/internal/httpclient"
@@ -308,7 +308,7 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		userDb, err := idprovider.New(&flags.idpHttpConfig)
+		userDb, err := httprovider.New(&flags.idpHttpConfig)
 		if err != nil {
 			setupLog.Error(err, "unable to initialize user db")
 			os.Exit(1)

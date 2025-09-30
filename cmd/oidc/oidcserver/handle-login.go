@@ -17,8 +17,8 @@ limitations under the License.
 package oidcserver
 
 import (
+	"kubauth/cmd/oidc/authenticator"
 	"kubauth/cmd/oidc/fositepatch"
-	"kubauth/cmd/oidc/userdb"
 	"net/http"
 	"net/url"
 
@@ -59,7 +59,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 								//ar.GrantScope("offline")
 								//ar.GrantScope("openid")
 
-								session := s.newSession(&userdb.User{Login: login, Claims: claims}, clientId)
+								session := s.newSession(&authenticator.User{Login: login, Claims: claims}, clientId)
 								response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
 								if err == nil {
 									logger.Info("Successfully logged in using existing SSO session", "login", login)

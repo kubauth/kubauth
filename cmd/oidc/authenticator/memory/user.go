@@ -17,7 +17,7 @@ limitations under the License.
 package memory
 
 import (
-	"kubauth/cmd/oidc/userdb"
+	"kubauth/cmd/oidc/authenticator"
 )
 
 type memoryUser struct {
@@ -30,9 +30,9 @@ type userDb struct {
 	userByLogin map[string]*memoryUser
 }
 
-var _ userdb.UserDb = &userDb{}
+var _ authenticator.Authenticator = &userDb{}
 
-func (u *userDb) Authenticate(login string, password string) (*userdb.User, error) {
+func (u *userDb) Authenticate(login string, password string) (*authenticator.User, error) {
 	user, ok := u.userByLogin[login]
 	if !ok {
 		return nil, nil
@@ -40,13 +40,13 @@ func (u *userDb) Authenticate(login string, password string) (*userdb.User, erro
 	if user.Password != password {
 		return nil, nil
 	}
-	return &userdb.User{
+	return &authenticator.User{
 		Login:  login,
 		Claims: user.Claims,
 	}, nil
 }
 
-func NewUserDb() userdb.UserDb {
+func NewUserDb() authenticator.Authenticator {
 	db := &userDb{
 		userByLogin: make(map[string]*memoryUser),
 	}
