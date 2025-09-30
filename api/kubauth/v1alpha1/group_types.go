@@ -35,6 +35,7 @@ type GroupStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Namespaced,shortName=kgroup;kgroups
 // +kubebuilder:printcolumn:name="Comment",type=string,JSONPath=`.spec.comment`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

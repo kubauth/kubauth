@@ -85,6 +85,9 @@ spec:
     kind: Group
     listKind: GroupList
     plural: groups
+    shortNames:
+    - kgroup
+    - kgroups
     singular: group
   scope: Namespaced
   versions:
@@ -149,9 +152,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.id
-      name: ID
-      type: string
     - jsonPath: .spec.public
       name: Pub.
       type: boolean

@@ -99,7 +99,6 @@ type OidcClientStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced
-// +kubebuilder:printcolumn:name="ID",type=string,JSONPath=`.spec.id`
 // +kubebuilder:printcolumn:name="Pub.",type=boolean,JSONPath=`.spec.public`
 // +kubebuilder:printcolumn:name="Display",type=string,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`

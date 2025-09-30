@@ -18,9 +18,9 @@ HELM_KUBAUTH_GRANT_VERSION ?= 0.1.1-snapshot
 
 DOCKER_TAG=${APP_VERSION}
 
-IMG ?= quay.io/kubauth/exec/kubauth:${DOCKER_TAG}
+IMG ?= quay.io/kubauth/exec/kubauth-server:${DOCKER_TAG}
 
-IMG_UBUNTU ?= quay.io/kubauth/exec/kubauth:${DOCKER_TAG}-ubuntu
+IMG_UBUNTU ?= quay.io/kubauth/exec/kubauth-server:${DOCKER_TAG}-ubuntu
 
 HELM_DOCKER_REPO := quay.io/kubauth/charts
 

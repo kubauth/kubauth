@@ -11,6 +11,9 @@ spec:
     kind: Group
     listKind: GroupList
     plural: groups
+    shortNames:
+    - kgroup
+    - kgroups
     singular: group
   scope: Namespaced
   versions:

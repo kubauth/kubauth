@@ -4,7 +4,7 @@ apiVersion: kubauth.kubotal.io/v1alpha1
 kind: OidcClient
 metadata:
   name: {{ .name }}
-  namespace: {{ $.Values.namespaces.kubauth.oidcClient }}
+  namespace: {{ $.Values.namespaces.kubauth.oidcClients }}
 spec:
   {{- with .hashedSecret }}
   hashedSecret: "{{ . }}"

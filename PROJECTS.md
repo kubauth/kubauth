@@ -19,7 +19,7 @@ Kubauth Kubernetes integration tools
 - image: 
   - quay.io/kubauth/exec/kubauth-kit
 - helm chart: 
-  - kubauth-patcher: Api server patch
+  - kubauth-apiserver: Api server configurator
   - kubauth-kubeconfig: An server to automate client kubeconfig automation
 
 ## kc

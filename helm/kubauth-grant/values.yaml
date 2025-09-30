@@ -2,7 +2,7 @@
 namespaces:
   kubauth:
     users: kubauth-users
-    oidcClient: kubauth-oidc
+    oidcClients: kubauth-oidc
 
 users: []
 #  - login: john
