@@ -125,14 +125,21 @@ func getIdentity(ctx context.Context, request proto.IdentityRequest, k8sClient c
 	}
 	if usr.Spec.Uid != nil {
 		responsePayload.Uid = *usr.Spec.Uid
+		responsePayload.Claims["uid"] = responsePayload.Uid
 	}
 	if len(usr.Spec.CommonNames) > 0 { // Avoid copying a nil
 		responsePayload.CommonNames = usr.Spec.CommonNames
 		responsePayload.Claims["name"] = usr.Spec.CommonNames[0]
+		if len(responsePayload.CommonNames) > 1 {
+			responsePayload.Claims["names"] = usr.Spec.CommonNames
+		}
 	}
 	if len(usr.Spec.Emails) > 0 { // Avoid copying a nil
 		responsePayload.Emails = usr.Spec.Emails
 		responsePayload.Claims["email"] = usr.Spec.Emails[0]
+		if len(responsePayload.Emails) > 1 {
+			responsePayload.Claims["emails"] = usr.Spec.Emails
+		}
 	}
 	// --------- Handle claims
 	responsePayload.Claims, err = merge(responsePayload.Claims, usr.Spec.Claims)

@@ -50,6 +50,9 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 			if response.Groups, err = l.lookupGroups(ctx, conn, *ldapUser); err != nil {
 				return err
 			}
+			if response.Groups != nil && len(response.Groups) > 0 {
+				response.Claims["groups"] = response.Groups
+			}
 		}
 		return nil
 	})
@@ -64,12 +67,24 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 			if err != nil {
 				logger.Error("Non numerical Uid value (%s) for user '%s'", uid, request.Login, "uid", uid, "login", request.Login)
 			}
+			response.Claims["uid"] = response.Uid
 		}
 		response.Emails = getAttrs(*ldapUser, l.config.UserSearch.EmailAttr)
+		if response.Emails != nil || len(response.Emails) == 0 {
+			response.Claims["email"] = response.Emails[0]
+			if len(response.Emails) > 1 {
+				response.Claims["emails"] = response.Emails
+			}
+		}
 		response.CommonNames = getAttrs(*ldapUser, l.config.UserSearch.CnAttr)
+		if response.CommonNames != nil || len(response.CommonNames) == 0 {
+			response.Claims["name"] = response.CommonNames[0]
+			if len(response.CommonNames) > 1 {
+				response.Claims["names"] = response.CommonNames
+			}
+		}
 	}
 	return &response, nil
-
 }
 
 // do() initializes a connection to the LDAP directory and passes it to the
