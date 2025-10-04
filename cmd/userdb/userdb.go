@@ -51,7 +51,7 @@ var flags struct {
 	logConfig    misc.LogConfig
 	displayFlags bool
 
-	HttpConfig httpsrv.Config
+	httpConfig httpsrv.Config
 
 	probeAddr            string
 	enableLeaderElection bool // Should be false, as we are stateless
@@ -98,14 +98,14 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.usersNamespace, "usersNamespace", "", "The namespace hosting users and groups resources.")
 
 	// userdb server config
-	Cmd.PersistentFlags().BoolVarP(&flags.HttpConfig.Tls, "tls", "t", false, "enable TLS")
-	Cmd.PersistentFlags().IntVar(&flags.HttpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3)")
-	Cmd.PersistentFlags().StringVarP(&flags.HttpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
-	Cmd.PersistentFlags().IntVarP(&flags.HttpConfig.BindPort, "bindPort", "p", 8201, "Bind port")
-	Cmd.PersistentFlags().StringVarP(&flags.HttpConfig.CertDir, "certDir", "", "", "Certificate Directory")
-	Cmd.PersistentFlags().StringVar(&flags.HttpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
-	Cmd.PersistentFlags().StringVar(&flags.HttpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
-	//Cmd.PersistentFlags().StringArrayVarP(&config.Conf.HttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
+	Cmd.PersistentFlags().BoolVarP(&flags.httpConfig.Tls, "tls", "t", false, "enable TLS")
+	Cmd.PersistentFlags().IntVar(&flags.httpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3)")
+	Cmd.PersistentFlags().StringVarP(&flags.httpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
+	Cmd.PersistentFlags().IntVarP(&flags.httpConfig.BindPort, "bindPort", "p", 8201, "Bind port")
+	Cmd.PersistentFlags().StringVarP(&flags.httpConfig.CertDir, "certDir", "", "", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&flags.httpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&flags.httpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
+	//Cmd.PersistentFlags().StringArrayVarP(&config.Conf.httpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
@@ -118,7 +118,6 @@ var Cmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var tlsOpts []func(*tls.Config)
 
-		var err error
 		logger, err := misc.NewLogger(&flags.logConfig)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to load logging configuration: %v\n", err)
@@ -140,7 +139,7 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if flags.HttpConfig.BindAddr != "127.0.0.1" && flags.HttpConfig.BindAddr != "localhost" {
+		if flags.httpConfig.BindAddr != "127.0.0.1" && flags.httpConfig.BindAddr != "localhost" {
 			fmt.Printf("**** WARNING ****: This enpoint is not protected and externaly accessible. It should be accessible only from side containers")
 		}
 
@@ -294,7 +293,7 @@ var Cmd = &cobra.Command{
 		// ---------------------- Setup our user identity server
 		router := http.NewServeMux()
 		router.Handle("/v1/identity", handlers.IdentityHandler(mgr.GetClient(), flags.usersNamespace))
-		server := httpsrv.New("userIdSrv", &flags.HttpConfig, router)
+		server := httpsrv.New("userIdSrv", &flags.httpConfig, router)
 		err = mgr.Add(server)
 		if err != nil {
 			setupLog.Error(err, "unable to add oidc server to the manager")

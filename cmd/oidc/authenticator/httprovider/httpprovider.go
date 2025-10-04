@@ -26,9 +26,9 @@ type httpProvider struct {
 	httpClient httpclient.HttpClient
 }
 
-var _ authenticator.Authenticator = &httpProvider{}
+var _ authenticator.OidcAuthenticator = &httpProvider{}
 
-func New(config *httpclient.Config) (authenticator.Authenticator, error) {
+func New(config *httpclient.Config) (authenticator.OidcAuthenticator, error) {
 	httpClient, err := httpclient.New(config)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func New(config *httpclient.Config) (authenticator.Authenticator, error) {
 	return idp, nil
 }
 
-func (u *httpProvider) Authenticate(login string, password string) (*authenticator.User, error) {
+func (u *httpProvider) Authenticate(login string, password string) (*authenticator.OidcUser, error) {
 	request := &proto2.IdentityRequest{
 		Login:    login,
 		Password: password,
@@ -57,7 +57,7 @@ func (u *httpProvider) Authenticate(login string, password string) (*authenticat
 	if len(response.CommonNames) > 0 {
 		fullName = response.CommonNames[0]
 	}
-	return &authenticator.User{
+	return &authenticator.OidcUser{
 		Login:    login,
 		Claims:   response.Claims,
 		FullName: fullName,

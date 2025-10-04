@@ -16,12 +16,12 @@ limitations under the License.
 
 package authenticator
 
-type User struct {
+type OidcUser struct {
 	Login    string
 	Claims   map[string]interface{}
 	FullName string
 }
 
-type Authenticator interface {
-	Authenticate(login string, password string) (*User, error)
+type OidcAuthenticator interface {
+	Authenticate(login string, password string) (*OidcUser, error)
 }

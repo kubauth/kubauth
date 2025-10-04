@@ -30,9 +30,9 @@ type userDb struct {
 	userByLogin map[string]*memoryUser
 }
 
-var _ authenticator.Authenticator = &userDb{}
+var _ authenticator.OidcAuthenticator = &userDb{}
 
-func (u *userDb) Authenticate(login string, password string) (*authenticator.User, error) {
+func (u *userDb) Authenticate(login string, password string) (*authenticator.OidcUser, error) {
 	user, ok := u.userByLogin[login]
 	if !ok {
 		return nil, nil
@@ -40,13 +40,13 @@ func (u *userDb) Authenticate(login string, password string) (*authenticator.Use
 	if user.Password != password {
 		return nil, nil
 	}
-	return &authenticator.User{
+	return &authenticator.OidcUser{
 		Login:  login,
 		Claims: user.Claims,
 	}, nil
 }
 
-func NewUserDb() authenticator.Authenticator {
+func NewUserDb() authenticator.OidcAuthenticator {
 	db := &userDb{
 		userByLogin: make(map[string]*memoryUser),
 	}

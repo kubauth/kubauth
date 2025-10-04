@@ -36,6 +36,12 @@ func IdentityHandler(k8sClient client.Client, userNamespace string) http.Handler
 		ctx := r.Context()
 		logger := logr.FromContextAsSlogLogger(ctx)
 
+		if r.Method == http.MethodGet {
+			logger.Error("Method not allowed", "method", r.Method)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
 		var requestPayload proto.IdentityRequest
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()

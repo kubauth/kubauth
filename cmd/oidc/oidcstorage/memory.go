@@ -52,7 +52,7 @@ type MemoryStore struct {
 	// Public keys to check signature in auth grant jwt assertion.
 	IssuerPublicKeys   map[string]IssuerPublicKeys
 	PARSessions        map[string]fosite.AuthorizeRequester
-	UserDb             authenticator.Authenticator
+	UserDb             authenticator.OidcAuthenticator
 	Issuer             string
 	KeyID              string
 	AllowPasswordGrant bool
@@ -71,7 +71,7 @@ type MemoryStore struct {
 	parSessionsMutex            sync.RWMutex
 }
 
-func NewMemoryStore(userDb authenticator.Authenticator) *MemoryStore {
+func NewMemoryStore(userDb authenticator.OidcAuthenticator) *MemoryStore {
 	return &MemoryStore{
 		Clients:        make(map[string]FositeClient),
 		AuthorizeCodes: make(map[string]StoreAuthorizeCode),
@@ -344,7 +344,7 @@ func (s *MemoryStore) Authenticate(_ context.Context, name string, secret string
 }
 
 // AuthenticateUserWithClaims returns the full user object with claims
-func (s *MemoryStore) AuthenticateUserWithClaims(_ context.Context, name string, secret string) (*authenticator.User, error) {
+func (s *MemoryStore) AuthenticateUserWithClaims(_ context.Context, name string, secret string) (*authenticator.OidcUser, error) {
 	s.usersMutex.RLock()
 	defer s.usersMutex.RUnlock()
 
