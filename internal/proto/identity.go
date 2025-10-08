@@ -41,63 +41,44 @@ const (
 	Unsupported        = "unsupported"        // This provider does not support password change
 )
 
-type ProviderSpec struct {
-	Name                string `json:"name"`
-	CredentialAuthority bool   `json:"credentialAuthority"` // Is this provider Authority for authentication (password) for this user
-	GroupAuthority      bool   `json:"groupAuthority"`      // Should we take groups in account
-	ClaimAuthority      bool   `json:"claimAuthority"`      // Should we take claims in account
-}
-
 type User struct {
-	Login       string                 `json:"login"`
-	Uid         int                    `json:"uid"`
-	CommonNames []string               `json:"commonNames"`
-	Emails      []string               `json:"emails"`
-	Groups      []string               `json:"groups"`
-	Claims      map[string]interface{} `json:"claims"`
+	Login  string                 `json:"login"`
+	Uid    int                    `json:"uid"`
+	Name   string                 `json:"name"`
+	Emails []string               `json:"emails"`
+	Groups []string               `json:"groups"`
+	Claims map[string]interface{} `json:"claims"`
 }
 
 func InitUser(login string) User {
 	return User{
-		Login:       login,
-		Uid:         0,
-		CommonNames: []string{},
-		Emails:      []string{},
-		Groups:      []string{},
-		Claims:      map[string]interface{}{},
+		Login:  login,
+		Uid:    0,
+		Name:   "",
+		Emails: []string{},
+		Groups: []string{},
+		Claims: map[string]interface{}{},
 	}
-}
-
-type Translated struct {
-	Groups []string `yaml:"groups"`
-	Uid    int      `yaml:"uid"`
-}
-
-type UserDetail struct {
-	User
-	Status     Status       `json:"status"`
-	Provider   ProviderSpec `json:"provider"`
-	Translated Translated   `json:"translated"`
 }
 
 type IdentityRequest struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
-	Detailed bool   `json:"detailed"`
 }
 
 var _ RequestPayload = &IdentityRequest{}
 
 type IdentityResponse struct {
-	User
-	Status    Status       `json:"status"`
-	Details   []UserDetail `json:"details"`   // Empty is IdentityRequest.Detail == False
-	Authority string       `json:"authority"` // "" if from an identity provider
+	User   User   `json:"user"`
+	Status Status `json:"status"`
+	// Following info is only provided by 'merge' module
+	Details   []*UserDetail `json:"details"`   // Empty is IdentityRequest.Detail == False
+	Authority string        `json:"authority"` // "" if from an identity provider
 }
 
-var _ ResponsePayload = &IdentityResponse{}
-
 // ------------------------------------------
+
+var _ ResponsePayload = &IdentityResponse{}
 
 func (u *IdentityRequest) String() string {
 	return fmt.Sprintf("IdentityRequest(login=%s", u.Login)

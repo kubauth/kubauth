@@ -19,17 +19,19 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"kubauth/cmd/crd"
 	"kubauth/cmd/ldap"
+	"kubauth/cmd/merger"
 	"kubauth/cmd/oidc"
-	userdb "kubauth/cmd/userdb"
 	"os"
 )
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(oidc.Cmd)
-	rootCmd.AddCommand(userdb.Cmd)
+	rootCmd.AddCommand(crd.Cmd)
 	rootCmd.AddCommand(ldap.Cmd)
+	rootCmd.AddCommand(merger.Cmd)
 
 }
 

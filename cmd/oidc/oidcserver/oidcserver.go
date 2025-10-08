@@ -50,7 +50,7 @@ type OIDCServer struct {
 	Issuer         string
 	Storage        *oidcstorage.MemoryStore
 	Resources      string
-	UserDb         authenticator.OidcAuthenticator
+	Authenticator  authenticator.OidcAuthenticator
 	LoginTemplate  *template.Template
 	IndexTemplate  *template.Template
 	SessionManager *scsV2.SessionManager
@@ -81,7 +81,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 	logger.Debug("Setting up OIDC server", "kid", s.keyID)
 
 	// Configure storage with OidcAuthenticator and other dependencies
-	s.Storage.UserDb = s.UserDb
+	s.Storage.Authenticator = s.Authenticator
 	s.Storage.Issuer = s.Issuer
 	s.Storage.KeyID = s.keyID
 	s.Storage.AllowPasswordGrant = s.AllowPasswordGrant

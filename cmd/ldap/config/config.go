@@ -1,5 +1,9 @@
 package config
 
+type Config struct {
+	Ldap LdapConfig `yaml:"ldap"`
+}
+
 // NB: These values are strongly inspired from dex configuration (https://github.com/dexidp/dex)
 
 type LdapConfig struct {

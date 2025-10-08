@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"html/template"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/oidc/authenticator/httprovider"
+	"kubauth/cmd/oidc/authenticator/httpprovider"
 	oidcControllers "kubauth/cmd/oidc/controllers"
 	"kubauth/cmd/oidc/handlers"
 	"kubauth/cmd/oidc/oidcserver"
@@ -112,11 +112,11 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
 	Cmd.PersistentFlags().BoolVar(&flags.displayFlags, "displayFlags", true, "Dump flags values")
 
-	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8110", "The address the probe endpoint binds to.")
+	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", fmt.Sprintf(":%d", global.DefaultPorts.Oidc.HealthProbe), "The address the probe endpoint binds to.")
 	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", true, "Enable leader election for controller manager. Must be set, as memory storage require a single instance")
 	Cmd.PersistentFlags().BoolVar(&flags.enableHTTP2, "enableHttp2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	Cmd.PersistentFlags().BoolVar(&flags.enableWebhook, "enableWebhook", true, "If set the webhook server will be enabled")
-	Cmd.PersistentFlags().IntVar(&flags.webhookPort, "webhookPort", 9443, "The port webhooks server in bound on.")
+	Cmd.PersistentFlags().IntVar(&flags.webhookPort, "webhookPort", global.DefaultPorts.Oidc.Webhook, "The port webhooks server in bound on.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertPath, "webhookCertPath", "", "The directory that contains the webhook certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertName, "webhookCertName", "tls.crt", "The name of the webhook certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertKey, "webhookCertKey", "tls.key", "The name of the webhook key file.")
@@ -131,12 +131,12 @@ func init() {
 	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.Tls, "tls", "t", false, "enable TLS")
 	Cmd.PersistentFlags().IntVar(&flags.oidcHttpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3")
 	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
-	Cmd.PersistentFlags().IntVarP(&flags.oidcHttpConfig.BindPort, "bindPort", "p", 8101, "Bind port")
+	Cmd.PersistentFlags().IntVarP(&flags.oidcHttpConfig.BindPort, "bindPort", "p", global.DefaultPorts.Oidc.Entry, "Bind port")
 	Cmd.PersistentFlags().StringVar(&flags.oidcHttpConfig.CertDir, "certDir", "", "Certificate Directory")
 	Cmd.PersistentFlags().StringVar(&flags.oidcHttpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
 	Cmd.PersistentFlags().StringVar(&flags.oidcHttpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
 	//Cmd.PersistentFlags().StringArrayVarP(&flags.oidcHttpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
-	Cmd.PersistentFlags().StringVarP(&flags.issuer, "issuer", "i", "http://localhost:8101", "issuer URL")
+	Cmd.PersistentFlags().StringVarP(&flags.issuer, "issuer", "i", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Oidc.Entry), "issuer URL")
 	Cmd.PersistentFlags().StringVar(&flags.resources, "resources", "resources", "resources folders")
 	Cmd.PersistentFlags().StringVar(&flags.postLogoutURL, "postLogoutURL", "", "Where to redirect user on logout (last resort default)")
 	Cmd.PersistentFlags().StringVar(&flags.jwtKeySecretName, "jwtKeySecretName", "jwt-signing-key", "The secret name storing the JWT signing key")
@@ -152,7 +152,7 @@ func init() {
 	Cmd.PersistentFlags().DurationVar(&flags.cleanupPeriod, "cleanupPeriod", time.Minute*5, "SSO Session cleanup period")
 
 	// Idp (Identity provider) config
-	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseURL, "idpBaseURL", "http://localhost:8201", "The Identity provider base URL")
+	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseURL, "idpBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Merger.Entry), "The Identity provider base URL")
 	Cmd.PersistentFlags().StringArrayVar(&flags.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
 	Cmd.PersistentFlags().BoolVar(&flags.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
 
@@ -308,7 +308,7 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		userDb, err := httprovider.New(&flags.idpHttpConfig)
+		userDb, err := httpprovider.New(&flags.idpHttpConfig)
 		if err != nil {
 			setupLog.Error(err, "unable to initialize user db")
 			os.Exit(1)
@@ -404,7 +404,7 @@ var Cmd = &cobra.Command{
 		err = (&oidcserver.OIDCServer{
 			Issuer:                  flags.issuer,
 			Storage:                 storage,
-			UserDb:                  userDb,
+			Authenticator:           userDb,
 			Resources:               flags.resources,
 			LoginTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "login.gohtml"))),
 			IndexTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "index.gohtml"))),

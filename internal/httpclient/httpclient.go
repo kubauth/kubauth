@@ -32,17 +32,17 @@ import (
 )
 
 type HttpAuth struct {
-	Login    string
-	Password string
-	Token    string
+	Login    string `yaml:"login"`
+	Password string `yaml:"password"`
+	Token    string `yaml:"token"`
 }
 
 type Config struct {
-	BaseURL            string
-	RootCaPaths        []string
-	RootCaDatas        []string
-	InsecureSkipVerify bool
-	HttpAuth           *HttpAuth
+	BaseURL            string    `yaml:"baseURL"`
+	RootCaPaths        []string  `yaml:"rootCaPaths"`
+	RootCaDatas        []string  `yaml:"rootCaDatas"`
+	InsecureSkipVerify bool      `yaml:"insecureSkipVerify"`
+	HttpAuth           *HttpAuth `yaml:"httpAuth"`
 }
 
 /*

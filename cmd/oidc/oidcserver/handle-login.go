@@ -94,7 +94,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		clientId := query.Get("client_id")
-		user, err := s.UserDb.Authenticate(login, password)
+		user, err := s.Authenticator.Authenticate(ctx, login, password)
 		if err != nil {
 			logger.Error("failed to authenticate", "login", login, "error", err)
 			http.Error(w, "Internal error on ID provider subsystem. Contact your system administrator", http.StatusInternalServerError)

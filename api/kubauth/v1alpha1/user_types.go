@@ -24,12 +24,12 @@ import (
 type UserSpec struct {
 	// The user login is the Name of the resource.
 
-	// The user common name(s).
-	// First is used as fullName
+	// The user full name.
 	// +optional
-	CommonNames []string `json:"commonNames,omitempty"`
+	Name string `json:"name,omitempty"`
 
 	// The user email(s).
+	// First one is used as email claim
 	// +optional
 	Emails []string `json:"emails,omitempty"`
 
@@ -50,7 +50,7 @@ type UserSpec struct {
 	// +optional
 	Claims *apiextensionsv1.JSON `json:"claims,omitempty"`
 
-	// Prevent this user to login. Even if this user is managed by an external provider (i.e. LDAP)
+	// Prevent this user to login. Even if this user is managed by an external provider (such as LDAP)
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 }

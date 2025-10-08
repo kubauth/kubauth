@@ -52,7 +52,7 @@ type MemoryStore struct {
 	// Public keys to check signature in auth grant jwt assertion.
 	IssuerPublicKeys   map[string]IssuerPublicKeys
 	PARSessions        map[string]fosite.AuthorizeRequester
-	UserDb             authenticator.OidcAuthenticator
+	Authenticator      authenticator.OidcAuthenticator
 	Issuer             string
 	KeyID              string
 	AllowPasswordGrant bool
@@ -85,7 +85,7 @@ func NewMemoryStore(userDb authenticator.OidcAuthenticator) *MemoryStore {
 		BlacklistedJTIs:        make(map[string]time.Time),
 		IssuerPublicKeys:       make(map[string]IssuerPublicKeys),
 		PARSessions:            make(map[string]fosite.AuthorizeRequester),
-		UserDb:                 userDb,
+		Authenticator:          userDb,
 	}
 }
 
@@ -324,7 +324,7 @@ func (s *MemoryStore) DeleteRefreshTokenSession(_ context.Context, signature str
 	return nil
 }
 
-func (s *MemoryStore) Authenticate(_ context.Context, name string, secret string) (subject string, err error) {
+func (s *MemoryStore) Authenticate(ctx context.Context, name string, secret string) (subject string, err error) {
 	s.usersMutex.RLock()
 	defer s.usersMutex.RUnlock()
 
@@ -336,7 +336,7 @@ func (s *MemoryStore) Authenticate(_ context.Context, name string, secret string
 	//	return "", fosite.ErrNotFound.WithDebug("Invalid credentials")
 	//}
 	//return uuid.New().String(), nil
-	usr, err := s.UserDb.Authenticate(name, secret)
+	usr, err := s.Authenticator.Authenticate(ctx, name, secret)
 	if err != nil {
 		return "", err
 	}
@@ -344,11 +344,11 @@ func (s *MemoryStore) Authenticate(_ context.Context, name string, secret string
 }
 
 // AuthenticateUserWithClaims returns the full user object with claims
-func (s *MemoryStore) AuthenticateUserWithClaims(_ context.Context, name string, secret string) (*authenticator.OidcUser, error) {
+func (s *MemoryStore) AuthenticateUserWithClaims(ctx context.Context, name string, secret string) (*authenticator.OidcUser, error) {
 	s.usersMutex.RLock()
 	defer s.usersMutex.RUnlock()
 
-	return s.UserDb.Authenticate(name, secret)
+	return s.Authenticator.Authenticate(ctx, name, secret)
 }
 
 // GetIssuer returns the configured issuer

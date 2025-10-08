@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package oidc
+package crd
 
 import (
 	"context"
@@ -27,9 +27,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/userdb/handlers"
-	"kubauth/cmd/userdb/webhooks"
+	"kubauth/cmd/crd/authenticator"
+	"kubauth/cmd/crd/webhooks"
 	"kubauth/internal/global"
+	"kubauth/internal/handlers"
+	"kubauth/internal/handlers/protector"
+	"kubauth/internal/handlers/validator"
 	"kubauth/internal/httpsrv"
 	"kubauth/internal/misc"
 	"log/slog"
@@ -51,7 +54,8 @@ var flags struct {
 	logConfig    misc.LogConfig
 	displayFlags bool
 
-	httpConfig httpsrv.Config
+	httpConfig    httpsrv.Config
+	bfaProtection bool
 
 	probeAddr            string
 	enableLeaderElection bool // Should be false, as we are stateless
@@ -81,11 +85,11 @@ func init() {
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
 	Cmd.PersistentFlags().BoolVar(&flags.displayFlags, "displayFlags", true, "Dump flags values")
 
-	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", ":8210", "The address the probe endpoint binds to.")
+	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", fmt.Sprintf(":%d", global.DefaultPorts.Crd.HealthProbe), "The address the probe endpoint binds to.")
 	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", false, "Enable leader election. Should be false, as we are stateless")
 	Cmd.PersistentFlags().BoolVar(&flags.enableHTTP2, "enableHttp2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	Cmd.PersistentFlags().BoolVar(&flags.enableWebhook, "enableWebhook", true, "If set the webhook server will be enabled")
-	Cmd.PersistentFlags().IntVar(&flags.webhookPort, "webhookPort", 9443, "The port webhooks server in bound on.")
+	Cmd.PersistentFlags().IntVar(&flags.webhookPort, "webhookPort", global.DefaultPorts.Crd.Webhook, "The port webhooks server in bound on.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertPath, "webhookCertPath", "", "The directory that contains the webhook certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertName, "webhookCertName", "tls.crt", "The name of the webhook certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertKey, "webhookCertKey", "tls.key", "The name of the webhook key file.")
@@ -101,10 +105,13 @@ func init() {
 	Cmd.PersistentFlags().BoolVarP(&flags.httpConfig.Tls, "tls", "t", false, "enable TLS")
 	Cmd.PersistentFlags().IntVar(&flags.httpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3)")
 	Cmd.PersistentFlags().StringVarP(&flags.httpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
-	Cmd.PersistentFlags().IntVarP(&flags.httpConfig.BindPort, "bindPort", "p", 8201, "Bind port")
+	Cmd.PersistentFlags().IntVarP(&flags.httpConfig.BindPort, "bindPort", "p", global.DefaultPorts.Crd.Entry, "Bind port")
 	Cmd.PersistentFlags().StringVarP(&flags.httpConfig.CertDir, "certDir", "", "", "Certificate Directory")
 	Cmd.PersistentFlags().StringVar(&flags.httpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
 	Cmd.PersistentFlags().StringVar(&flags.httpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
+
+	Cmd.PersistentFlags().BoolVar(&flags.bfaProtection, "bfaProtection", false, "Activate Brut Force Attack protection")
+
 	//Cmd.PersistentFlags().StringArrayVarP(&config.Conf.httpConfig.AllowedOrigins, "allowedOrigins", "", []string{}, "Allowed Origins")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -112,8 +119,8 @@ func init() {
 }
 
 var Cmd = &cobra.Command{
-	Use:   "userdb",
-	Short: "User DB server",
+	Use:   "crd",
+	Short: "CRD based users storage",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		var tlsOpts []func(*tls.Config)
@@ -290,9 +297,16 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		authenticator := authenticator.New(mgr.GetClient(), flags.usersNamespace)
+		identityHandler := &handlers.IdentityHandler{
+			Validators:    []validator.Validator{validator.OnlyGetValidator{}},
+			Authenticator: authenticator,
+			Protector:     protector.New(flags.bfaProtection, ctx),
+		}
+
 		// ---------------------- Setup our user identity server
 		router := http.NewServeMux()
-		router.Handle("/v1/identity", handlers.IdentityHandler(mgr.GetClient(), flags.usersNamespace))
+		router.Handle("/v1/identity", identityHandler)
 		server := httpsrv.New("userIdSrv", &flags.httpConfig, router)
 		err = mgr.Add(server)
 		if err != nil {

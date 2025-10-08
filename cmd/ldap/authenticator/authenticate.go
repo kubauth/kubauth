@@ -16,9 +16,9 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 	logger := logr.FromContextAsSlogLogger(ctx)
 	// Set some default values
 	response := proto.IdentityResponse{
-		Status:    proto.UserNotFound,
 		User:      proto.InitUser(request.Login),
-		Details:   []proto.UserDetail{},
+		Status:    proto.UserNotFound,
+		Details:   nil,
 		Authority: "",
 	}
 	var ldapUser *ldap.Entry
@@ -47,11 +47,8 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 				return fmt.Errorf("%s failed: %v", bindDesc, err)
 			}
 			logger.Debug(fmt.Sprintf("%s => success", bindDesc), "bindDesc", bindDesc)
-			if response.Groups, err = l.lookupGroups(ctx, conn, *ldapUser); err != nil {
+			if response.User.Groups, err = l.lookupGroups(ctx, conn, *ldapUser); err != nil {
 				return err
-			}
-			if response.Groups != nil && len(response.Groups) > 0 {
-				response.Claims["groups"] = response.Groups
 			}
 		}
 		return nil
@@ -63,26 +60,13 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 		logger.Debug("Will fetch Attributes")
 		uid := getAttr(*ldapUser, l.config.UserSearch.NumericalIdAttr)
 		if uid != "" {
-			response.Uid, err = strconv.Atoi(uid)
+			response.User.Uid, err = strconv.Atoi(uid)
 			if err != nil {
 				logger.Error("Non numerical Uid value (%s) for user '%s'", uid, request.Login, "uid", uid, "login", request.Login)
 			}
-			response.Claims["uid"] = response.Uid
 		}
-		response.Emails = getAttrs(*ldapUser, l.config.UserSearch.EmailAttr)
-		if response.Emails != nil || len(response.Emails) == 0 {
-			response.Claims["email"] = response.Emails[0]
-			if len(response.Emails) > 1 {
-				response.Claims["emails"] = response.Emails
-			}
-		}
-		response.CommonNames = getAttrs(*ldapUser, l.config.UserSearch.CnAttr)
-		if response.CommonNames != nil || len(response.CommonNames) == 0 {
-			response.Claims["name"] = response.CommonNames[0]
-			if len(response.CommonNames) > 1 {
-				response.Claims["names"] = response.CommonNames
-			}
-		}
+		response.User.Emails = getAttrs(*ldapUser, l.config.UserSearch.EmailAttr)
+		response.User.Name = getAttr(*ldapUser, l.config.UserSearch.CnAttr)
 	}
 	return &response, nil
 }
@@ -121,7 +105,6 @@ func (l *ldapAuthenticator) do(ctx context.Context, f func(c *ldap.Conn) error) 
 		logger.Debug("Closing ldap connection")
 		conn.Close()
 	}()
-
 	return f(conn)
 }
 

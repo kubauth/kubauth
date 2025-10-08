@@ -16,6 +16,8 @@ limitations under the License.
 
 package authenticator
 
+import "context"
+
 type OidcUser struct {
 	Login    string
 	Claims   map[string]interface{}
@@ -23,5 +25,5 @@ type OidcUser struct {
 }
 
 type OidcAuthenticator interface {
-	Authenticate(login string, password string) (*OidcUser, error)
+	Authenticate(ctx context.Context, login string, password string) (*OidcUser, error)
 }

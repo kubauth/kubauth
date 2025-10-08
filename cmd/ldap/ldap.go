@@ -19,11 +19,11 @@ import (
 )
 
 var ldapParams struct {
-	logConfig      misc.LogConfig
-	displayFlags   bool
-	httpConfig     httpsrv.Config
-	bfaProtection  bool
-	ldapConfigFile string
+	logConfig     misc.LogConfig
+	displayFlags  bool
+	httpConfig    httpsrv.Config
+	bfaProtection bool
+	configFile    string
 }
 
 func init() {
@@ -34,14 +34,14 @@ func init() {
 	Cmd.PersistentFlags().BoolVarP(&ldapParams.httpConfig.Tls, "tls", "t", false, "enable TLS")
 	Cmd.PersistentFlags().IntVar(&ldapParams.httpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3)")
 	Cmd.PersistentFlags().StringVarP(&ldapParams.httpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
-	Cmd.PersistentFlags().IntVarP(&ldapParams.httpConfig.BindPort, "bindPort", "p", 8301, "Bind port")
+	Cmd.PersistentFlags().IntVarP(&ldapParams.httpConfig.BindPort, "bindPort", "p", global.DefaultPorts.Ldap.Entry, "Bind port")
 	Cmd.PersistentFlags().StringVarP(&ldapParams.httpConfig.CertDir, "certDir", "", "", "Certificate Directory")
 	Cmd.PersistentFlags().StringVar(&ldapParams.httpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
 	Cmd.PersistentFlags().StringVar(&ldapParams.httpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
 
 	Cmd.PersistentFlags().BoolVar(&ldapParams.bfaProtection, "bfaProtection", false, "Activate Brut Force Attack protection")
 
-	Cmd.PersistentFlags().StringVarP(&ldapParams.ldapConfigFile, "ldapConfigFile", "c", "./config.yaml", "Config file path")
+	Cmd.PersistentFlags().StringVarP(&ldapParams.configFile, "configFile", "c", "./config.yaml", "Config file path")
 
 }
 
@@ -59,9 +59,9 @@ var Cmd = &cobra.Command{
 
 		logger.Info("Starting LDAP connector", slog.String("logLevel", ldapParams.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
 
-		ldapConfig := &config.LdapConfig{}
+		config := &config.Config{}
 
-		configPath, err := misc.LoadConfig(ldapParams.ldapConfigFile, &ldapConfig)
+		configPath, err := misc.LoadConfig(ldapParams.configFile, config)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to load configuration from %s: %v\n", configPath, err)
 			os.Exit(2)
@@ -73,14 +73,14 @@ var Cmd = &cobra.Command{
 		// Create HTTP router
 		mux := http.NewServeMux()
 
-		authenticator, err := authenticator.New(ldapConfig, configPath)
+		authenticator, err := authenticator.New(&config.Ldap, configPath)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to create authenticator: %v\n", err)
 			os.Exit(2)
 		}
 
 		identityHandler := &handlers.IdentityHandler{
-			Validators:    []validator.Validator{validator.OnlyGetValidator{}, validator.NoDetailValidator{}},
+			Validators:    []validator.Validator{validator.OnlyGetValidator{}},
 			Authenticator: authenticator,
 			Protector:     protector.New(ldapParams.bfaProtection, ctx),
 		}

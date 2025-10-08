@@ -66,22 +66,20 @@ spec:
               comment:
                 description: Whatever extra information related to this user.
                 type: string
-              commonNames:
-                description: |-
-                  The user common name(s).
-                  First is used as fullName
-                items:
-                  type: string
-                type: array
               disabled:
                 description: Prevent this user to login. Even if this user is managed
-                  by an external provider (i.e. LDAP)
+                  by an external provider (such as LDAP)
                 type: boolean
               emails:
-                description: The user email(s).
+                description: |-
+                  The user email(s).
+                  First one is used as email claim
                 items:
                   type: string
                 type: array
+              name:
+                description: The user full name.
+                type: string
               passwordHash:
                 description: |-
                   The user password, Hashed. Using golang.org/x/crypto/bcrypt.GenerateFromPassword()

@@ -15,7 +15,7 @@ import (
 
 type ldapAuthenticator struct {
 	config           *config.LdapConfig
-	hostPort         string
+	hostPort         string // Built from config
 	tlsConfig        *tls.Config
 	userSearchScope  int
 	groupSearchScope int
