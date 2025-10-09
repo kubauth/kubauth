@@ -118,14 +118,21 @@ func (l *loggerAuthenticator) convertDetails(details []*proto.UserDetail) []kuba
 
 	result := make([]kubauth.LoginDetail, len(details))
 	for i, detail := range details {
-		// Convert claims to JSON
-		var claimsJSON apiextensionsv1.JSON
+		// Convert user claims to JSON
 		var userClaimsJSON *apiextensionsv1.JSON
 		if detail.User.Claims != nil {
 			claimsRaw, err := json.Marshal(detail.User.Claims)
 			if err == nil {
-				claimsJSON.Raw = claimsRaw
 				userClaimsJSON = &apiextensionsv1.JSON{Raw: claimsRaw}
+			}
+		}
+
+		// Convert translated claims to JSON
+		var translatedClaimsJSON apiextensionsv1.JSON
+		if detail.Translated.Claims != nil {
+			translatedRaw, err := json.Marshal(detail.Translated.Claims)
+			if err == nil {
+				translatedClaimsJSON.Raw = translatedRaw
 			}
 		}
 
@@ -148,7 +155,7 @@ func (l *loggerAuthenticator) convertDetails(details []*proto.UserDetail) []kuba
 			},
 			Status: string(detail.Status),
 			Translated: kubauth.LoginDetailTranslated{
-				Claims: claimsJSON,
+				Claims: translatedClaimsJSON,
 				Groups: detail.Translated.Groups,
 				Uid:    detail.Translated.Uid,
 			},
