@@ -96,7 +96,7 @@ func (p *provider) GetUserDetail(ctx context.Context, login, password string) (*
 			Status:   proto.Undefined,
 			Provider: p.getSpec(),
 			Translated: proto.Translated{
-				Uid:    0,
+				Uid:    nil,
 				Groups: []string{},
 				Claims: map[string]interface{}{},
 			},
@@ -107,7 +107,7 @@ func (p *provider) GetUserDetail(ctx context.Context, login, password string) (*
 		Status:   response.Status,
 		Provider: p.getSpec(),
 		Translated: proto.Translated{
-			Uid:    response.User.Uid + p.config.UidOffset,
+			Uid:    nil,
 			Groups: make([]string, len(response.User.Groups)),
 			Claims: map[string]interface{}{},
 		},
@@ -117,6 +117,10 @@ func (p *provider) GetUserDetail(ctx context.Context, login, password string) (*
 	}
 	for claim, value := range response.User.Claims {
 		userDetail.Translated.Claims[fmt.Sprintf(p.config.ClaimPattern, claim)] = value
+	}
+	if response.User.Uid != nil {
+		uid := *response.User.Uid + p.config.UidOffset
+		userDetail.Translated.Uid = &uid
 	}
 	return userDetail, nil
 }

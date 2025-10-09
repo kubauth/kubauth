@@ -92,7 +92,7 @@ func (c *crdAuthenticator) Authenticate(ctx context.Context, request *proto.Iden
 		return responsePayload, nil
 	}
 	if usr.Spec.Uid != nil {
-		responsePayload.User.Uid = *usr.Spec.Uid
+		responsePayload.User.Uid = usr.Spec.Uid
 	}
 	responsePayload.User.Name = usr.Spec.Name
 	if len(usr.Spec.Emails) > 0 { // Avoid copying a nil
@@ -118,7 +118,7 @@ func (c *crdAuthenticator) Authenticate(ctx context.Context, request *proto.Iden
 			responsePayload.Status = proto.PasswordFail
 		}
 	}
-	logger.Info("User found", "user", responsePayload.User.Login, "status", responsePayload.Status)
+	logger.Info("User found", "user", responsePayload.User.Login, "status", responsePayload.Status, "groups", responsePayload.User.Groups, "claims", responsePayload.User.Claims, "emails", responsePayload.User.Emails)
 	return responsePayload, nil
 }
 

@@ -19,10 +19,11 @@ package httpprovider
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"kubauth/cmd/oidc/authenticator"
 	"kubauth/internal/httpclient"
 	"kubauth/internal/misc"
-	proto2 "kubauth/internal/proto"
+	"kubauth/internal/proto"
 )
 
 type httpProvider struct {
@@ -42,17 +43,18 @@ func New(config *httpclient.Config) (authenticator.OidcAuthenticator, error) {
 	return idp, nil
 }
 
-func (u *httpProvider) Authenticate(_ context.Context, login string, password string) (*authenticator.OidcUser, error) {
-	request := &proto2.IdentityRequest{
+func (u *httpProvider) Authenticate(ctx context.Context, login string, password string) (*authenticator.OidcUser, error) {
+	logger := logr.FromContextAsSlogLogger(ctx)
+	request := &proto.IdentityRequest{
 		Login:    login,
 		Password: password,
 	}
-	response := &proto2.IdentityResponse{}
-	err := proto2.Exchange(u.httpClient, "GET", "v1/identity", request, response)
+	response := &proto.IdentityResponse{}
+	err := proto.Exchange(u.httpClient, "GET", "v1/identity", request, response)
 	if err != nil {
 		return nil, err
 	}
-	if response.Status != proto2.PasswordChecked {
+	if response.Status != proto.PasswordChecked {
 		return nil, nil
 	}
 	// ------------------------------------------- Enrich user's claim with value
@@ -83,6 +85,7 @@ func (u *httpProvider) Authenticate(_ context.Context, login string, password st
 	if len(groups) != 0 {
 		claims["groups"] = groups
 	}
+
 	// ---- Handle emails
 	emailsFromClaims, err := getStringArrayInMap(claims, "emails")
 	if err != nil {
@@ -98,6 +101,13 @@ func (u *httpProvider) Authenticate(_ context.Context, login string, password st
 	if response.Authority != "" {
 		claims["authority"] = response.Authority
 	}
+
+	// ------ Handle uid
+	if response.User.Uid != nil {
+		claims["uid"] = *response.User.Uid
+	}
+
+	logger.Info("User authenticated", "login", login, "name", response.User.Name, "claims", claims)
 
 	return &authenticator.OidcUser{
 		Login:    login,

@@ -75,7 +75,7 @@ func (i *IdentityHandler) ServeHTTP(writer http.ResponseWriter, request *http.Re
 	}
 
 	i.Protector.ProtectLoginResult(ctx, identityRequest.Login, identityResponse.Status)
-	logger.Info("User status", "login", identityRequest.Login, "status", identityResponse.Status)
+	//logger.Info("User status", "login", identityRequest.Login, "status", identityResponse.Status)
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(writer).Encode(identityResponse)

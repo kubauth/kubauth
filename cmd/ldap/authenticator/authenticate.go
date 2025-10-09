@@ -74,16 +74,21 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 	}
 	if ldapUser != nil {
 		logger.Debug("Will fetch Attributes")
-		uid := getAttr(*ldapUser, l.config.UserSearch.NumericalIdAttr)
-		if uid != "" {
-			response.User.Uid, err = strconv.Atoi(uid)
+		uidStr := getAttr(*ldapUser, l.config.UserSearch.NumericalIdAttr)
+		if uidStr != "" {
+			uid, err := strconv.Atoi(uidStr)
 			if err != nil {
 				logger.Error("Non numerical Uid value (%s) for user '%s'", uid, request.Login, "uid", uid, "login", request.Login)
 			}
+			response.User.Uid = &uid
 		}
 		response.User.Emails = getAttrs(*ldapUser, l.config.UserSearch.EmailAttr)
 		response.User.Name = getAttr(*ldapUser, l.config.UserSearch.CnAttr)
+		logger.Info("User found", "login", response.User.Login, "status", response.Status, "groups", response.User.Groups, "claims", response.User.Claims, "emails", response.User.Emails)
+	} else {
+		logger.Info("User not found", "login", request.Login)
 	}
+
 	return &response, nil
 }
 

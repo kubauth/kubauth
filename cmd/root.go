@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"kubauth/cmd/crd"
 	"kubauth/cmd/ldap"
+	"kubauth/cmd/logger"
 	"kubauth/cmd/merger"
 	"kubauth/cmd/oidc"
 	"os"
@@ -32,6 +33,7 @@ func init() {
 	rootCmd.AddCommand(crd.Cmd)
 	rootCmd.AddCommand(ldap.Cmd)
 	rootCmd.AddCommand(merger.Cmd)
+	rootCmd.AddCommand(logger.Cmd)
 
 }
 

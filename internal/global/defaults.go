@@ -33,6 +33,9 @@ var DefaultPorts = struct {
 	Merger struct {
 		Entry int
 	}
+	Logger struct {
+		Entry int
+	}
 }{}
 
 func init() {
@@ -40,6 +43,7 @@ func init() {
 	DefaultPorts.Crd.Entry = 6802
 	DefaultPorts.Ldap.Entry = 6803
 	DefaultPorts.Merger.Entry = 6804
+	DefaultPorts.Logger.Entry = 6805
 
 	DefaultPorts.Oidc.HealthProbe = 8110
 	DefaultPorts.Oidc.Webhook = 9443

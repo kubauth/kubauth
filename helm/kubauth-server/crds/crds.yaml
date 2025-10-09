@@ -141,6 +141,173 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
+  name: logins.kubauth.kubotal.io
+spec:
+  group: kubauth.kubotal.io
+  names:
+    kind: Login
+    listKind: LoginList
+    plural: logins
+    singular: login
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.user.login
+      name: Login
+      type: string
+    - jsonPath: .spec.user.name
+      name: Name
+      type: string
+    - jsonPath: .spec.status
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              authority:
+                description: The module which validate the credentials
+                type: string
+              details:
+                items:
+                  properties:
+                    provider:
+                      properties:
+                        claimAuthority:
+                          type: boolean
+                        credentialAuthority:
+                          type: boolean
+                        emailAuthority:
+                          type: boolean
+                        groupAuthority:
+                          type: boolean
+                        name:
+                          type: string
+                        nameAuthority:
+                          type: boolean
+                      required:
+                      - claimAuthority
+                      - credentialAuthority
+                      - emailAuthority
+                      - groupAuthority
+                      - name
+                      - nameAuthority
+                      type: object
+                    status:
+                      type: string
+                    translated:
+                      properties:
+                        claims:
+                          x-kubernetes-preserve-unknown-fields: true
+                        groups:
+                          items:
+                            type: string
+                          type: array
+                        uid:
+                          type: integer
+                      required:
+                      - claims
+                      - groups
+                      type: object
+                    user:
+                      properties:
+                        claims:
+                          x-kubernetes-preserve-unknown-fields: true
+                        emails:
+                          items:
+                            type: string
+                          type: array
+                        groups:
+                          items:
+                            type: string
+                          type: array
+                        login:
+                          type: string
+                        name:
+                          type: string
+                        uid:
+                          type: integer
+                      required:
+                      - login
+                      type: object
+                  required:
+                  - provider
+                  - status
+                  - translated
+                  - user
+                  type: object
+                type: array
+              status:
+                description: The current status
+                type: string
+              user:
+                description: The resulting user
+                properties:
+                  claims:
+                    x-kubernetes-preserve-unknown-fields: true
+                  emails:
+                    items:
+                      type: string
+                    type: array
+                  groups:
+                    items:
+                      type: string
+                    type: array
+                  login:
+                    type: string
+                  name:
+                    type: string
+                  uid:
+                    type: integer
+                required:
+                - login
+                type: object
+              when:
+                format: date-time
+                type: string
+            required:
+            - authority
+            - details
+            - status
+            - user
+            - when
+            type: object
+          status:
+            description: LoginStatus defines the observed state of Login
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: oidcclients.kubauth.kubotal.io
 spec:
   group: kubauth.kubotal.io
@@ -432,22 +599,20 @@ spec:
               comment:
                 description: Whatever extra information related to this user.
                 type: string
-              commonNames:
-                description: |-
-                  The user common name(s).
-                  First is used as fullName
-                items:
-                  type: string
-                type: array
               disabled:
                 description: Prevent this user to login. Even if this user is managed
-                  by an external provider (i.e. LDAP)
+                  by an external provider (such as LDAP)
                 type: boolean
               emails:
-                description: The user email(s).
+                description: |-
+                  The user email(s).
+                  First one is used as email claim
                 items:
                   type: string
                 type: array
+              name:
+                description: The user full name.
+                type: string
               passwordHash:
                 description: |-
                   The user password, Hashed. Using golang.org/x/crypto/bcrypt.GenerateFromPassword()

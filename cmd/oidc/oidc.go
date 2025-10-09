@@ -152,7 +152,7 @@ func init() {
 	Cmd.PersistentFlags().DurationVar(&flags.cleanupPeriod, "cleanupPeriod", time.Minute*5, "SSO Session cleanup period")
 
 	// Idp (Identity provider) config
-	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseURL, "idpBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Merger.Entry), "The Identity provider base URL")
+	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseURL, "idpBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Logger.Entry), "The Identity provider base URL")
 	Cmd.PersistentFlags().StringArrayVar(&flags.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
 	Cmd.PersistentFlags().BoolVar(&flags.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
 

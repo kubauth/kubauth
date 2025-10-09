@@ -43,7 +43,7 @@ const (
 
 type User struct {
 	Login  string                 `json:"login"`
-	Uid    int                    `json:"uid"`
+	Uid    *int                   `json:"uid"`
 	Name   string                 `json:"name"`
 	Emails []string               `json:"emails"`
 	Groups []string               `json:"groups"`
@@ -53,7 +53,7 @@ type User struct {
 func InitUser(login string) User {
 	return User{
 		Login:  login,
-		Uid:    0,
+		Uid:    nil,
 		Name:   "",
 		Emails: []string{},
 		Groups: []string{},

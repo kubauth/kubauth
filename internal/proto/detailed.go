@@ -19,7 +19,7 @@ package proto
 type Translated struct {
 	Groups []string               `yaml:"groups"`
 	Claims map[string]interface{} `yaml:"claims"`
-	Uid    int                    `yaml:"uid"`
+	Uid    *int                   `yaml:"uid"`
 }
 
 type ProviderSpec struct {

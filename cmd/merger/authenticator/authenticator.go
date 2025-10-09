@@ -19,6 +19,7 @@ package authenticator
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"kubauth/cmd/merger/config"
 	"kubauth/cmd/merger/provider"
 	"kubauth/internal/handlers"
@@ -46,6 +47,7 @@ func New(config *config.Config) (handlers.Authenticator, error) {
 }
 
 func (m *mergerAuthenticator) Authenticate(ctx context.Context, request *proto.IdentityRequest) (*proto.IdentityResponse, error) {
+	logger := logr.FromContextOrDiscard(ctx)
 	response := &proto.IdentityResponse{
 		User:      proto.InitUser(request.Login),
 		Status:    proto.UserNotFound,
@@ -88,6 +90,8 @@ func (m *mergerAuthenticator) Authenticate(ctx context.Context, request *proto.I
 		response.Details[idx] = userDetail
 	}
 	response.User.Groups = misc.DedupAndSort(response.User.Groups)
+
+	logger.Info("Merge result", "user", response.User.Login, "status", response.Status, "groups", response.User.Groups, "claims", response.User.Claims, "emails", response.User.Emails, "authority", response.Authority)
 
 	return response, nil
 }
