@@ -19,10 +19,6 @@ package logger
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/logger/authenticator"
 	"kubauth/internal/global"
@@ -36,6 +32,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -46,6 +48,9 @@ var loggerParams struct {
 	bfaProtection bool
 	idpHttpConfig httpclient.Config
 	namespace     string
+
+	loginLifetime time.Duration
+	cleanupPeriod time.Duration
 }
 
 var (
@@ -72,6 +77,9 @@ func init() {
 	Cmd.PersistentFlags().StringArrayVar(&loggerParams.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
 	Cmd.PersistentFlags().BoolVar(&loggerParams.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
 	Cmd.PersistentFlags().StringVarP(&loggerParams.namespace, "namespace", "n", "kubauth-audit", "Namespace to store login records in")
+
+	Cmd.PersistentFlags().DurationVar(&loggerParams.loginLifetime, "loginLifetime", time.Hour*8, "Login logs lifetime")
+	Cmd.PersistentFlags().DurationVar(&loggerParams.cleanupPeriod, "cleanupPeriod", time.Minute*5, "Login logs cleanup period")
 
 	//utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
@@ -117,6 +125,17 @@ var Cmd = &cobra.Command{
 		}
 
 		mux.Handle("/v1/identity", identityHandler)
+
+		// Start login logs cleanup process if cleanup period is configured
+		if loggerParams.cleanupPeriod > 0 {
+			logger.Info("Starting login logs cleanup process",
+				"loginLifetime", loggerParams.loginLifetime,
+				"cleanupPeriod", loggerParams.cleanupPeriod,
+				"namespace", loggerParams.namespace)
+			go startLoginLogsCleaner(ctx, kubeClient, logger)
+		} else {
+			logger.Info("Login logs cleanup disabled (cleanupPeriod is 0)")
+		}
 
 		// Create and start HTTP server
 		httpServer := httpsrv.New("ldapConnector", &loggerParams.httpConfig, mux)
