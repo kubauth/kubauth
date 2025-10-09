@@ -84,7 +84,7 @@ func (m *mergerAuthenticator) Authenticate(ctx context.Context, request *proto.I
 			response.User.Name = userDetail.User.Name
 		}
 		if userDetail.Provider.ClaimAuthority {
-			claims := misc.MergeMaps(userDetail.User.Claims, response.User.Claims)
+			claims := misc.MergeMaps(userDetail.Translated.Claims, response.User.Claims)
 			response.User.Claims = claims
 		}
 		response.Details[idx] = userDetail

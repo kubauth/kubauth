@@ -34,7 +34,7 @@ type LoginDetailTranslated struct {
 	Claims apiextensionsv1.JSON `json:"claims"`
 	Groups []string             `json:"groups"`
 	// +optional
-	Uid *int `json:"uid,omitempty"`
+	Uid *int `json:"uid"`
 }
 
 type LoginDetail struct {
@@ -47,15 +47,15 @@ type LoginDetail struct {
 type LoginUser struct {
 	Login string `json:"login"`
 	// +optional
-	Uid *int `json:"uid,omitempty"`
+	Uid *int `json:"uid"`
 	// +optional
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	// +optional
-	Emails []string `json:"emails,omitempty"`
+	Emails []string `json:"emails"`
 	// +optional
-	Groups []string `json:"groups,omitempty"`
+	Groups []string `json:"groups"`
 	// +optional
-	Claims *apiextensionsv1.JSON `json:"claims,omitempty"`
+	Claims *apiextensionsv1.JSON `json:"claims"`
 }
 
 type LoginSpec struct {
@@ -85,6 +85,7 @@ type LoginStatus struct {
 // +kubebuilder:printcolumn:name="Login",type=string,JSONPath=`.spec.user.login`
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.user.name`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.spec.status`
+// +kubebuilder:printcolumn:name="Authority",type=string,JSONPath=`.spec.authority`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 type Login struct {

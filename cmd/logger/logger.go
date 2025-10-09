@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/logger/authenticator"
 	"kubauth/internal/global"
 	"kubauth/internal/handlers"
@@ -28,10 +31,12 @@ import (
 	"kubauth/internal/handlers/validator"
 	"kubauth/internal/httpclient"
 	"kubauth/internal/httpsrv"
+	"kubauth/internal/k8sapi"
 	"kubauth/internal/misc"
 	"log/slog"
 	"net/http"
 	"os"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var loggerParams struct {
@@ -40,7 +45,12 @@ var loggerParams struct {
 	httpConfig    httpsrv.Config
 	bfaProtection bool
 	idpHttpConfig httpclient.Config
+	namespace     string
 }
+
+var (
+	scheme = runtime.NewScheme()
+)
 
 func init() {
 	Cmd.PersistentFlags().StringVarP(&loggerParams.logConfig.Mode, "logMode", "", "text", "Log mode ('text' or 'json')")
@@ -61,6 +71,10 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&loggerParams.idpHttpConfig.BaseURL, "idpBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Merger.Entry), "The Identity provider base URL")
 	Cmd.PersistentFlags().StringArrayVar(&loggerParams.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
 	Cmd.PersistentFlags().BoolVar(&loggerParams.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
+	Cmd.PersistentFlags().StringVarP(&loggerParams.namespace, "namespace", "n", "kubauth-audit", "Namespace to store login records in")
+
+	//utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
 
 }
 
@@ -81,10 +95,16 @@ var Cmd = &cobra.Command{
 		// Inject logger into context
 		ctx := logr.NewContextWithSlogLogger(context.Background(), logger)
 
+		kubeClient, err := k8sapi.GetKubeClientFromConfig(ctrl.GetConfigOrDie(), scheme)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Unable to create kubernetes client: %v\n", err)
+			os.Exit(1)
+		}
+
 		// Create HTTP router
 		mux := http.NewServeMux()
 
-		authenticator, err := authenticator.New(&loggerParams.idpHttpConfig)
+		authenticator, err := authenticator.New(&loggerParams.idpHttpConfig, kubeClient, loggerParams.namespace)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to create authenticator: %v\n", err)
 			os.Exit(2)

@@ -116,8 +116,13 @@ func (p *provider) GetUserDetail(ctx context.Context, login, password string) (*
 		userDetail.Translated.Groups[idx] = fmt.Sprintf(p.config.GroupPattern, response.User.Groups[idx])
 	}
 	for claim, value := range response.User.Claims {
-		userDetail.Translated.Claims[fmt.Sprintf(p.config.ClaimPattern, claim)] = value
+		fmt.Printf("============================= %s - %s\n", claim, value)
+		claim2 := fmt.Sprintf(p.config.ClaimPattern, claim)
+		fmt.Printf("============================2 %s - %s\n", claim2, value)
+		userDetail.Translated.Claims[claim2] = value
+		//userDetail.Translated.Claims[fmt.Sprintf(p.config.ClaimPattern, claim)] = value
 	}
+	fmt.Printf("============================= userDetail.Translated.Claims %v\n", userDetail.Translated.Claims)
 	if response.User.Uid != nil {
 		uid := *response.User.Uid + p.config.UidOffset
 		userDetail.Translated.Uid = &uid
