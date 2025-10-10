@@ -182,7 +182,7 @@ var Cmd = &cobra.Command{
 		ctrl.SetLogger(logr.FromSlogHandler(logger.Handler()))
 		setupLog := ctrl.Log.WithName("setup")
 
-		logger.Info("Starting Kubauth OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
+		logger.Info("Starting Kubauth OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs), slog.String("idp", flags.idpHttpConfig.BaseURL))
 		if flags.displayFlags {
 			sb := new(strings.Builder)
 			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {

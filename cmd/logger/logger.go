@@ -32,10 +32,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -98,7 +100,22 @@ var Cmd = &cobra.Command{
 			os.Exit(2)
 		}
 
-		logger.Info("Starting logger module", slog.String("logLevel", loggerParams.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs))
+		logger.Info("Starting logger module", slog.String("logLevel", loggerParams.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs), slog.String("idp", loggerParams.idpHttpConfig.BaseURL))
+		if loggerParams.displayFlags {
+			sb := new(strings.Builder)
+			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+				_, _ = fmt.Fprintf(sb, "--%s=%q\n", f.Name, f.Value)
+			})
+			fmt.Printf("Flags:\n%s", sb.String())
+		}
+		if loggerParams.namespace == "" {
+			logger.Error("namespace must be specified and non null")
+			os.Exit(1)
+		}
+
+		if loggerParams.httpConfig.BindAddr != "127.0.0.1" && loggerParams.httpConfig.BindAddr != "localhost" {
+			fmt.Printf("**** WARNING ****: This enpoint is not protected and externaly accessible. It should be accessible only from side containers")
+		}
 
 		// Inject logger into context
 		ctx := logr.NewContextWithSlogLogger(context.Background(), logger)

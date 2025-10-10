@@ -79,7 +79,7 @@ oidc:
   enforcePKCE: false  # If set, all authorization code grand must use PKCE
 
   idp:
-    baseURL: http://localhost:6802
+    baseURL: http://localhost:6805
     rootCAPath: # TBD if https.
     insecureSkipVerify: false
 
@@ -212,6 +212,83 @@ oidc:
   jwtSigningKeySecretName:
   # Default to {{ include "kubauth.baseName" .}}-oidc-jwt-secret
   jwtSecretRoleName:
+
+
+logger:
+  enabled: true
+
+  namespace: kubauth-audit
+  createNamespace: true
+
+  idp:
+    baseURL: http://localhost:6802
+    rootCAPath: # TBD if https.
+    insecureSkipVerify: false
+
+  cleaner:
+    loginLifetime: "8h"
+    cleanupPeriod: "5m"
+
+  # Allow to change some logger configuration
+  logger:
+    mode: json  # "Log mode (dev or json)
+    level: info # Log level(DEBUG, INFO, WARN, ERROR)
+  # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
+  dumpExchanges: 0
+  # Display all command line flags on boot
+  displayFlags: true
+
+  image:
+    repository: quay.io/kubauth/exec/kubauth-server
+    # -- Overrides the image tag whose default is the chart appVersion.
+    tag:
+    pullPolicy: IfNotPresent
+
+  server:
+    tls: false
+    bindAddr: "127.0.0.1"
+    bindPort:  6805
+    certificateIssuer: # TBD
+    issuerKind: ClusterIssuer
+
+    # Default to {{ include "kubauth.baseName" .}}-logger-server
+    certificateName:
+    # Default to {{ include "kubauth.baseName" .}}-logger-server-cert
+    certificateSecretName:
+    # Default to {{ include "kubauth.baseName" .}}-logger-server
+    serviceName:
+
+    service:
+      enabled: false
+
+  ingress:
+    enabled: false
+    class: nginx  # Only nginx currently supported
+    host: # TBD
+
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+  extraEnv:
+  additionalArgs: []
+  extraVolumes: []
+  #   - name:
+  #     mountPath:
+  #     claimName:
+  extraSecrets: []
+  #  - name:
+  #    mountPath:
+  #    secretName:
+
+  # Container specific securityContext
+  securityContext:
+
 
 ucrd:
   enabled: true

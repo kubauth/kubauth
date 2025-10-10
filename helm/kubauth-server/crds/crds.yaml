@@ -291,8 +291,6 @@ spec:
                 format: date-time
                 type: string
             required:
-            - authority
-            - details
             - status
             - user
             - when

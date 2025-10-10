@@ -1,0 +1,81 @@
+{{- if .Values.logger.enabled }}
+
+
+# Following is for kubauth server access
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kubauth.logger.systemRoleName" . }}
+  namespace: {{ .Values.logger.namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  - apiGroups:
+      - kubauth.kubotal.io
+    resources:
+      - logins
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.logger.systemRoleName" . }}
+  namespace: {{ .Values.logger.namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kubauth.logger.systemRoleName" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kubauth.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+
+
+# Following is for user admin (View only)
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kubauth.logger.adminRoleName" . }}
+  namespace: {{ .Values.logger.namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  - apiGroups:
+      - kubauth.kubotal.io
+    resources:
+      - logins
+    verbs:
+      - get
+      - list
+      - watch
+
+
+
+{{- end }}
+

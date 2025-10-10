@@ -67,12 +67,14 @@ type LoginSpec struct {
 	User LoginUser `json:"user"`
 
 	// The module which validate the credentials
-	Authority string `json:"authority"`
+	// +optional
+	Authority string `json:"authority,omitempty"`
 
 	// The current status
 	Status string `json:"status"`
 
-	Details []LoginDetail `json:"details"`
+	// +optional
+	Details []LoginDetail `json:"details,omitempty"`
 }
 
 // LoginStatus defines the observed state of Login

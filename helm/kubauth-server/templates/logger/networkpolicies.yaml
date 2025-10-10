@@ -1,0 +1,30 @@
+{{- if .Values.logger.enabled }}
+{{- if .Values.networkPolicies.enabled }}
+{{- if .Values.logger.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kubauth.logger.ingressNetworkPolicyName" .}}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ingress:
+    - from:
+      {{ if  eq .Values.logger.ingress.class "nginx" }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      {{ else }}
+        {{- fail "Unmanaged ingress class" }}
+      {{ end }}
+      ports:
+        - port: {{ .Values.logger.server.bindPort }}
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      {{- include "kubauth.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+{{- end }}
+{{- end }}
+{{- end }}
