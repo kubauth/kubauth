@@ -78,10 +78,15 @@ oidc:
   allowPasswordGrant: false   # Allow Resource Owner Password Credentials (ROPC) grant type, aka the password grant.
   enforcePKCE: false  # If set, all authorization code grand must use PKCE
 
+  idp:
+    baseURL: http://localhost:6802
+    rootCAPath: # TBD if https.
+    insecureSkipVerify: false
+
   # Allow to change some logger configuration
   logger:
     mode: json  # "Log mode (dev or json)
-    level: debug # Log level(DEBUG, INFO, WARN, ERROR)
+    level: info # Log level(DEBUG, INFO, WARN, ERROR)
   # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
   dumpExchanges: 0
   # Display all command line flags on boot
@@ -97,7 +102,7 @@ oidc:
   server:
     tls: true
     bindAddr: "0.0.0.0"
-    bindPort:  8102
+    bindPort: 6801    # See internal/global/default.go
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
 
@@ -124,12 +129,6 @@ oidc:
     # Default to {{ include "kubauth.baseName" .}}-oidc-sso
     roleName:
 
-  idp:
-    baseURL: http://localhost:8101
-    # TODO: Refactor this and add a secret for auth
-    rootCAPath: # TBD if https.
-    insecureSkipVerify: false
-
   image:
     repository: quay.io/kubauth/exec/kubauth-server
     # -- Overrides the image tag whose default is the chart appVersion.
@@ -137,7 +136,7 @@ oidc:
     pullPolicy: IfNotPresent
 
   # The address the probe endpoint binds to.
-  healthProbeBindPort: 8111
+  healthProbeBindPort: 8110
   disableProbes: false
 
   resources:
@@ -164,7 +163,7 @@ oidc:
 
   metrics:
     enabled: false
-    bindPort: 8444
+    bindPort: 8443
     secured: false  # Set both TLS and client auth (see https://book.kubebuilder.io/reference/metrics)
     # This will be used to validate communication with the metrics endpoint
     # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
@@ -184,7 +183,7 @@ oidc:
 
   webhooks:
     enabled: true
-    port: 9444
+    port: 9443
 
     # This will be used to validate communication between the API server and this webhook server
     # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
@@ -238,7 +237,7 @@ userdb:
   server:
     tls: false
     bindAddr: "127.0.0.1"
-    bindPort:  8101
+    bindPort:  6802
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
 
@@ -258,7 +257,7 @@ userdb:
     host: # TBD
 
   # The address the probe endpoint binds to.
-  healthProbeBindPort: 8112
+  healthProbeBindPort: 8111
   disableProbes: false
 
   resources:
@@ -286,7 +285,7 @@ userdb:
 
   metrics:
     enabled: false
-    bindPort: 8445
+    bindPort: 8444
     secured: false  # Set both TLS and client auth (see https://book.kubebuilder.io/reference/metrics)
     # This will be used to validate communication with the metrics endpoint
     # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
@@ -306,7 +305,7 @@ userdb:
 
   webhooks:
     enabled: true
-    port: 9445
+    port: 9444
 
     # This will be used to validate communication between the API server and this webhook server
     # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer

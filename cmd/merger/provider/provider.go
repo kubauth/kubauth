@@ -118,7 +118,7 @@ func (p *provider) GetUserDetail(ctx context.Context, login, password string) (*
 	for claim, value := range response.User.Claims {
 		userDetail.Translated.Claims[fmt.Sprintf(p.config.ClaimPattern, claim)] = value
 	}
-	fmt.Printf("============================= userDetail.Translated.Claims %v\n", userDetail.Translated.Claims)
+	//fmt.Printf("============================= userDetail.Translated.Claims %v\n", userDetail.Translated.Claims)
 	if response.User.Uid != nil {
 		uid := *response.User.Uid + p.config.UidOffset
 		userDetail.Translated.Uid = &uid

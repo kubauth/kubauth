@@ -21,11 +21,13 @@ var DefaultPorts = struct {
 		Entry       int
 		HealthProbe int
 		Webhook     int
+		Metrics     int
 	}
 	Crd struct {
 		Entry       int
 		HealthProbe int
 		Webhook     int
+		Metrics     int
 	}
 	Ldap struct {
 		Entry int
@@ -47,7 +49,10 @@ func init() {
 
 	DefaultPorts.Oidc.HealthProbe = 8110
 	DefaultPorts.Oidc.Webhook = 9443
+	DefaultPorts.Oidc.Metrics = 0 // 8443
+
 	DefaultPorts.Crd.HealthProbe = 8111
 	DefaultPorts.Crd.Webhook = 9444
+	DefaultPorts.Crd.Metrics = 0 // 8444
 
 }

@@ -7,7 +7,7 @@ Expand userdb container
   command:
     - /kubauth
   args:
-    - userdb
+    - crd
     - --logMode={{ .Values.userdb.logger.mode }}
     - --logLevel={{ .Values.userdb.logger.level }}
     - --displayFlags={{ .Values.userdb.displayFlags }}

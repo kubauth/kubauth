@@ -161,6 +161,9 @@ spec:
     - jsonPath: .spec.status
       name: Status
       type: string
+    - jsonPath: .spec.authority
+      name: Authority
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
