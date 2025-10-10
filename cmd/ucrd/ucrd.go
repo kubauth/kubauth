@@ -14,21 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package crd
+package ucrd
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/crd/authenticator"
-	"kubauth/cmd/crd/webhooks"
+	"kubauth/cmd/ucrd/authenticator"
+	"kubauth/cmd/ucrd/webhooks"
 	"kubauth/internal/global"
 	"kubauth/internal/handlers"
 	"kubauth/internal/handlers/protector"
@@ -39,6 +33,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/go-logr/logr"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
@@ -47,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"strings"
 )
 
 var flags struct {
@@ -125,7 +126,7 @@ func init() {
 }
 
 var Cmd = &cobra.Command{
-	Use:   "crd",
+	Use:   "ucrd",
 	Short: "CRD based users storage",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {

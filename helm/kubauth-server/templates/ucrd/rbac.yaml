@@ -1,4 +1,4 @@
-{{- if .Values.userdb.enabled }}
+{{- if .Values.ucrd.enabled }}
 
 
 # Following is for kubauth server access
@@ -6,8 +6,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "kubauth.userdb.systemRoleName" . }}
-  namespace: {{ .Values.userdb.namespace }}
+  name: {{ include "kubauth.ucrd.systemRoleName" . }}
+  namespace: {{ .Values.ucrd.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}
@@ -31,8 +31,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.userdb.systemRoleName" . }}
-  namespace: {{ .Values.userdb.namespace }}
+  name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.ucrd.systemRoleName" . }}
+  namespace: {{ .Values.ucrd.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}
@@ -42,7 +42,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "kubauth.userdb.systemRoleName" . }}
+  name: {{ include "kubauth.ucrd.systemRoleName" . }}
 subjects:
   - kind: ServiceAccount
     name: {{ include "kubauth.serviceAccountName" . }}
@@ -55,8 +55,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "kubauth.userdb.adminRoleName" . }}
-  namespace: {{ .Values.userdb.namespace }}
+  name: {{ include "kubauth.ucrd.adminRoleName" . }}
+  namespace: {{ .Values.ucrd.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}

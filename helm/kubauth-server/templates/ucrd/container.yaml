@@ -1,0 +1,144 @@
+
+{{/*
+Expand ucrd container
+*/}}
+{{- define "container.ucrd" -}}
+- name: ucrd
+  command:
+    - /kubauth
+  args:
+    - ucrd
+    - --logMode={{ .Values.ucrd.logger.mode }}
+    - --logLevel={{ .Values.ucrd.logger.level }}
+    - --displayFlags={{ .Values.ucrd.displayFlags }}
+    - --healthProbeBindAddress={{ printf ":%.0f" .Values.ucrd.healthProbeBindPort }}
+    - --leaderElect=false
+    - --enableWebhook={{ .Values.ucrd.webhooks.enabled }}
+    {{- if .Values.ucrd.webhooks.enabled }}
+    - --webhookPort={{ .Values.ucrd.webhooks.port }}
+    - --webhookCertPath=/tmp/k8s-webhooks-server/serving-certs
+    - --webhookCertName=tls.crt
+    - --webhookCertKey=tls.key
+    {{- end }}
+    {{- if .Values.ucrd.metrics.enabled }}
+    - --metricsBindAddress={{ printf ":%.0f" .Values.ucrd.metrics.bindPort }}
+        {{- if .Values.ucrd.metrics.secured }}
+    - --metricsSecure=true
+    - --metricsCertPath=/tmp/k8s-metrics-server/metrics-certs
+        {{- else }}
+    - --metricsSecure=false
+        {{- end }}
+    {{- else }}
+    - --metricsBindAddress=0
+    {{- end }}
+    - --usersNamespace={{ .Values.ucrd.namespace }}
+    - --tls={{ .Values.ucrd.server.tls }}
+    - --dumpExchanges={{ .Values.ucrd.dumpExchanges }}
+    - --bindAddr={{ .Values.ucrd.server.bindAddr }}
+    - --bindPort={{ .Values.ucrd.server.bindPort }}
+    - --certDir=/cert/server
+    {{-  range .Values.ucrd.additionalArgs }}
+    - {{ . }}
+    {{- end }}
+  ports:
+    - containerPort: {{ .Values.ucrd.server.bindPort }}
+      name: ucrd
+      protocol: TCP
+    {{- if .Values.ucrd.metrics.enabled }}
+    - containerPort: {{ .Values.ucrd.metrics.bindPort }}
+      name: metrics
+      protocol: TCP
+    {{- end }}
+    {{- if .Values.ucrd.webhooks.enabled }}
+    - containerPort: {{ .Values.ucrd.webhooks.port }}
+      name: webhook
+      protocol: TCP
+    {{- end }}
+  {{- if not .Values.ucrd.disableProbes }}
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: {{ .Values.ucrd.healthProbeBindPort }}
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: {{ .Values.ucrd.healthProbeBindPort }}
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  {{- end }}
+  image: "{{ .Values.ucrd.image.repository }}:{{ .Values.ucrd.image.tag | default .Chart.AppVersion }}"
+  imagePullPolicy: {{ .Values.ucrd.image.pullPolicy }}
+  {{- with .Values.ucrd.extraEnv }}
+  env:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.ucrd.resources }}
+  resources:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  securityContext:
+    {{- toYaml .Values.containerSecurityContext | nindent 4 }}
+    {{- with .Values.ucrd.securityContext }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  volumeMounts:
+    {{- if .Values.ucrd.metrics.enabled }}
+    - mountPath: /tmp/k8s-metrics-server/metrics-certs
+      name: ucrd-metrics-certs
+      readOnly: true
+    {{- end }}
+    {{- if .Values.ucrd.webhooks.enabled }}
+    - mountPath: /tmp/k8s-webhooks-server/serving-certs
+      name: ucrd-webhooks-certs
+      readOnly: true
+    {{- end }}
+    {{- if .Values.ucrd.server.tls }}
+    - mountPath: /cert/server
+      name: ucrd-cert-server
+      readOnly: true
+    {{- end }}
+    {{- range .Values.ucrd.extraVolumes }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+    {{- end }}
+    {{- range .Values.ucrd.extraSecrets }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
+
+{{- end }}
+
+{{/*
+Expand ucrd volumes in pod
+*/}}
+{{- define "volumes.ucrd" -}}
+{{- if .Values.ucrd.metrics.enabled }}
+- name: ucrd-metrics-certs
+  secret:
+    secretName: {{ include "kubauth.ucrd.metrics.secretName" . }}
+{{- end }}
+{{- if .Values.ucrd.webhooks.enabled }}
+- name: ucrd-webhooks-certs
+  secret:
+    secretName: {{ include "kubauth.ucrd.webhooks.secretName" . }}
+{{- end }}
+{{- if .Values.ucrd.server.tls }}
+- name: ucrd-cert-server
+  secret:
+    defaultMode: 420
+    secretName: {{ include "kubauth.ucrd.server.certificateSecretName" . }}
+{{- end }}
+{{- range .Values.ucrd.extraVolumes }}
+- name: {{ .name }}
+  persistentVolumeClaim:
+    claimName: {{ .claimName }}
+{{- end }}
+{{- range .Values.ucrd.extraSecrets }}
+- name: {{ .name }}
+  secret:
+    secretName: {{ .secretName }}
+{{- end }}
+{{- end }}

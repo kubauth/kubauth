@@ -1,0 +1,27 @@
+{{- if .Values.ucrd.enabled }}
+{{- if .Values.ucrd.server.tls }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kubauth.ucrd.server.certificateName" . }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  dnsNames:
+    - {{ include "kubauth.ucrd.server.serviceName" . }}
+    - {{ include "kubauth.ucrd.server.serviceName" . }}.{{ .Release.Namespace }}.svc
+    - localhost
+  {{- if .Values.ucrd.ingress.enabled }}
+    - {{ required "'ucrd.ingress.host' must be defined if ingress is enabled" .Values.ucrd.ingress.host }}
+  {{- end }}
+  secretName: {{ include "kubauth.ucrd.server.certificateSecretName" . }}
+  issuerRef:
+    kind: {{ required ".Values.ucrd.server.issuerKind is not defined while tls: true" .Values.ucrd.server.issuerKind }}
+    name: {{ required ".Values.ucrd.server.certificateIssuer  is not defined while tls: true" .Values.ucrd.server.certificateIssuer }}
+{{- end }}
+{{- end }}

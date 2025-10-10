@@ -1,4 +1,4 @@
-{{- if or .Values.oidc.enabled .Values.userdb.enabled }}
+{{- if or .Values.oidc.enabled .Values.ucrd.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -34,8 +34,8 @@ spec:
         {{- if .Values.oidc.enabled }}
         {{- include "container.oidc" . | nindent 8 }}
         {{- end }}
-        {{- if .Values.userdb.enabled }}
-        {{- include "container.userdb" . | nindent 8 }}
+        {{- if .Values.ucrd.enabled }}
+        {{- include "container.ucrd" . | nindent 8 }}
         {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
@@ -57,8 +57,8 @@ spec:
         {{- if .Values.oidc.enabled -}}
         {{- include "volumes.oidc" . | nindent 8 }}
         {{- end }}
-        {{- if .Values.userdb.enabled -}}
-        {{- include "volumes.userdb" . | nindent 8 }}
+        {{- if .Values.ucrd.enabled -}}
+        {{- include "volumes.ucrd" . | nindent 8 }}
         {{- end }}
 
 {{- end }}

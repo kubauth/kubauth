@@ -1,10 +1,10 @@
-{{- if .Values.userdb.enabled }}
-{{- if .Values.userdb.createNamespace }}
+{{- if .Values.ucrd.enabled }}
+{{- if .Values.ucrd.createNamespace }}
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Values.userdb.namespace }}
+  name: {{ .Values.ucrd.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}

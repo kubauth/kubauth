@@ -1,16 +1,16 @@
-{{- if .Values.userdb.enabled }}
+{{- if .Values.ucrd.enabled }}
 {{- if .Values.networkPolicies.enabled }}
-{{- if .Values.userdb.ingress.enabled }}
+{{- if .Values.ucrd.ingress.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "kubauth.userdb.ingressNetworkPolicyName" .}}
+  name: {{ include "kubauth.ucrd.ingressNetworkPolicyName" .}}
   namespace: {{ .Release.Namespace }}
 spec:
   ingress:
     - from:
-      {{ if  eq .Values.userdb.ingress.class "nginx" }}
+      {{ if  eq .Values.ucrd.ingress.class "nginx" }}
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
@@ -18,7 +18,7 @@ spec:
         {{- fail "Unmanaged ingress class" }}
       {{ end }}
       ports:
-        - port: {{ .Values.userdb.server.bindPort }}
+        - port: {{ .Values.ucrd.server.bindPort }}
           protocol: TCP
   podSelector:
     matchLabels:

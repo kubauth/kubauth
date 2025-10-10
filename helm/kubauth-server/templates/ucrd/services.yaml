@@ -1,11 +1,11 @@
-{{- if .Values.userdb.enabled }}
+{{- if .Values.ucrd.enabled }}
 
-{{- if .Values.userdb.server.service.enabled }}
+{{- if .Values.ucrd.server.service.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kubauth.userdb.server.serviceName" . }}
+  name: {{ include "kubauth.ucrd.server.serviceName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
@@ -16,19 +16,19 @@ metadata:
 spec:
   ports:
     - port: 443
-      name: userdb
+      name: ucrd
       protocol: TCP
-      targetPort: {{ .Values.userdb.server.bindPort }}
+      targetPort: {{ .Values.ucrd.server.bindPort }}
   selector:
     {{- include "kubauth.selectorLabels" . | nindent 6 }}
 {{- end }}
 
-{{- if .Values.userdb.metrics.enabled}}
+{{- if .Values.ucrd.metrics.enabled}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kubauth.userdb.metrics.serviceName" . }}
+  name: {{ include "kubauth.ucrd.metrics.serviceName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
@@ -39,20 +39,20 @@ metadata:
 spec:
   ports:
     - name: https
-      port: {{ .Values.userdb.metrics.bindPort }}
+      port: {{ .Values.ucrd.metrics.bindPort }}
       protocol: TCP
-      targetPort: {{ .Values.userdb.metrics.bindPort }}
+      targetPort: {{ .Values.ucrd.metrics.bindPort }}
   selector:
     {{- include "kubauth.selectorLabels" . | nindent 6 }}
 {{- end }}
 
 
-{{- if .Values.userdb.webhooks.enabled }}
+{{- if .Values.ucrd.webhooks.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kubauth.userdb.webhooks.serviceName" .}}
+  name: {{ include "kubauth.ucrd.webhooks.serviceName" .}}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
@@ -64,7 +64,7 @@ spec:
   ports:
     - port: 443
       protocol: TCP
-      targetPort: {{ .Values.userdb.webhooks.port }}
+      targetPort: {{ .Values.ucrd.webhooks.port }}
   selector:
     {{- include "kubauth.selectorLabels" . | nindent 6 }}
 

@@ -213,7 +213,7 @@ oidc:
   # Default to {{ include "kubauth.baseName" .}}-oidc-jwt-secret
   jwtSecretRoleName:
 
-userdb:
+ucrd:
   enabled: true
 
   namespace: kubauth-users
@@ -241,11 +241,11 @@ userdb:
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
 
-    # Default to {{ include "kubauth.baseName" .}}-userdb-server
+    # Default to {{ include "kubauth.baseName" .}}-ucrd-server
     certificateName:
-    # Default to {{ include "kubauth.baseName" .}}-userdb-server-cert
+    # Default to {{ include "kubauth.baseName" .}}-ucrd-server-cert
     certificateSecretName:
-    # Default to {{ include "kubauth.baseName" .}}-userdb-server
+    # Default to {{ include "kubauth.baseName" .}}-ucrd-server
     serviceName:
 
     service:
@@ -292,15 +292,15 @@ userdb:
     certificateClusterIssuer:
     serviceMonitor:
       enabled: false
-      name:  # -- Will default to {{ include "kubauth.baseName" . }}-userdb
+      name:  # -- Will default to {{ include "kubauth.baseName" . }}-ucrd
 
-    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-metrics
+    # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-metrics
     serviceName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-metrics
+    # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-metrics
     certificateName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-metrics
+    # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-metrics
     secretName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-metrics
+    # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-metrics
     certificateSelfSignedIssuerName:
 
   webhooks:
@@ -313,22 +313,22 @@ userdb:
 
     # Following will allow a renaming of kubauth webhook related kubernetes resources
     # Leave it empty to use default values will works in most cases
-    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-webhook
+    # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-webhook
     serviceName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-webhook
+    # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-webhook
     certificateName:
-    # -- Will default to {{ include "kubauth.baseName" . }}-userdb-webhook
+    # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-webhook
     secretName:
-    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-userdb-webhook
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-ucrd-webhook
     certificateSelfSignedIssuerName:
-    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-userdb-validating-webhook-configuration
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-ucrd-validating-webhook-configuration
     validatingWebhookConfiguration:
-    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-userdb-mutating-webhook-configuration
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-ucrd-mutating-webhook-configuration
     mutatingWebhookConfiguration:
 
-  # Default to {{ include "kubauth.baseName" .}}-userdb
+  # Default to {{ include "kubauth.baseName" .}}-ucrd
   ingressName:
-  # Default to {{ include "kubauth.baseName" .}}-userdb-ingress
+  # Default to {{ include "kubauth.baseName" .}}-ucrd-ingress
   ingressNetworkPolicyName:
 
   adminRoleName:
