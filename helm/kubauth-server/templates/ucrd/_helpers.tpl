@@ -1,7 +1,6 @@
 
 {{/* --------------------------------------------------------------------- Identity server server */}}
 
-
 {{/*
 Create the name of the ucrd server certificate
 */}}
@@ -15,28 +14,6 @@ Create the name of the secret hosting the ucrd server certificate
 {{- define "kubauth.ucrd.server.certificateSecretName" -}}
 {{- default (printf "%s-ucrd-server-cert" (include "kubauth.baseName" .)) .Values.ucrd.server.certificateSecretName }}
 {{- end }}
-
-{{/*
-Create the name of the ucrd service
-*/}}
-{{- define "kubauth.ucrd.server.serviceName" -}}
-{{- default (printf "%s-ucrd-server" (include "kubauth.baseName" .)) .Values.ucrd.server.serviceName }}
-{{- end }}
-
-{{/*
-Create the name of the ingress
-*/}}
-{{- define "kubauth.ucrd.ingressName" -}}
-{{- default (printf "%s-ucrd" (include "kubauth.baseName" .)) .Values.ucrd.ingressName }}
-{{- end }}
-
-{{/*
-Create the name of the netpol to allow ingress => service
-*/}}
-{{- define "kubauth.ucrd.ingressNetworkPolicyName" -}}
-{{- default (printf "%s-ucrd-ingress" (include "kubauth.baseName" .)) .Values.ucrd.ingressNetworkPolicyName }}
-{{- end }}
-
 
 
 {{/* --------------------------------------------------------------------- metrics */}}

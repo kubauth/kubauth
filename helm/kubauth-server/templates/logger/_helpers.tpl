@@ -16,27 +16,6 @@ Create the name of the secret hosting the logger server certificate
 {{- default (printf "%s-logger-server-cert" (include "kubauth.baseName" .)) .Values.logger.server.certificateSecretName }}
 {{- end }}
 
-{{/*
-Create the name of the logger service
-*/}}
-{{- define "kubauth.logger.server.serviceName" -}}
-{{- default (printf "%s-logger-server" (include "kubauth.baseName" .)) .Values.logger.server.serviceName }}
-{{- end }}
-
-{{/*
-Create the name of the ingress
-*/}}
-{{- define "kubauth.logger.ingressName" -}}
-{{- default (printf "%s-logger" (include "kubauth.baseName" .)) .Values.logger.ingressName }}
-{{- end }}
-
-{{/*
-Create the name of the netpol to allow ingress => service
-*/}}
-{{- define "kubauth.logger.ingressNetworkPolicyName" -}}
-{{- default (printf "%s-logger-ingress" (include "kubauth.baseName" .)) .Values.logger.ingressNetworkPolicyName }}
-{{- end }}
-
 
 {{/* --------------------------------------------------------------------- RBAC */}}
 

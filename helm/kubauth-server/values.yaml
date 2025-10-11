@@ -1,6 +1,6 @@
 
 
-replicaCount: 2
+replicaCount: 1
 
 # Following will allow a renaming of all kubauth kubernetes resources
 # Allow overriding base name of all resources
@@ -255,17 +255,6 @@ logger:
     certificateName:
     # Default to {{ include "kubauth.baseName" .}}-logger-server-cert
     certificateSecretName:
-    # Default to {{ include "kubauth.baseName" .}}-logger-server
-    serviceName:
-
-    service:
-      enabled: false
-
-  ingress:
-    enabled: false
-    class: nginx  # Only nginx currently supported
-    host: # TBD
-
 
   resources:
     limits:
@@ -322,16 +311,6 @@ ucrd:
     certificateName:
     # Default to {{ include "kubauth.baseName" .}}-ucrd-server-cert
     certificateSecretName:
-    # Default to {{ include "kubauth.baseName" .}}-ucrd-server
-    serviceName:
-
-    service:
-      enabled: false
-
-  ingress:
-    enabled: false
-    class: nginx  # Only nginx currently supported
-    host: # TBD
 
   # The address the probe endpoint binds to.
   healthProbeBindPort: 8111

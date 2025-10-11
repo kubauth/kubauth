@@ -1,27 +1,5 @@
 {{- if .Values.ucrd.enabled }}
 
-{{- if .Values.ucrd.server.service.enabled }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "kubauth.ucrd.server.serviceName" . }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "kubauth.labels" . | nindent 4 }}
-  {{- with .Values.commonAnnotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-spec:
-  ports:
-    - port: 443
-      name: ucrd
-      protocol: TCP
-      targetPort: {{ .Values.ucrd.server.bindPort }}
-  selector:
-    {{- include "kubauth.selectorLabels" . | nindent 6 }}
-{{- end }}
 
 {{- if .Values.ucrd.metrics.enabled}}
 ---
