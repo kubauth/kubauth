@@ -22,6 +22,7 @@ Expand logger container
     - --idpInsecureSkipVerify={{ .Values.logger.idp.insecureSkipVerify }}
     - --loginLifetime={{ .Values.logger.cleaner.loginLifetime }}
     - --cleanupPeriod={{ .Values.logger.cleaner.cleanupPeriod }}
+    - --bfaProtection={{ .Values.logger.server.bfaProtection }}
     {{-  range .Values.logger.additionalArgs }}
     - {{ . }}
     {{- end }}

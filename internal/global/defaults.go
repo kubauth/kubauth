@@ -23,7 +23,7 @@ var DefaultPorts = struct {
 		Webhook     int
 		Metrics     int
 	}
-	Crd struct {
+	Ucrd struct {
 		Entry       int
 		HealthProbe int
 		Webhook     int
@@ -42,7 +42,7 @@ var DefaultPorts = struct {
 
 func init() {
 	DefaultPorts.Oidc.Entry = 6801
-	DefaultPorts.Crd.Entry = 6802
+	DefaultPorts.Ucrd.Entry = 6802
 	DefaultPorts.Ldap.Entry = 6803
 	DefaultPorts.Merger.Entry = 6804
 	DefaultPorts.Logger.Entry = 6805
@@ -51,8 +51,8 @@ func init() {
 	DefaultPorts.Oidc.Webhook = 9443
 	DefaultPorts.Oidc.Metrics = 0 // 8443
 
-	DefaultPorts.Crd.HealthProbe = 8111
-	DefaultPorts.Crd.Webhook = 9444
-	DefaultPorts.Crd.Metrics = 0 // 8444
+	DefaultPorts.Ucrd.HealthProbe = 8111
+	DefaultPorts.Ucrd.Webhook = 9444
+	DefaultPorts.Ucrd.Metrics = 0 // 8444
 
 }

@@ -1,4 +1,11 @@
 
+#ports:
+#  oidc: 6801
+#  ucrd: 6802
+#  ldap: 6803
+#  merger: 6804
+#  logger: 6805
+
 
 replicaCount: 1
 
@@ -213,7 +220,6 @@ oidc:
   # Default to {{ include "kubauth.baseName" .}}-oidc-jwt-secret
   jwtSecretRoleName:
 
-
 logger:
   enabled: true
 
@@ -250,6 +256,75 @@ logger:
     bindPort:  6805
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
+    bfaProtection: false
+
+    # Default to {{ include "kubauth.baseName" .}}-logger-server
+    certificateName:
+    # Default to {{ include "kubauth.baseName" .}}-logger-server-cert
+    certificateSecretName:
+
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+  extraEnv:
+  additionalArgs: []
+  extraVolumes: []
+  #   - name:
+  #     mountPath:
+  #     claimName:
+  extraSecrets: []
+  #  - name:
+  #    mountPath:
+  #    secretName:
+
+  # Container specific securityContext
+  securityContext:
+
+merger:
+  enabled: false
+
+  # Allow to change some logger configuration
+  logger:
+    mode: json  # "Log mode (dev or json)
+    level: info # Log level(DEBUG, INFO, WARN, ERROR)
+  # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
+  dumpExchanges: 0
+  # Display all command line flags on boot
+  displayFlags: true
+
+  image:
+    repository: quay.io/kubauth/exec/kubauth-server
+    # -- Overrides the image tag whose default is the chart appVersion.
+    tag:
+    pullPolicy: IfNotPresent
+
+  providers:
+    - name: ucrd
+      httpConfig:
+        baseUrl: http://localhost:6802
+      credentialAuthority: true
+      groupAuthority: true
+      groupPattern: "%s"
+      claimAuthority: true
+      claimPattern: "%s"
+      nameAuthority: true
+      emailAuthority: true
+      critical: true
+      uidOffset: 0
+
+  server:
+    tls: false
+    bindAddr: "127.0.0.1"
+    bindPort:  6804
+    certificateIssuer: # TBD
+    issuerKind: ClusterIssuer
+    bfaProtection: false
 
     # Default to {{ include "kubauth.baseName" .}}-logger-server
     certificateName:
@@ -278,6 +353,7 @@ logger:
   # Container specific securityContext
   securityContext:
 
+  configMapName:
 
 ucrd:
   enabled: true
@@ -306,6 +382,7 @@ ucrd:
     bindPort:  6802
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
+    bfaProtection: false
 
     # Default to {{ include "kubauth.baseName" .}}-ucrd-server
     certificateName:

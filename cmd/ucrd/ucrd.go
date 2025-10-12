@@ -84,19 +84,19 @@ var (
 func init() {
 
 	defaultMetricsBindAddress := "0"
-	if global.DefaultPorts.Crd.Metrics != 0 {
-		defaultMetricsBindAddress = fmt.Sprintf(":%d", global.DefaultPorts.Crd.Metrics)
+	if global.DefaultPorts.Ucrd.Metrics != 0 {
+		defaultMetricsBindAddress = fmt.Sprintf(":%d", global.DefaultPorts.Ucrd.Metrics)
 	}
 
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Mode, "logMode", "", "text", "Log mode ('text' or 'json')")
 	Cmd.PersistentFlags().StringVarP(&flags.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
 	Cmd.PersistentFlags().BoolVar(&flags.displayFlags, "displayFlags", true, "Dump flags values")
 
-	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", fmt.Sprintf(":%d", global.DefaultPorts.Crd.HealthProbe), "The address the probe endpoint binds to.")
+	Cmd.PersistentFlags().StringVar(&flags.probeAddr, "healthProbeBindAddress", fmt.Sprintf(":%d", global.DefaultPorts.Ucrd.HealthProbe), "The address the probe endpoint binds to.")
 	Cmd.PersistentFlags().BoolVar(&flags.enableLeaderElection, "leaderElect", false, "Enable leader election. Should be false, as we are stateless")
 	Cmd.PersistentFlags().BoolVar(&flags.enableHTTP2, "enableHttp2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	Cmd.PersistentFlags().BoolVar(&flags.enableWebhook, "enableWebhook", true, "If set the webhook server will be enabled")
-	Cmd.PersistentFlags().IntVar(&flags.webhookPort, "webhookPort", global.DefaultPorts.Crd.Webhook, "The port webhooks server in bound on.")
+	Cmd.PersistentFlags().IntVar(&flags.webhookPort, "webhookPort", global.DefaultPorts.Ucrd.Webhook, "The port webhooks server in bound on.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertPath, "webhookCertPath", "", "The directory that contains the webhook certificate.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertName, "webhookCertName", "tls.crt", "The name of the webhook certificate file.")
 	Cmd.PersistentFlags().StringVar(&flags.webhookCertKey, "webhookCertKey", "tls.key", "The name of the webhook key file.")
@@ -112,7 +112,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVarP(&flags.httpConfig.Tls, "tls", "t", false, "enable TLS")
 	Cmd.PersistentFlags().IntVar(&flags.httpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3)")
 	Cmd.PersistentFlags().StringVarP(&flags.httpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
-	Cmd.PersistentFlags().IntVarP(&flags.httpConfig.BindPort, "bindPort", "p", global.DefaultPorts.Crd.Entry, "Bind port")
+	Cmd.PersistentFlags().IntVarP(&flags.httpConfig.BindPort, "bindPort", "p", global.DefaultPorts.Ucrd.Entry, "Bind port")
 	Cmd.PersistentFlags().StringVarP(&flags.httpConfig.CertDir, "certDir", "", "", "Certificate Directory")
 	Cmd.PersistentFlags().StringVar(&flags.httpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
 	Cmd.PersistentFlags().StringVar(&flags.httpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")

@@ -19,8 +19,6 @@ package merger
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/spf13/cobra"
 	"kubauth/cmd/merger/authenticator"
 	"kubauth/cmd/merger/config"
 	"kubauth/internal/global"
@@ -32,6 +30,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+
+	"github.com/go-logr/logr"
+	"github.com/spf13/cobra"
 )
 
 /*

@@ -37,6 +37,7 @@ Expand ucrd container
     - --bindAddr={{ .Values.ucrd.server.bindAddr }}
     - --bindPort={{ .Values.ucrd.server.bindPort }}
     - --certDir=/cert/server
+    - --bfaProtection={{ .Values.ucrd.server.bfaProtection }}
     {{-  range .Values.ucrd.additionalArgs }}
     - {{ . }}
     {{- end }}

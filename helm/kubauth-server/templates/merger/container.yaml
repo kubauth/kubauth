@@ -1,0 +1,88 @@
+
+{{/*
+Expand merger container
+*/}}
+{{- define "container.merger" -}}
+- name: merger
+  command:
+    - /kubauth
+  args:
+    - merger
+    - --configFile=/config.yaml
+    - --logMode={{ .Values.merger.logger.mode }}
+    - --logLevel={{ .Values.merger.logger.level }}
+    - --displayFlags={{ .Values.merger.displayFlags }}
+    - --tls={{ .Values.merger.server.tls }}
+    - --dumpExchanges={{ .Values.merger.dumpExchanges }}
+    - --bindAddr={{ .Values.merger.server.bindAddr }}
+    - --bindPort={{ .Values.merger.server.bindPort }}
+    - --certDir=/cert/server
+    - --bfaProtection={{ .Values.merger.server.bfaProtection }}
+    {{-  range .Values.merger.additionalArgs }}
+    - {{ . }}
+    {{- end }}
+  ports:
+    - containerPort: {{ .Values.merger.server.bindPort }}
+      name: merger
+      protocol: TCP
+  image: "{{ .Values.merger.image.repository }}:{{ .Values.merger.image.tag | default .Chart.AppVersion }}"
+  imagePullPolicy: {{ .Values.merger.image.pullPolicy }}
+  {{- with .Values.merger.extraEnv }}
+  env:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.merger.resources }}
+  resources:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  securityContext:
+    {{- toYaml .Values.containerSecurityContext | nindent 4 }}
+    {{- with .Values.merger.securityContext }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  volumeMounts:
+    - mountPath: /config.yaml
+      name: merger-config
+      subPath: config.yaml
+    {{- if .Values.merger.server.tls }}
+    - mountPath: /cert/server
+      name: merger-cert-server
+      readOnly: true
+    {{- end }}
+    {{- range .Values.merger.extraVolumes }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+    {{- end }}
+    {{- range .Values.merger.extraSecrets }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
+
+{{- end }}
+
+{{/*
+Expand merger volumes in pod
+*/}}
+{{- define "volumes.merger" -}}
+{{- if .Values.merger.server.tls }}
+- name: merger-cert-server
+  secret:
+    defaultMode: 420
+    secretName: {{ include "kubauth.merger.server.certificateSecretName" . }}
+{{- end }}
+{{- range .Values.merger.extraVolumes }}
+- name: {{ .name }}
+  persistentVolumeClaim:
+    claimName: {{ .claimName }}
+{{- end }}
+{{- range .Values.merger.extraSecrets }}
+- name: {{ .name }}
+  secret:
+    secretName: {{ .secretName }}
+{{- end }}
+- name: merger-config
+  configMap:
+    name: {{ include "kubauth.merger.configMapName" . }}
+
+{{- end }}
