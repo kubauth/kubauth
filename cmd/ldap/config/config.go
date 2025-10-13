@@ -43,10 +43,17 @@ type LdapConfig struct {
 	// protocol.
 	StartTLS bool `yaml:"startTLS"`
 
+	// One of rootCaPath, rootCaData or rootCaSecret must be defined if a CA is needed
 	// Path to a trusted root certificate file.
 	RootCaPath string `yaml:"rootCaPath"`
 	// Base64 encoded PEM data containing root CAs.
 	RootCaData string `yaml:"rootCaData"`
+
+	// A secret hosting the CA, as base64 encoded value, at the 'rootCaSecretPath' location.
+	// The secret can be generated using trust-manager from cert-manager
+	RootCaSecret     string `yaml:"rootCaSecret"`
+	RootCaSecretPath string `yaml:"rootCaSecretPath"` // Default to 'ca.crt'
+
 	// Path to a client cert file
 	ClientCert string `yaml:"clientCert"`
 	// Path to a client private key file

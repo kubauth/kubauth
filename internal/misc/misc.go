@@ -68,3 +68,13 @@ func AppendIfNotPresent(slice []string, items []string) []string {
 
 	return slice
 }
+
+func CountTrue(xs ...bool) int {
+	count := 0
+	for _, x := range xs {
+		if x {
+			count++
+		}
+	}
+	return count
+}

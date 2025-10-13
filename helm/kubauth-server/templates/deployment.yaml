@@ -47,6 +47,9 @@ spec:
         {{- if .Values.ucrd.enabled }}
         {{- include "container.ucrd" . | nindent 8 }}
         {{- end }}
+        {{- if .Values.ldap.enabled }}
+        {{- include "container.ldap" . | nindent 8 }}
+        {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       serviceAccountName: {{ include "kubauth.serviceAccountName" . }}
@@ -75,5 +78,8 @@ spec:
         {{- end }}
         {{- if .Values.ucrd.enabled -}}
         {{- include "volumes.ucrd" . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.ldap.enabled -}}
+        {{- include "volumes.ldap" . | nindent 8 }}
         {{- end }}
 

@@ -19,8 +19,6 @@ package ldap
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/spf13/cobra"
 	"kubauth/cmd/ldap/authenticator"
 	"kubauth/cmd/ldap/config"
 	"kubauth/internal/global"
@@ -28,10 +26,15 @@ import (
 	"kubauth/internal/handlers/protector"
 	"kubauth/internal/handlers/validator"
 	"kubauth/internal/httpsrv"
+	"kubauth/internal/k8sapi"
 	"kubauth/internal/misc"
 	"log/slog"
 	"net/http"
 	"os"
+	"path"
+
+	"github.com/go-logr/logr"
+	"github.com/spf13/cobra"
 )
 
 var ldapParams struct {
@@ -40,6 +43,7 @@ var ldapParams struct {
 	httpConfig    httpsrv.Config
 	bfaProtection bool
 	configFile    string
+	namespace     string
 }
 
 func init() {
@@ -58,6 +62,8 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&ldapParams.bfaProtection, "bfaProtection", false, "Activate Brut Force Attack protection")
 
 	Cmd.PersistentFlags().StringVarP(&ldapParams.configFile, "configFile", "c", "./config.yaml", "Config file path")
+
+	Cmd.PersistentFlags().StringVar(&ldapParams.namespace, "namespace", "", "Namespace to fetch the CA secret, if any. Default to current on. For out of kubernetes launch")
 
 }
 
@@ -83,13 +89,21 @@ var Cmd = &cobra.Command{
 			os.Exit(2)
 		}
 
+		clientSet, err := k8sapi.GetClientSet()
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Error creating Kubernetes client: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Create HTTP router
+
 		// Inject logger into context
 		ctx := logr.NewContextWithSlogLogger(context.Background(), logger)
 
 		// Create HTTP router
 		mux := http.NewServeMux()
 
-		authenticator, err := authenticator.New(&config.Ldap, configPath)
+		authenticator, err := authenticator.New(&config.Ldap, path.Dir(configPath), clientSet, ldapParams.namespace, logger)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to create authenticator: %v\n", err)
 			os.Exit(2)

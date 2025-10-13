@@ -18,11 +18,13 @@ package k8sapi
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"path/filepath"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -71,4 +73,12 @@ func GetKubeClient(scheme *runtime.Scheme) (client.Client, error) {
 		return nil, err
 	}
 	return GetKubeClientFromConfig(config, scheme)
+}
+
+func GetClientSet() (*kubernetes.Clientset, error) {
+	config, err := GetRestConfig()
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(config)
 }

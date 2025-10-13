@@ -17,16 +17,22 @@ limitations under the License.
 package authenticator
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"gopkg.in/ldap.v2"
 	"kubauth/cmd/ldap/config"
 	"kubauth/internal/handlers"
 	"kubauth/internal/misc"
+	"log/slog"
 	"os"
+	"strings"
 	"time"
+
+	"gopkg.in/ldap.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 type ldapAuthenticator struct {
@@ -39,7 +45,7 @@ type ldapAuthenticator struct {
 
 var _ handlers.Authenticator = &ldapAuthenticator{}
 
-func New(ldapConfig *config.LdapConfig, configFolder string) (handlers.Authenticator, error) {
+func New(ldapConfig *config.LdapConfig, configFolder string, clientSet *kubernetes.Clientset, namespace string, logger *slog.Logger) (handlers.Authenticator, error) {
 
 	authenticator := ldapAuthenticator{
 		config: ldapConfig,
@@ -89,26 +95,63 @@ func New(ldapConfig *config.LdapConfig, configFolder string) (handlers.Authentic
 	//authenticator.logger.V(2).Info("adjusted paths", "RootCA", authenticator.RootCaPath, "ClientCert", authenticator.ClientCert, "ClientKey", authenticator.ClientKey)
 
 	authenticator.tlsConfig = &tls.Config{ServerName: authenticator.config.Host, InsecureSkipVerify: authenticator.config.InsecureSkipVerify}
-	if authenticator.config.RootCaPath != "" || len(authenticator.config.RootCaData) != 0 {
-		var data []byte
-		if len(authenticator.config.RootCaData) != 0 {
-			data = make([]byte, base64.StdEncoding.DecodedLen(len(authenticator.config.RootCaData)))
-			_, err := base64.StdEncoding.Decode(data, []byte(authenticator.config.RootCaData))
-			if err != nil {
-				return &authenticator, fmt.Errorf("error while parsing RootCaData : %w", err)
-			}
-		} else {
-			var err error
-			if data, err = os.ReadFile(authenticator.config.RootCaPath); err != nil {
-				return &authenticator, fmt.Errorf("error while reading CA file: %w", err)
-			}
+
+	// ---------------------------------- Handle CA cert
+	if misc.CountTrue(len(authenticator.config.RootCaData) != 0, authenticator.config.RootCaSecret != "", authenticator.config.RootCaPath != "") > 1 {
+		return &authenticator, fmt.Errorf("at most one of 'rootCaData', 'rootCaSecret' or 'rootCaPath' must be specified")
+	}
+
+	var data []byte
+	if len(authenticator.config.RootCaData) != 0 {
+		data = make([]byte, base64.StdEncoding.DecodedLen(len(authenticator.config.RootCaData)))
+		_, err := base64.StdEncoding.Decode(data, []byte(authenticator.config.RootCaData))
+		if err != nil {
+			return &authenticator, fmt.Errorf("error while parsing RootCaData : %w", err)
 		}
+		logger.Info("Set LDAP server CA from rootCaData")
+	}
+	if authenticator.config.RootCaPath != "" {
+		var err error
+		if data, err = os.ReadFile(authenticator.config.RootCaPath); err != nil {
+			return &authenticator, fmt.Errorf("error while reading CA file: %w", err)
+		}
+		logger.Info("Set LDAP server CA from rootCaPath", "rootCaPath", authenticator.config.RootCaPath)
+	}
+	if authenticator.config.RootCaSecret != "" {
+		var err error
+		namespace, err = getCurrentNamespace(namespace)
+		if err != nil {
+			return &authenticator, err
+		}
+		secret, err := clientSet.CoreV1().Secrets(namespace).Get(
+			context.Background(),
+			authenticator.config.RootCaSecret,
+			metav1.GetOptions{},
+		)
+		if err != nil {
+			return &authenticator, fmt.Errorf("error while getting root CA secret '%s/%s': %w", namespace, authenticator.config.RootCaSecret, err)
+		}
+		caName := authenticator.config.RootCaPath
+		if caName == "" {
+			caName = "ca.crt"
+		}
+		var exists bool
+		data, exists = secret.Data[caName]
+		if !exists {
+			return &authenticator, fmt.Errorf("cA data not found in secret '%s/%s' CA path:'%s'", "namespace", authenticator.config.RootCaSecret, caName)
+		}
+		logger.Info("Set LDAP server CA from secret", "namespace", namespace, "secret", authenticator.config.RootCaSecret, "caPath", caName)
+	}
+
+	if data != nil {
 		rootCAs := x509.NewCertPool()
 		if !rootCAs.AppendCertsFromPEM(data) {
 			return &authenticator, fmt.Errorf("no certs found in ca file")
 		}
 		authenticator.tlsConfig.RootCAs = rootCAs
 	}
+
+	// ------------------------------------
 
 	if authenticator.config.ClientKey != "" && authenticator.config.ClientCert != "" {
 		cert, err := tls.LoadX509KeyPair(authenticator.config.ClientCert, authenticator.config.ClientKey)
@@ -139,4 +182,17 @@ func parseScope(s string) (int, bool) {
 		return ldap.ScopeSingleLevel, true
 	}
 	return 0, false
+}
+
+// getCurrentNamespace returns the namespace of the current pod
+func getCurrentNamespace(namespace string) (string, error) {
+	if namespace != "" {
+		return namespace, nil
+	}
+	namespaceFile := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+	data, err := os.ReadFile(namespaceFile)
+	if err != nil {
+		return "", fmt.Errorf("error reading namespace file: %w. If running out or Kubernetes context, set namespace explicitly (--namespace)", err)
+	}
+	return strings.TrimSpace(string(data)), nil
 }

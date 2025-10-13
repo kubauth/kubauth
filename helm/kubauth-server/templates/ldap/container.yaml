@@ -1,0 +1,88 @@
+
+{{/*
+Expand ldap container
+*/}}
+{{- define "container.ldap" -}}
+- name: ldap
+  command:
+    - /kubauth
+  args:
+    - ldap
+    - --configFile=/config.yaml
+    - --logMode={{ .Values.ldap.logger.mode }}
+    - --logLevel={{ .Values.ldap.logger.level }}
+    - --displayFlags={{ .Values.ldap.displayFlags }}
+    - --tls={{ .Values.ldap.server.tls }}
+    - --dumpExchanges={{ .Values.ldap.dumpExchanges }}
+    - --bindAddr={{ .Values.ldap.server.bindAddr }}
+    - --bindPort={{ .Values.ldap.server.bindPort }}
+    - --certDir=/cert/server
+    - --bfaProtection={{ .Values.ldap.server.bfaProtection }}
+    {{-  range .Values.ldap.additionalArgs }}
+    - {{ . }}
+    {{- end }}
+  ports:
+    - containerPort: {{ .Values.ldap.server.bindPort }}
+      name: ldap
+      protocol: TCP
+  image: "{{ .Values.ldap.image.repository }}:{{ .Values.ldap.image.tag | default .Chart.AppVersion }}"
+  imagePullPolicy: {{ .Values.ldap.image.pullPolicy }}
+  {{- with .Values.ldap.extraEnv }}
+  env:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.ldap.resources }}
+  resources:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  securityContext:
+    {{- toYaml .Values.containerSecurityContext | nindent 4 }}
+    {{- with .Values.ldap.securityContext }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  volumeMounts:
+    - mountPath: /config.yaml
+      name: ldap-config
+      subPath: config.yaml
+    {{- if .Values.ldap.server.tls }}
+    - mountPath: /cert/server
+      name: ldap-cert-server
+      readOnly: true
+    {{- end }}
+    {{- range .Values.ldap.extraVolumes }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+    {{- end }}
+    {{- range .Values.ldap.extraSecrets }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
+
+{{- end }}
+
+{{/*
+Expand ldap volumes in pod
+*/}}
+{{- define "volumes.ldap" -}}
+{{- if .Values.ldap.server.tls }}
+- name: ldap-cert-server
+  secret:
+    defaultMode: 420
+    secretName: {{ include "kubauth.ldap.server.certificateSecretName" . }}
+{{- end }}
+{{- range .Values.ldap.extraVolumes }}
+- name: {{ .name }}
+  persistentVolumeClaim:
+    claimName: {{ .claimName }}
+{{- end }}
+{{- range .Values.ldap.extraSecrets }}
+- name: {{ .name }}
+  secret:
+    secretName: {{ .secretName }}
+{{- end }}
+- name: ldap-config
+  configMap:
+    name: {{ include "kubauth.ldap.configMapName" . }}
+
+{{- end }}

@@ -1,0 +1,49 @@
+{{- if .Values.ldap.enabled }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kubauth.ldap.configMapName" . }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  config.yaml: |
+    ldap:
+      host: {{ .Values.ldap.ldap.host }}
+      port: {{ .Values.ldap.ldap.port }}
+      timeoutSec: {{ .Values.ldap.ldap.timeoutSec }}
+      insecureNoSSL: {{ .Values.ldap.ldap.insecureNoSSL }}
+      insecureSkipVerify: {{ .Values.ldap.ldap.insecureSkipVerify }}
+      startTLS: {{ .Values.ldap.ldap.startTLS }}
+      rootCaPath: {{ .Values.ldap.ldap.rootCaPath }}
+      rootCaData: {{ .Values.ldap.ldap.rootCaData }}
+      rootCaSecret: {{ .Values.ldap.ldap.rootCaSecret }}
+      rootCaSecretPath: {{ .Values.ldap.ldap.rootCaSecretPath }}
+      clientCert: {{ .Values.ldap.ldap.clientCert }}
+      clientKey: {{ .Values.ldap.ldap.clientKey }}
+      bindDN: {{ .Values.ldap.ldap.bindDN }}
+      bindPW: {{ .Values.ldap.ldap.bindPW }}
+      groupSearch:
+        baseDN: {{ .Values.ldap.ldap.groupSearch.baseDN }}
+        filter: {{ .Values.ldap.ldap.groupSearch.filter }}
+        linkGroupAttr: {{ .Values.ldap.ldap.groupSearch.linkGroupAttr }}
+        linkUserAttr: {{ .Values.ldap.ldap.groupSearch.linkUserAttr }}
+        nameAttr: {{ .Values.ldap.ldap.groupSearch.nameAttr }}
+        scope: {{ .Values.ldap.ldap.groupSearch.scope }}
+      userSearch:
+        baseDN: {{ .Values.ldap.ldap.userSearch.baseDN }}
+        filter: {{ .Values.ldap.ldap.userSearch.filter }}
+        loginAttr: {{ .Values.ldap.ldap.userSearch.loginAttr }}
+        scope: {{ .Values.ldap.ldap.userSearch.scope }}
+        numericalIdAttr: {{ .Values.ldap.ldap.userSearch.numericalIdAttr }}
+        emailAttr: {{ .Values.ldap.ldap.userSearch.emailAttr }}
+        cnAttr: {{ .Values.ldap.ldap.userSearch.cnAttr }}
+
+
+{{- end }}
+
