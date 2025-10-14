@@ -18,8 +18,8 @@ package cmd
 
 import (
 	"fmt"
+	"kubauth/cmd/audit"
 	"kubauth/cmd/ldap"
-	"kubauth/cmd/logger"
 	"kubauth/cmd/merger"
 	"kubauth/cmd/oidc"
 	"kubauth/cmd/ucrd"
@@ -34,7 +34,7 @@ func init() {
 	rootCmd.AddCommand(ucrd.Cmd)
 	rootCmd.AddCommand(ldap.Cmd)
 	rootCmd.AddCommand(merger.Cmd)
-	rootCmd.AddCommand(logger.Cmd)
+	rootCmd.AddCommand(audit.Cmd)
 
 }
 

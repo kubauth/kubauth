@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logger
+package audit
 
 import (
 	"context"
 	"fmt"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/logger/authenticator"
+	"kubauth/cmd/audit/authenticator"
 	"kubauth/internal/global"
 	"kubauth/internal/handlers"
 	"kubauth/internal/handlers/protector"
@@ -43,7 +43,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var loggerParams struct {
+var auditParams struct {
 	logConfig     misc.LogConfig
 	displayFlags  bool
 	httpConfig    httpsrv.Config
@@ -60,28 +60,28 @@ var (
 )
 
 func init() {
-	Cmd.PersistentFlags().StringVarP(&loggerParams.logConfig.Mode, "logMode", "", "text", "Log mode ('text' or 'json')")
-	Cmd.PersistentFlags().StringVarP(&loggerParams.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
-	Cmd.PersistentFlags().BoolVar(&loggerParams.displayFlags, "displayFlags", true, "Dump flags values")
+	Cmd.PersistentFlags().StringVarP(&auditParams.logConfig.Mode, "logMode", "", "text", "Log mode ('text' or 'json')")
+	Cmd.PersistentFlags().StringVarP(&auditParams.logConfig.Level, "logLevel", "l", "INFO", "Log level(DEBUG, INFO, WARN, ERROR)")
+	Cmd.PersistentFlags().BoolVar(&auditParams.displayFlags, "displayFlags", true, "Dump flags values")
 
-	Cmd.PersistentFlags().BoolVarP(&loggerParams.httpConfig.Tls, "tls", "t", false, "enable TLS")
-	Cmd.PersistentFlags().IntVar(&loggerParams.httpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3)")
-	Cmd.PersistentFlags().StringVarP(&loggerParams.httpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
-	Cmd.PersistentFlags().IntVarP(&loggerParams.httpConfig.BindPort, "bindPort", "p", global.DefaultPorts.Logger.Entry, "Bind port")
-	Cmd.PersistentFlags().StringVarP(&loggerParams.httpConfig.CertDir, "certDir", "", "", "Certificate Directory")
-	Cmd.PersistentFlags().StringVar(&loggerParams.httpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
-	Cmd.PersistentFlags().StringVar(&loggerParams.httpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
+	Cmd.PersistentFlags().BoolVarP(&auditParams.httpConfig.Tls, "tls", "t", false, "enable TLS")
+	Cmd.PersistentFlags().IntVar(&auditParams.httpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3)")
+	Cmd.PersistentFlags().StringVarP(&auditParams.httpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")
+	Cmd.PersistentFlags().IntVarP(&auditParams.httpConfig.BindPort, "bindPort", "p", global.DefaultPorts.Logger.Entry, "Bind port")
+	Cmd.PersistentFlags().StringVarP(&auditParams.httpConfig.CertDir, "certDir", "", "", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&auditParams.httpConfig.CertName, "certName", "tls.crt", "Certificate Directory")
+	Cmd.PersistentFlags().StringVar(&auditParams.httpConfig.KeyName, "keyName", "tls.key", "Certificate Directory")
 
-	Cmd.PersistentFlags().BoolVar(&loggerParams.bfaProtection, "bfaProtection", false, "Activate Brut Force Attack protection")
+	Cmd.PersistentFlags().BoolVar(&auditParams.bfaProtection, "bfaProtection", false, "Activate Brut Force Attack protection")
 
 	// Idp (Identity provider) config
-	Cmd.PersistentFlags().StringVar(&loggerParams.idpHttpConfig.BaseURL, "idpBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Merger.Entry), "The Identity provider base URL")
-	Cmd.PersistentFlags().StringArrayVar(&loggerParams.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
-	Cmd.PersistentFlags().BoolVar(&loggerParams.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
-	Cmd.PersistentFlags().StringVarP(&loggerParams.namespace, "namespace", "n", "kubauth-audit", "Namespace to store login records in")
+	Cmd.PersistentFlags().StringVar(&auditParams.idpHttpConfig.BaseURL, "idpBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Merger.Entry), "The Identity provider base URL")
+	Cmd.PersistentFlags().StringArrayVar(&auditParams.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
+	Cmd.PersistentFlags().BoolVar(&auditParams.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
+	Cmd.PersistentFlags().StringVarP(&auditParams.namespace, "namespace", "n", "kubauth-audit", "Namespace to store login records in")
 
-	Cmd.PersistentFlags().DurationVar(&loggerParams.loginLifetime, "loginLifetime", time.Hour*8, "Login logs lifetime")
-	Cmd.PersistentFlags().DurationVar(&loggerParams.cleanupPeriod, "cleanupPeriod", time.Minute*5, "Login logs cleanup period")
+	Cmd.PersistentFlags().DurationVar(&auditParams.loginLifetime, "loginLifetime", time.Hour*8, "Login logs lifetime")
+	Cmd.PersistentFlags().DurationVar(&auditParams.cleanupPeriod, "cleanupPeriod", time.Minute*5, "Login logs cleanup period")
 
 	//utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
@@ -89,31 +89,31 @@ func init() {
 }
 
 var Cmd = &cobra.Command{
-	Use:   "logger",
-	Short: "Login logger",
+	Use:   "audit",
+	Short: "Audit login",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		logger, err := misc.NewLogger(&loggerParams.logConfig)
+		logger, err := misc.NewLogger(&auditParams.logConfig)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to load logging configuration: %v\n", err)
 			os.Exit(2)
 		}
 
-		logger.Info("Starting logger module", slog.String("logLevel", loggerParams.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs), slog.String("idp", loggerParams.idpHttpConfig.BaseURL))
-		if loggerParams.displayFlags {
+		logger.Info("Starting audit module", slog.String("logLevel", auditParams.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs), slog.String("idp", auditParams.idpHttpConfig.BaseURL))
+		if auditParams.displayFlags {
 			sb := new(strings.Builder)
 			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 				_, _ = fmt.Fprintf(sb, "--%s=%q\n", f.Name, f.Value)
 			})
 			fmt.Printf("Flags:\n%s", sb.String())
 		}
-		if loggerParams.namespace == "" {
+		if auditParams.namespace == "" {
 			logger.Error("namespace must be specified and non null")
 			os.Exit(1)
 		}
 
-		if loggerParams.httpConfig.BindAddr != "127.0.0.1" && loggerParams.httpConfig.BindAddr != "localhost" {
+		if auditParams.httpConfig.BindAddr != "127.0.0.1" && auditParams.httpConfig.BindAddr != "localhost" {
 			fmt.Printf("**** WARNING ****: This enpoint is not protected and externaly accessible. It should be accessible only from side containers")
 		}
 
@@ -129,7 +129,7 @@ var Cmd = &cobra.Command{
 		// Create HTTP router
 		mux := http.NewServeMux()
 
-		authenticator, err := authenticator.New(&loggerParams.idpHttpConfig, kubeClient, loggerParams.namespace)
+		authenticator, err := authenticator.New(&auditParams.idpHttpConfig, kubeClient, auditParams.namespace)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to create authenticator: %v\n", err)
 			os.Exit(2)
@@ -138,24 +138,24 @@ var Cmd = &cobra.Command{
 		identityHandler := &handlers.IdentityHandler{
 			Validators:    []validator.Validator{validator.OnlyGetValidator{}},
 			Authenticator: authenticator,
-			Protector:     protector.New(loggerParams.bfaProtection, ctx),
+			Protector:     protector.New(auditParams.bfaProtection, ctx),
 		}
 
 		mux.Handle("/v1/identity", identityHandler)
 
 		// Start login logs cleanup process if cleanup period is configured
-		if loggerParams.cleanupPeriod > 0 {
+		if auditParams.cleanupPeriod > 0 {
 			logger.Info("Starting login logs cleanup process",
-				"loginLifetime", loggerParams.loginLifetime,
-				"cleanupPeriod", loggerParams.cleanupPeriod,
-				"namespace", loggerParams.namespace)
-			go startLoginLogsCleaner(ctx, kubeClient, logger)
+				"loginLifetime", auditParams.loginLifetime,
+				"cleanupPeriod", auditParams.cleanupPeriod,
+				"namespace", auditParams.namespace)
+			go startAuditCleaner(ctx, kubeClient, logger)
 		} else {
 			logger.Info("Login logs cleanup disabled (cleanupPeriod is 0)")
 		}
 
 		// Create and start HTTP server
-		httpServer := httpsrv.New("ldapConnector", &loggerParams.httpConfig, mux)
+		httpServer := httpsrv.New("ldapConnector", &auditParams.httpConfig, mux)
 
 		if err := httpServer.Start(ctx); err != nil {
 			logger.Error("Error starting HTTP server", "error", err)

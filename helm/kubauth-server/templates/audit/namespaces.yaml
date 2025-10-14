@@ -1,10 +1,10 @@
-{{- if .Values.logger.enabled }}
-{{- if .Values.logger.createNamespace }}
+{{- if .Values.audit.enabled }}
+{{- if .Values.audit.createNamespace }}
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Values.logger.namespace }}
+  name: {{ .Values.audit.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}

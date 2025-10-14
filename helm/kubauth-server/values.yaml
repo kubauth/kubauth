@@ -4,7 +4,7 @@
 #  ucrd: 6802
 #  ldap: 6803
 #  merger: 6804
-#  logger: 6805
+#  audit: 6805
 
 
 replicaCount: 1
@@ -220,7 +220,7 @@ oidc:
   # Default to {{ include "kubauth.baseName" .}}-oidc-jwt-secret
   jwtSecretRoleName:
 
-logger:
+audit:
   enabled: true
 
   namespace: kubauth-audit
@@ -258,9 +258,9 @@ logger:
     issuerKind: ClusterIssuer
     bfaProtection: false
 
-    # Default to {{ include "kubauth.baseName" .}}-logger-server
+    # Default to {{ include "kubauth.baseName" .}}-audit-server
     certificateName:
-    # Default to {{ include "kubauth.baseName" .}}-logger-server-cert
+    # Default to {{ include "kubauth.baseName" .}}-audit-server-cert
     certificateSecretName:
 
 
@@ -326,7 +326,7 @@ merger:
     issuerKind: ClusterIssuer
     bfaProtection: false
 
-    # Default to {{ include "kubauth.baseName" .}}-logger-server
+    # Default to {{ include "kubauth.baseName" .}}-merger-server
     certificateName:
     # Default to {{ include "kubauth.baseName" .}}-logger-server-cert
     certificateSecretName:

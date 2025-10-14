@@ -1,22 +1,23 @@
-package logger
+package audit
 
 import (
 	"context"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"log/slog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// startLoginLogsCleaner starts a background process that periodically cleans up old login logs
-func startLoginLogsCleaner(ctx context.Context, kubeClient client.Client, logger *slog.Logger) {
-	ticker := time.NewTicker(loggerParams.cleanupPeriod)
+// startAuditCleaner starts a background process that periodically cleans up old login logs
+func startAuditCleaner(ctx context.Context, kubeClient client.Client, logger *slog.Logger) {
+	ticker := time.NewTicker(auditParams.cleanupPeriod)
 	defer ticker.Stop()
 
 	logger.Info("Login logs cleaner started")
 
 	// Run cleanup immediately on start
-	cleanupLoginLogs(ctx, kubeClient, logger)
+	cleanupAudit(ctx, kubeClient, logger)
 
 	for {
 		select {
@@ -24,26 +25,26 @@ func startLoginLogsCleaner(ctx context.Context, kubeClient client.Client, logger
 			logger.Info("Login logs cleaner stopping due to context cancellation")
 			return
 		case <-ticker.C:
-			cleanupLoginLogs(ctx, kubeClient, logger)
+			cleanupAudit(ctx, kubeClient, logger)
 		}
 	}
 }
 
-// cleanupLoginLogs removes Login records older than loginLifetime
-func cleanupLoginLogs(ctx context.Context, kubeClient client.Client, logger *slog.Logger) {
-	cutoffTime := time.Now().Add(-loggerParams.loginLifetime)
+// cleanupAudit removes Login records older than loginLifetime
+func cleanupAudit(ctx context.Context, kubeClient client.Client, logger *slog.Logger) {
+	cutoffTime := time.Now().Add(-auditParams.loginLifetime)
 
-	logger.Debug("Starting login logs cleanup", "cutoffTime", cutoffTime, "namespace", loggerParams.namespace)
+	logger.Debug("Starting login logs cleanup", "cutoffTime", cutoffTime, "namespace", auditParams.namespace)
 
 	// List all Login records in the namespace
 	loginList := &kubauthv1alpha1.LoginList{}
 	listOpts := &client.ListOptions{
-		Namespace: loggerParams.namespace,
+		Namespace: auditParams.namespace,
 	}
 
 	err := kubeClient.List(ctx, loginList, listOpts)
 	if err != nil {
-		logger.Error("Failed to list login records for cleanup", "error", err, "namespace", loggerParams.namespace)
+		logger.Error("Failed to list login records for cleanup", "error", err, "namespace", auditParams.namespace)
 		return
 	}
 
@@ -86,6 +87,6 @@ func cleanupLoginLogs(ctx context.Context, kubeClient client.Client, logger *slo
 }
 
 /*
-	Setup a login logs cleaning process, erasing login logs older than loggerParams.loginLifetime and running every loggerParams.cleanupPeriod
+	Setup a login logs cleaning process, erasing login logs older than auditParams.loginLifetime and running every auditParams.cleanupPeriod
 
 */

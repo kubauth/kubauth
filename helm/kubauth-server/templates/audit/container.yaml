@@ -1,0 +1,86 @@
+
+{{/*
+Expand audit container
+*/}}
+{{- define "container.audit" -}}
+- name: audit
+  command:
+    - /kubauth
+  args:
+    - audit
+    - --logMode={{ .Values.audit.logger.mode }}
+    - --logLevel={{ .Values.audit.logger.level }}
+    - --displayFlags={{ .Values.audit.displayFlags }}
+    - --namespace={{ .Values.audit.namespace }}
+    - --tls={{ .Values.audit.server.tls }}
+    - --dumpExchanges={{ .Values.audit.dumpExchanges }}
+    - --bindAddr={{ .Values.audit.server.bindAddr }}
+    - --bindPort={{ .Values.audit.server.bindPort }}
+    - --certDir=/cert/server
+    - --idpBaseURL={{ .Values.audit.idp.baseURL }}
+    - --idpRootCAPath={{ .Values.audit.idp.rootCAPath }}
+    - --idpInsecureSkipVerify={{ .Values.audit.idp.insecureSkipVerify }}
+    - --loginLifetime={{ .Values.audit.cleaner.loginLifetime }}
+    - --cleanupPeriod={{ .Values.audit.cleaner.cleanupPeriod }}
+    - --bfaProtection={{ .Values.audit.server.bfaProtection }}
+    {{-  range .Values.audit.additionalArgs }}
+    - {{ . }}
+    {{- end }}
+  ports:
+    - containerPort: {{ .Values.audit.server.bindPort }}
+      name: audit
+      protocol: TCP
+  image: "{{ .Values.audit.image.repository }}:{{ .Values.audit.image.tag | default .Chart.AppVersion }}"
+  imagePullPolicy: {{ .Values.audit.image.pullPolicy }}
+  {{- with .Values.audit.extraEnv }}
+  env:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.audit.resources }}
+  resources:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  securityContext:
+    {{- toYaml .Values.containerSecurityContext | nindent 4 }}
+    {{- with .Values.audit.securityContext }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  volumeMounts:
+    {{- if .Values.audit.server.tls }}
+    - mountPath: /cert/server
+      name: audit-cert-server
+      readOnly: true
+    {{- end }}
+    {{- range .Values.audit.extraVolumes }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+    {{- end }}
+    {{- range .Values.audit.extraSecrets }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
+
+{{- end }}
+
+{{/*
+Expand audit volumes in pod
+*/}}
+{{- define "volumes.audit" -}}
+{{- if .Values.audit.server.tls }}
+- name: audit-cert-server
+  secret:
+    defaultMode: 420
+    secretName: {{ include "kubauth.audit.server.certificateSecretName" . }}
+{{- end }}
+{{- range .Values.audit.extraVolumes }}
+- name: {{ .name }}
+  persistentVolumeClaim:
+    claimName: {{ .claimName }}
+{{- end }}
+{{- range .Values.audit.extraSecrets }}
+- name: {{ .name }}
+  secret:
+    secretName: {{ .secretName }}
+{{- end }}
+{{- end }}

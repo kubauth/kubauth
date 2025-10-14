@@ -17,20 +17,20 @@ import (
 	"kubauth/internal/proto"
 )
 
-type loggerAuthenticator struct {
+type auditAuthenticator struct {
 	httpClient httpclient.HttpClient
 	k8sClient  client.Client
 	namespace  string
 }
 
-var _ handlers.Authenticator = &loggerAuthenticator{}
+var _ handlers.Authenticator = &auditAuthenticator{}
 
 func New(config *httpclient.Config, k8sClient client.Client, namespace string) (handlers.Authenticator, error) {
 	httpClient, err := httpclient.New(config)
 	if err != nil {
 		return nil, err
 	}
-	return &loggerAuthenticator{
+	return &auditAuthenticator{
 		httpClient: httpClient,
 		k8sClient:  k8sClient,
 		namespace:  namespace,
@@ -38,7 +38,7 @@ func New(config *httpclient.Config, k8sClient client.Client, namespace string) (
 }
 
 // Authenticate Pass through with log
-func (l *loggerAuthenticator) Authenticate(ctx context.Context, request *proto.IdentityRequest) (*proto.IdentityResponse, error) {
+func (l *auditAuthenticator) Authenticate(ctx context.Context, request *proto.IdentityRequest) (*proto.IdentityResponse, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	response := &proto.IdentityResponse{}
 	err := proto.Exchange(l.httpClient, "GET", "v1/identity", request, response)
@@ -60,7 +60,7 @@ func (l *loggerAuthenticator) Authenticate(ctx context.Context, request *proto.I
 }
 
 // createLoginRecord creates a v1alpha1.Login record in Kubernetes with the authentication response information
-func (l *loggerAuthenticator) createLoginRecord(ctx context.Context, response *proto.IdentityResponse) error {
+func (l *auditAuthenticator) createLoginRecord(ctx context.Context, response *proto.IdentityResponse) error {
 	now := time.Now()
 
 	// Generate record name with format: <login>-<year>-<month>-<day>-<hour>-<minute>-<second>-<millisecond>
@@ -111,7 +111,7 @@ func (l *loggerAuthenticator) createLoginRecord(ctx context.Context, response *p
 }
 
 // convertDetails converts proto.UserDetail slice to kubauth.LoginDetail slice
-func (l *loggerAuthenticator) convertDetails(details []*proto.UserDetail) []kubauth.LoginDetail {
+func (l *auditAuthenticator) convertDetails(details []*proto.UserDetail) []kubauth.LoginDetail {
 	if details == nil {
 		return nil
 	}
@@ -164,8 +164,3 @@ func (l *loggerAuthenticator) convertDetails(details []*proto.UserDetail) []kuba
 
 	return result
 }
-
-/*
-	There is a bug here. detail.Translated.Claims is set with non-translated values.
-
-*/
