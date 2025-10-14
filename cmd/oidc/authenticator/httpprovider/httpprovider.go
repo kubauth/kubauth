@@ -19,11 +19,12 @@ package httpprovider
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"kubauth/cmd/oidc/authenticator"
 	"kubauth/internal/httpclient"
 	"kubauth/internal/misc"
 	"kubauth/internal/proto"
+
+	"github.com/go-logr/logr"
 )
 
 type httpProvider struct {

@@ -18,11 +18,12 @@ package misc
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 func LoadConfig(configFile string, conf interface{}) (absConfigFile string, err error) {

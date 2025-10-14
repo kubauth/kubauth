@@ -20,15 +20,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-logr/logr"
-	"golang.org/x/crypto/bcrypt"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/internal/handlers"
 	"kubauth/internal/misc"
 	"kubauth/internal/proto"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
+
+	"github.com/go-logr/logr"
+	"golang.org/x/crypto/bcrypt"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type crdAuthenticator struct {

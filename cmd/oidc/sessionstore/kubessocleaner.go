@@ -18,8 +18,9 @@ package sessionstore
 
 import (
 	"context"
-	"github.com/go-logr/logr"
 	"time"
+
+	"github.com/go-logr/logr"
 
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 

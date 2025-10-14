@@ -17,9 +17,10 @@ limitations under the License.
 package fositepatch
 
 import (
-	"github.com/ory/fosite"
 	"kubauth/cmd/oidc/oidcstorage"
 	"log/slog"
+
+	"github.com/ory/fosite"
 )
 
 type ScopeRequester interface {

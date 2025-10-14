@@ -71,7 +71,7 @@ type MemoryStore struct {
 	parSessionsMutex            sync.RWMutex
 }
 
-func NewMemoryStore(userDb authenticator.OidcAuthenticator) *MemoryStore {
+func NewMemoryStore(idp authenticator.OidcAuthenticator) *MemoryStore {
 	return &MemoryStore{
 		Clients:        make(map[string]FositeClient),
 		AuthorizeCodes: make(map[string]StoreAuthorizeCode),
@@ -85,7 +85,7 @@ func NewMemoryStore(userDb authenticator.OidcAuthenticator) *MemoryStore {
 		BlacklistedJTIs:        make(map[string]time.Time),
 		IssuerPublicKeys:       make(map[string]IssuerPublicKeys),
 		PARSessions:            make(map[string]fosite.AuthorizeRequester),
-		Authenticator:          userDb,
+		Authenticator:          idp,
 	}
 }
 

@@ -19,12 +19,13 @@ package authenticator
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"kubauth/cmd/merger/config"
 	"kubauth/cmd/merger/provider"
 	"kubauth/internal/handlers"
 	"kubauth/internal/misc"
 	"kubauth/internal/proto"
+
+	"github.com/go-logr/logr"
 )
 
 type mergerAuthenticator struct {

@@ -21,14 +21,15 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/rs/cors"
 	"kubauth/internal/httpsrv/certwatcher"
 	"log/slog"
 	"net"
 	"net/http"
 	"path/filepath"
 	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/rs/cors"
 )
 
 type Config struct {

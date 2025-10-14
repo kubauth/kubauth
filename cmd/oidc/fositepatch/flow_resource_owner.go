@@ -5,10 +5,11 @@ package fositepatch
 
 import (
 	"context"
-	"github.com/go-logr/logr"
 	"kubauth/cmd/oidc/authenticator"
 	"kubauth/cmd/oidc/oidcstorage"
 	"time"
+
+	"github.com/go-logr/logr"
 
 	"github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/handler/openid"

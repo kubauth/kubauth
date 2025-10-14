@@ -21,11 +21,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/go-logr/logr"
+	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"time"
 
-	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-
+	"github.com/go-logr/logr"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

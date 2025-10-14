@@ -19,17 +19,16 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubautv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	kubautv1alpha1 "kubauth/api/kubauth/v1alpha1"
 )
 
 // nolint:unused

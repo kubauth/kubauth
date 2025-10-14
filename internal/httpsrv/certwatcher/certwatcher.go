@@ -23,9 +23,10 @@ package certwatcher
 import (
 	"context"
 	"crypto/tls"
-	"gopkg.in/fsnotify.v1"
 	"log/slog"
 	"sync"
+
+	"gopkg.in/fsnotify.v1"
 )
 
 // CertWatcher watches certificate and key files for changes.  When either file

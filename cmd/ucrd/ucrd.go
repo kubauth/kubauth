@@ -108,7 +108,7 @@ func init() {
 
 	Cmd.PersistentFlags().StringVar(&flags.usersNamespace, "usersNamespace", "", "The namespace hosting users and groups resources.")
 
-	// userdb server config
+	// ucrd server config
 	Cmd.PersistentFlags().BoolVarP(&flags.httpConfig.Tls, "tls", "t", false, "enable TLS")
 	Cmd.PersistentFlags().IntVar(&flags.httpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3)")
 	Cmd.PersistentFlags().StringVarP(&flags.httpConfig.BindAddr, "bindAddr", "a", "127.0.0.1", "Bind Address")

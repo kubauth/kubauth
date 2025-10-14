@@ -20,11 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-logr/logr"
 	"kubauth/internal/handlers/protector"
 	"kubauth/internal/handlers/validator"
 	"kubauth/internal/proto"
 	"net/http"
+
+	"github.com/go-logr/logr"
 )
 
 type Authenticator interface {

@@ -18,8 +18,9 @@ package oidcserver
 
 import (
 	"fmt"
-	"github.com/ory/fosite"
 	"net/http"
+
+	"github.com/ory/fosite"
 )
 
 // Handle token endpoint

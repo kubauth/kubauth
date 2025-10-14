@@ -19,10 +19,11 @@ package provider
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"kubauth/cmd/merger/config"
 	"kubauth/internal/httpclient"
 	"kubauth/internal/proto"
+
+	"github.com/go-logr/logr"
 )
 
 type Provider interface {

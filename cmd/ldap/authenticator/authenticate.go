@@ -19,11 +19,12 @@ package authenticator
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	"gopkg.in/ldap.v2"
 	"kubauth/internal/proto"
 	"strconv"
 	"strings"
+
+	"github.com/go-logr/logr"
+	"gopkg.in/ldap.v2"
 )
 
 // NB: This code is strongly inspired from dex idp  (https://github.com/dexidp/dex)

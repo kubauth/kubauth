@@ -17,9 +17,10 @@ limitations under the License.
 package validator
 
 import (
-	"github.com/go-logr/logr"
 	"kubauth/internal/proto"
 	"net/http"
+
+	"github.com/go-logr/logr"
 )
 
 type Validator interface {

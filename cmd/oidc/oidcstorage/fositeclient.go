@@ -17,9 +17,10 @@ limitations under the License.
 package oidcstorage
 
 import (
-	"github.com/ory/fosite"
 	"kubauth/api/kubauth/v1alpha1"
 	"time"
+
+	"github.com/ory/fosite"
 )
 
 type FositeClient interface {

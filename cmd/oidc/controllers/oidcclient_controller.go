@@ -18,10 +18,11 @@ package kubauthmodel
 
 import (
 	"context"
-	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/runtime"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	oidcstorage2 "kubauth/cmd/oidc/oidcstorage"
+
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

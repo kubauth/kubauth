@@ -314,15 +314,15 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		userDb, err := httpprovider.New(&flags.idpHttpConfig)
+		idp, err := httpprovider.New(&flags.idpHttpConfig)
 		if err != nil {
 			setupLog.Error(err, "unable to initialize user db")
 			os.Exit(1)
 		}
-		//userDb := memory.NewUserDb()
+		//idp := memory.NewUserDb()
 
 		// ------------------------------------- Create our storage
-		storage := oidcstorage.NewMemoryStore(userDb)
+		storage := oidcstorage.NewMemoryStore(idp)
 
 		// Setup OidcClient Reconciler
 		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
@@ -410,7 +410,7 @@ var Cmd = &cobra.Command{
 		err = (&oidcserver.OIDCServer{
 			Issuer:                  flags.issuer,
 			Storage:                 storage,
-			Authenticator:           userDb,
+			Authenticator:           idp,
 			Resources:               flags.resources,
 			LoginTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "login.gohtml"))),
 			IndexTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "index.gohtml"))),
