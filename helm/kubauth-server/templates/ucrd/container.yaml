@@ -52,7 +52,7 @@ Expand ucrd container
     {{- end }}
     {{- if .Values.ucrd.webhooks.enabled }}
     - containerPort: {{ .Values.ucrd.webhooks.port }}
-      name: webhook
+      name: webhook-ucrd
       protocol: TCP
     {{- end }}
   {{- if not .Values.ucrd.disableProbes }}

@@ -65,7 +65,7 @@ Expand oidc container
     {{- end }}
     {{- if .Values.oidc.webhooks.enabled }}
     - containerPort: {{ .Values.oidc.webhooks.port }}
-      name: webhook
+      name: webhook-oidc
       protocol: TCP
     {{- end }}
   {{- if not .Values.oidc.disableProbes }}

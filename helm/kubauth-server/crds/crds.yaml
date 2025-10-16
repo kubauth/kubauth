@@ -552,8 +552,8 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.commonNames
-      name: Common names
+    - jsonPath: .spec.name
+      name: username
       type: string
     - jsonPath: .spec.emails
       name: Emails

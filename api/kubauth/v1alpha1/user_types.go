@@ -62,7 +62,7 @@ type UserStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=kuser;kusers
-// +kubebuilder:printcolumn:name="name",type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name="username",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Emails",type=string,JSONPath=`.spec.emails`
 // +kubebuilder:printcolumn:name="Uid",type=integer,JSONPath=`.spec.uid`
 // +kubebuilder:printcolumn:name="Comment",type=string,JSONPath=`.spec.comment`

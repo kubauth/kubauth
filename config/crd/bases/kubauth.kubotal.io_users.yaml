@@ -19,7 +19,7 @@ spec:
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.name
-      name: name
+      name: username
       type: string
     - jsonPath: .spec.emails
       name: Emails
