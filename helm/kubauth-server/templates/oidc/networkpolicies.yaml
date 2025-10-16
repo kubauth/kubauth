@@ -1,5 +1,6 @@
 {{- if .Values.oidc.enabled }}
 {{- if .Values.networkPolicies.enabled }}
+
 {{- if .Values.oidc.ingress.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
@@ -26,5 +27,39 @@ spec:
   policyTypes:
     - Ingress
 {{- end }}
+
+{{- if and .Values.oidc.webhooks.enabled .Values.networkPolicies.forWebhooks }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kubauth.oidc.webhooks.networkPolicyName" .}}
+  namespace:  {{ .Release.Namespace }}
+spec:
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              component: kube-apiserver
+        {{- with .Values.networkPolicies.ipBlock }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: {{ .Values.oidc.webhooks.port }}
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      {{- include "kubauth.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+
+
+{{- end }}
+
+
 {{- end }}
 {{- end }}

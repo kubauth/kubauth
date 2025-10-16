@@ -116,7 +116,7 @@ build-kubauth: generate ## Build kubocd binary.
 docker: version docker-build docker-push  ## Build controller docker image and push
 
 .PHONY: docker-build
-docker-build: version ## Build docker image with the manager.
+docker-build: generate version ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build -t ${IMG} .
 
 .PHONY: docker-push
@@ -128,7 +128,7 @@ docker-push: ## Push docker image with the manager.
 docker-ubuntu: version docker-ubuntu-build docker-ubuntu-push  ## Build controller docker image using Ubuntu 22.04  and push
 
 .PHONY: docker-ubuntu-build
-docker-ubuntu-build: version ## Build docker image using Ubuntu 22.04 as base
+docker-ubuntu-build: generate version ## Build docker image using Ubuntu 22.04 as base
 	$(CONTAINER_TOOL) build --build-arg RUNTIME_BASE=ubuntu:22.04 -t ${IMG_UBUNTU} .
 
 .PHONY: docker-ubuntu-push

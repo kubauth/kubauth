@@ -128,6 +128,13 @@ Create the name of the mutating webhook configuration
 {{- default (printf "%s-oidc-mutating-webhooks-configuration" (include "kubauth.baseName" .)) .Values.oidc.webhooks.mutatingWebhookConfiguration }}
 {{- end }}
 
+{{/*
+Create the name of the webhook network policy
+*/}}
+{{- define "kubauth.oidc.webhooks.networkPolicyName" -}}
+{{- default (printf "%s-oidc-webhooks" (include "kubauth.baseName" .)) .Values.oidc.webhooks.networkPolicyName }}
+{{- end }}
+
 
 {{/* --------------------------------------------------------------------- RBAC */}}
 

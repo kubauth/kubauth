@@ -12,7 +12,7 @@ Expand oidc container
     - --logLevel={{ .Values.oidc.logger.level }}
     - --displayFlags={{ .Values.oidc.displayFlags }}
     - --healthProbeBindAddress={{ printf ":%.0f" .Values.oidc.healthProbeBindPort }}
-    - --leaderElect={{ ne .Values.replicaCount 1.0 }}
+    - --leaderElect=false {{/* ne .Values.replicaCount 1.0 */}}
     - --enableWebhook={{ .Values.oidc.webhooks.enabled }}
     {{- if .Values.oidc.webhooks.enabled }}
     - --webhookPort={{ .Values.oidc.webhooks.port }}

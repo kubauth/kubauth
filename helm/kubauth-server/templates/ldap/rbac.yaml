@@ -1,0 +1,47 @@
+{{ if and .Values.ldap.enabled .Values.ldap.ldap.rootCaSecret }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kubauth.ldap.caSecretRoleName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.ldap.caSecretRoleName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kubauth.ldap.caSecretRoleName" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kubauth.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+
+{{- end }}
+

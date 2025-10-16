@@ -24,3 +24,11 @@ Create the name of the secret hosting the ldap server certificate
 {{- default (printf "%s-ldap-server-cert" (include "kubauth.baseName" .)) .Values.ldap.server.certificateSecretName }}
 {{- end }}
 
+{{/* --------------------------------------------------------------------- RBAC */}}
+
+{{/*
+Create the name of the ldap CA secret access role
+*/}}
+{{- define "kubauth.ldap.caSecretRoleName" -}}
+{{- default (printf "%s-ldap-ca-secret" (include "kubauth.baseName" .)) .Values.ldap.caSecretRoleName }}
+{{- end }}

@@ -1,4 +1,28 @@
 
+
+
+# Some notes about network policies in a KIND cluster:
+#
+# These are experimental result.
+#
+# - KIND version:  kind v0.31.0-fip.1-alpha.27+13313e9c6d8843
+# - K8S version: 1.34.0
+# - Network: docker.io/kindest/kindnetd:v20250512-df8de77b
+#
+# A netPol (kubauth-oidc-ingress) to allow ingress to access kubauth is required in all case
+#
+# About connection from api server to kubauth webhooks:
+#
+# - No need to set a netPol on a single node cluster.
+# - On a multi node cluster:
+#   - need to activate networkPolicies for webhooks (networkPolicies.forWebhooks: true)
+#   - need to define ipBlock for these policies  (networkPolicies.ipBlock: 172.XX.0.0/16)
+#
+# NB: If deployInControlPlane: true, it may work on some try: if the kubauth pod is on the same node as the api server,
+#
+
+
+
 #ports:
 #  oidc: 6801
 #  ucrd: 6802
@@ -6,17 +30,20 @@
 #  merger: 6804
 #  audit: 6805
 
-
-replicaCount: 1
+# Hard coded to one for now.
+# Unpredictable result for more than one instance.
+# replicaCount: 1
 
 # Following will allow a renaming of all kubauth kubernetes resources
 # Allow overriding base name of all resources
 baseNameOverride:
 
-# Image may be different for containers
+# Other image: properties are defined by container.
 image:
   pullSecrets: []
 
+# Setup toleration and node selector to run inside control plane
+deployInControlPlane: true
 
 # -- Annotations to be added to the pod
 podAnnotations: {}
@@ -64,6 +91,17 @@ networkPolicies:
   enabled: true
   # NOTE: There will be network policies in some submodule, to allow ingress => service
 
+  # Specific switch to no set apiServer -> webhooks one.
+  forWebhooks: true
+
+  # If set, this will be included in ingress[0].from[X].ipBlock for webhooks related netpol
+  # Set to the node CIDR. May be required for multinode KIND cluster.
+  # (KIND networkPolicies implementation seems unstable).
+  ipBlock:
+
+
+
+  # *** WARNING Not yet implemented. (4 variables) ***
   # Following are for special cases. Should be false in usual deployment
   # Allow all pods communication in deployment namespace. Also allow pod to resolve name using core dns
   # Set if kubauth modules are spread on several pods
@@ -75,6 +113,8 @@ networkPolicies:
   allowIntraNamespacePolicyName:
   # Default to {{ include "kubauth.baseName" .}}-allow-all-egress
   allowAllEgressPolicyName:
+
+
 
 oidc:
   enabled: true
@@ -210,6 +250,9 @@ oidc:
     validatingWebhookConfiguration:
     # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-mutating-webhook-configuration
     mutatingWebhookConfiguration:
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-oidc-webhook
+    networkPolicyName:
+
 
   # Default to {{ include "kubauth.baseName" .}}-oidc
   ingressName:
@@ -471,10 +514,13 @@ ldap:
     issuerKind: ClusterIssuer
     bfaProtection: false
 
-    # Default to {{ include "kubauth.baseName" .}}-logger-server
+    # Default to {{ include "kubauth.baseName" .}}-ldap-server
     certificateName:
-    # Default to {{ include "kubauth.baseName" .}}-logger-server-cert
+    # Default to {{ include "kubauth.baseName" .}}-ldap-server-cert
     certificateSecretName:
+
+  # Default to {{ include "kubauth.baseName" .}}-ldap-ca-secret
+  caSecretRoleName:
 
   resources:
     limits:
@@ -603,6 +649,8 @@ ucrd:
     validatingWebhookConfiguration:
     # -- Will default to {{ include "kubauth.webhook.baseName" . }}-ucrd-mutating-webhook-configuration
     mutatingWebhookConfiguration:
+    # -- Will default to {{ include "kubauth.webhook.baseName" . }}-ucrd-webhook
+    networkPolicyName:
 
   # Default to {{ include "kubauth.baseName" .}}-ucrd
   ingressName:

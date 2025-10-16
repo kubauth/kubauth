@@ -98,6 +98,13 @@ Create the name of the mutating webhook configuration
 {{- default (printf "%s-ucrd-mutating-webhooks-configuration" (include "kubauth.baseName" .)) .Values.ucrd.webhooks.mutatingWebhookConfiguration }}
 {{- end }}
 
+{{/*
+Create the name of the webhook network policy
+*/}}
+{{- define "kubauth.ucrd.webhooks.networkPolicyName" -}}
+{{- default (printf "%s-ucrd-webhooks" (include "kubauth.baseName" .)) .Values.ucrd.webhooks.networkPolicyName }}
+{{- end }}
+
 
 {{/* --------------------------------------------------------------------- RBAC */}}
 
