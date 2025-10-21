@@ -14,7 +14,7 @@ func startAuditCleaner(ctx context.Context, kubeClient client.Client, logger *sl
 	ticker := time.NewTicker(auditParams.cleanupPeriod)
 	defer ticker.Stop()
 
-	logger.Info("Login logs cleaner started")
+	logger.Info("LoginAttempt logs cleaner started")
 
 	// Run cleanup immediately on start
 	cleanupAudit(ctx, kubeClient, logger)
@@ -22,7 +22,7 @@ func startAuditCleaner(ctx context.Context, kubeClient client.Client, logger *sl
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("Login logs cleaner stopping due to context cancellation")
+			logger.Info("LoginAttempt logs cleaner stopping due to context cancellation")
 			return
 		case <-ticker.C:
 			cleanupAudit(ctx, kubeClient, logger)
@@ -30,19 +30,19 @@ func startAuditCleaner(ctx context.Context, kubeClient client.Client, logger *sl
 	}
 }
 
-// cleanupAudit removes Login records older than loginLifetime
+// cleanupAudit removes LoginAttempt records older than recordLifetime
 func cleanupAudit(ctx context.Context, kubeClient client.Client, logger *slog.Logger) {
-	cutoffTime := time.Now().Add(-auditParams.loginLifetime)
+	cutoffTime := time.Now().Add(-auditParams.recordLifetime)
 
-	logger.Debug("Starting login logs cleanup", "cutoffTime", cutoffTime, "namespace", auditParams.namespace)
+	logger.Debug("Starting loginAttempt logs cleanup", "cutoffTime", cutoffTime, "namespace", auditParams.namespace)
 
-	// List all Login records in the namespace
-	loginList := &kubauthv1alpha1.LoginList{}
+	// List all LoginAttempt records in the namespace
+	loginAttemptList := &kubauthv1alpha1.LoginAttemptList{}
 	listOpts := &client.ListOptions{
 		Namespace: auditParams.namespace,
 	}
 
-	err := kubeClient.List(ctx, loginList, listOpts)
+	err := kubeClient.List(ctx, loginAttemptList, listOpts)
 	if err != nil {
 		logger.Error("Failed to list login records for cleanup", "error", err, "namespace", auditParams.namespace)
 		return
@@ -51,10 +51,10 @@ func cleanupAudit(ctx context.Context, kubeClient client.Client, logger *slog.Lo
 	deletedCount := 0
 	errorCount := 0
 
-	for _, login := range loginList.Items {
+	for _, login := range loginAttemptList.Items {
 		// Check if the login record is older than the cutoff time
 		if login.Spec.When.Time.Before(cutoffTime) {
-			logger.Debug("Deleting expired login record",
+			logger.Debug("Deleting expired loginAttempt record",
 				"name", login.Name,
 				"login", login.Spec.User.Login,
 				"when", login.Spec.When.Time,
@@ -62,7 +62,7 @@ func cleanupAudit(ctx context.Context, kubeClient client.Client, logger *slog.Lo
 
 			err := kubeClient.Delete(ctx, &login)
 			if err != nil {
-				logger.Error("Failed to delete expired login record",
+				logger.Error("Failed to delete expired loginAttempt record",
 					"error", err,
 					"name", login.Name,
 					"login", login.Spec.User.Login)
@@ -74,19 +74,19 @@ func cleanupAudit(ctx context.Context, kubeClient client.Client, logger *slog.Lo
 	}
 
 	if deletedCount > 0 || errorCount > 0 {
-		logger.Info("Login logs cleanup completed",
-			"totalRecords", len(loginList.Items),
+		logger.Info("LoginAttempt logs cleanup completed",
+			"totalRecords", len(loginAttemptList.Items),
 			"deletedCount", deletedCount,
 			"errorCount", errorCount,
 			"cutoffTime", cutoffTime)
 	} else {
-		logger.Info("Login logs cleanup completed - no records to delete",
-			"totalRecords", len(loginList.Items),
+		logger.Info("LoginAttempt logs cleanup completed - no records to delete",
+			"totalRecords", len(loginAttemptList.Items),
 			"cutoffTime", cutoffTime)
 	}
 }
 
 /*
-	Setup a login logs cleaning process, erasing login logs older than auditParams.loginLifetime and running every auditParams.cleanupPeriod
+	Setup a login logs cleaning process, erasing login logs older than auditParams.recordLifetime and running every auditParams.cleanupPeriod
 
 */

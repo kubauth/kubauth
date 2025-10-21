@@ -51,8 +51,8 @@ var auditParams struct {
 	idpHttpConfig httpclient.Config
 	namespace     string
 
-	loginLifetime time.Duration
-	cleanupPeriod time.Duration
+	recordLifetime time.Duration
+	cleanupPeriod  time.Duration
 }
 
 var (
@@ -80,8 +80,8 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&auditParams.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
 	Cmd.PersistentFlags().StringVarP(&auditParams.namespace, "namespace", "n", "kubauth-audit", "Namespace to store login records in")
 
-	Cmd.PersistentFlags().DurationVar(&auditParams.loginLifetime, "loginLifetime", time.Hour*8, "Login logs lifetime")
-	Cmd.PersistentFlags().DurationVar(&auditParams.cleanupPeriod, "cleanupPeriod", time.Minute*5, "Login logs cleanup period")
+	Cmd.PersistentFlags().DurationVar(&auditParams.recordLifetime, "recordLifetime", time.Hour*8, "LoginAttempt record lifetime")
+	Cmd.PersistentFlags().DurationVar(&auditParams.cleanupPeriod, "cleanupPeriod", time.Minute*5, "LoginAttempt logs cleanup period")
 
 	//utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
@@ -146,12 +146,12 @@ var Cmd = &cobra.Command{
 		// Start login logs cleanup process if cleanup period is configured
 		if auditParams.cleanupPeriod > 0 {
 			logger.Info("Starting login logs cleanup process",
-				"loginLifetime", auditParams.loginLifetime,
+				"recordLifetime", auditParams.recordLifetime,
 				"cleanupPeriod", auditParams.cleanupPeriod,
 				"namespace", auditParams.namespace)
 			go startAuditCleaner(ctx, kubeClient, logger)
 		} else {
-			logger.Info("Login logs cleanup disabled (cleanupPeriod is 0)")
+			logger.Info("Login audit logs cleanup disabled (cleanupPeriod is 0)")
 		}
 
 		// Create and start HTTP server

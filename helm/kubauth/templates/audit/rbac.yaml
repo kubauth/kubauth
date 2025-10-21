@@ -18,7 +18,7 @@ rules:
   - apiGroups:
       - kubauth.kubotal.io
     resources:
-      - logins
+      - loginattempts
     verbs:
       - get
       - list
@@ -69,7 +69,7 @@ rules:
   - apiGroups:
       - kubauth.kubotal.io
     resources:
-      - logins
+      - loginattempts
     verbs:
       - get
       - list

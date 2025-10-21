@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type LoginDetailProvider struct {
+type LoginAttemptDetailProvider struct {
 	Name                string `json:"name"`
 	ClaimAuthority      bool   `json:"claimAuthority"`
 	CredentialAuthority bool   `json:"credentialAuthority"`
@@ -30,21 +30,21 @@ type LoginDetailProvider struct {
 	NameAuthority       bool   `json:"nameAuthority"`
 }
 
-type LoginDetailTranslated struct {
+type LoginAttemptDetailTranslated struct {
 	Claims apiextensionsv1.JSON `json:"claims"`
 	Groups []string             `json:"groups"`
 	// +optional
 	Uid *int `json:"uid"`
 }
 
-type LoginDetail struct {
-	Provider   LoginDetailProvider   `json:"provider"`
-	User       LoginUser             `json:"user"`
-	Status     string                `json:"status"`
-	Translated LoginDetailTranslated `json:"translated"`
+type LoginAttemptDetail struct {
+	Provider   LoginAttemptDetailProvider   `json:"provider"`
+	User       LoginAttemptUser             `json:"user"`
+	Status     string                       `json:"status"`
+	Translated LoginAttemptDetailTranslated `json:"translated"`
 }
 
-type LoginUser struct {
+type LoginAttemptUser struct {
 	Login string `json:"login"`
 	// +optional
 	Uid *int `json:"uid"`
@@ -58,13 +58,13 @@ type LoginUser struct {
 	Claims *apiextensionsv1.JSON `json:"claims"`
 }
 
-type LoginSpec struct {
+type LoginAttemptSpec struct {
 
 	//
 	When metav1.Time `json:"when"`
 
 	// The resulting user
-	User LoginUser `json:"user"`
+	User LoginAttemptUser `json:"user"`
 
 	// The module which validate the credentials
 	// +optional
@@ -74,39 +74,39 @@ type LoginSpec struct {
 	Status string `json:"status"`
 
 	// +optional
-	Details []LoginDetail `json:"details,omitempty"`
+	Details []LoginAttemptDetail `json:"details,omitempty"`
 }
 
-// LoginStatus defines the observed state of Login
-type LoginStatus struct {
+// LoginAttemptStatus defines the observed state of LoginAttempt
+type LoginAttemptStatus struct {
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced
+// +kubebuilder:resource:scope=Namespaced,shortName=la
 // +kubebuilder:printcolumn:name="Login",type=string,JSONPath=`.spec.user.login`
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.user.name`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.spec.status`
 // +kubebuilder:printcolumn:name="Authority",type=string,JSONPath=`.spec.authority`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-type Login struct {
+type LoginAttempt struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   LoginSpec   `json:"spec,omitempty"`
-	Status LoginStatus `json:"status,omitempty"`
+	Spec   LoginAttemptSpec   `json:"spec,omitempty"`
+	Status LoginAttemptStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// LoginList contains a list of Group
-type LoginList struct {
+// LoginAttemptList contains a list of Group
+type LoginAttemptList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Login `json:"items"`
+	Items           []LoginAttempt `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Login{}, &LoginList{})
+	SchemeBuilder.Register(&LoginAttempt{}, &LoginAttemptList{})
 }

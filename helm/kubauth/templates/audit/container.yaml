@@ -20,7 +20,7 @@ Expand audit container
     - --idpBaseURL={{ .Values.audit.idp.baseURL }}
     - --idpRootCAPath={{ .Values.audit.idp.rootCAPath }}
     - --idpInsecureSkipVerify={{ .Values.audit.idp.insecureSkipVerify }}
-    - --loginLifetime={{ .Values.audit.cleaner.loginLifetime }}
+    - --recordLifetime={{ .Values.audit.cleaner.recordLifetime }}
     - --cleanupPeriod={{ .Values.audit.cleaner.cleanupPeriod }}
     - --bfaProtection={{ .Values.audit.server.bfaProtection }}
     {{-  range .Values.audit.additionalArgs }}

@@ -7,7 +7,7 @@ resources:
   - bases/kubauth.kubotal.io_oidcclients.yaml
   - bases/kubauth.kubotal.io_ssosessions.yaml
   - bases/kubauth.kubotal.io_users.yaml
-  - bases/kubauth.kubotal.io_logins.yaml
+  - bases/kubauth.kubotal.io_loginattempts.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

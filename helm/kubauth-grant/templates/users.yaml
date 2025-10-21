@@ -13,11 +13,8 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- with .commonNames }}
-  commonNames:
-    {{- range . }}
-    - {{ . }}
-    {{- end }}
+  {{- with .name }}
+  name: {{ . }}
   {{- end }}
   {{- with .emails }}
   emails:

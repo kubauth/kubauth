@@ -48,9 +48,9 @@ func (l *auditAuthenticator) Authenticate(ctx context.Context, request *proto.Id
 	logger.Info("authenticate", "login", response.User.Login, "status", response.Status, "authority", response.Authority, "groups", response.User.Groups, "claims", response.User.Claims, "emails", response.User.Emails)
 
 	// IA instructions
-	// Write a v1alpha1.Login record in k8s, fulfilled with 'response' information.
+	// Write a v1alpha1.LoginAttempt record in k8s, fulfilled with 'response' information.
 	// record entry name will be with the format <login>-<year>-<month>-<day>-<hour>-<minute>-<second>-<millisecond>
-	err = l.createLoginRecord(ctx, response)
+	err = l.createLoginAttemptRecord(ctx, response)
 	if err != nil {
 		logger.Error("failed to create login record", "error", err)
 		// Don't fail the authentication if logging fails
@@ -59,8 +59,8 @@ func (l *auditAuthenticator) Authenticate(ctx context.Context, request *proto.Id
 	return response, nil
 }
 
-// createLoginRecord creates a v1alpha1.Login record in Kubernetes with the authentication response information
-func (l *auditAuthenticator) createLoginRecord(ctx context.Context, response *proto.IdentityResponse) error {
+// createLoginAttemptRecord creates a v1alpha1.LoginAttempt record in Kubernetes with the authentication response information
+func (l *auditAuthenticator) createLoginAttemptRecord(ctx context.Context, response *proto.IdentityResponse) error {
 	now := time.Now()
 
 	// Generate record name with format: <login>-<year>-<month>-<day>-<hour>-<minute>-<second>-<millisecond>
@@ -84,17 +84,17 @@ func (l *auditAuthenticator) createLoginRecord(ctx context.Context, response *pr
 		}
 	}
 
-	// Create the Login record
-	loginRecord := &kubauth.Login{
+	// Create the LoginAttempt record
+	loginRecord := &kubauth.LoginAttempt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      recordName,
 			Namespace: l.namespace,
 		},
-		Spec: kubauth.LoginSpec{
+		Spec: kubauth.LoginAttemptSpec{
 			When:      metav1.NewTime(now),
 			Authority: response.Authority,
 			Status:    string(response.Status),
-			User: kubauth.LoginUser{
+			User: kubauth.LoginAttemptUser{
 				Login:  response.User.Login,
 				Uid:    response.User.Uid,
 				Name:   response.User.Name,
@@ -110,13 +110,13 @@ func (l *auditAuthenticator) createLoginRecord(ctx context.Context, response *pr
 	return l.k8sClient.Create(ctx, loginRecord)
 }
 
-// convertDetails converts proto.UserDetail slice to kubauth.LoginDetail slice
-func (l *auditAuthenticator) convertDetails(details []*proto.UserDetail) []kubauth.LoginDetail {
+// convertDetails converts proto.UserDetail slice to kubauth.LoginAttemptDetail slice
+func (l *auditAuthenticator) convertDetails(details []*proto.UserDetail) []kubauth.LoginAttemptDetail {
 	if details == nil {
 		return nil
 	}
 
-	result := make([]kubauth.LoginDetail, len(details))
+	result := make([]kubauth.LoginAttemptDetail, len(details))
 	for i, detail := range details {
 		// Convert user claims to JSON
 		var userClaimsJSON *apiextensionsv1.JSON
@@ -136,8 +136,8 @@ func (l *auditAuthenticator) convertDetails(details []*proto.UserDetail) []kubau
 			}
 		}
 
-		result[i] = kubauth.LoginDetail{
-			Provider: kubauth.LoginDetailProvider{
+		result[i] = kubauth.LoginAttemptDetail{
+			Provider: kubauth.LoginAttemptDetailProvider{
 				Name:                detail.Provider.Name,
 				ClaimAuthority:      detail.Provider.ClaimAuthority,
 				CredentialAuthority: detail.Provider.CredentialAuthority,
@@ -145,7 +145,7 @@ func (l *auditAuthenticator) convertDetails(details []*proto.UserDetail) []kubau
 				GroupAuthority:      detail.Provider.GroupAuthority,
 				NameAuthority:       detail.Provider.NameAuthority,
 			},
-			User: kubauth.LoginUser{
+			User: kubauth.LoginAttemptUser{
 				Login:  detail.User.Login,
 				Uid:    detail.User.Uid,
 				Name:   detail.User.Name,
@@ -154,7 +154,7 @@ func (l *auditAuthenticator) convertDetails(details []*proto.UserDetail) []kubau
 				Claims: userClaimsJSON,
 			},
 			Status: string(detail.Status),
-			Translated: kubauth.LoginDetailTranslated{
+			Translated: kubauth.LoginAttemptDetailTranslated{
 				Claims: translatedClaimsJSON,
 				Groups: detail.Translated.Groups,
 				Uid:    detail.Translated.Uid,
