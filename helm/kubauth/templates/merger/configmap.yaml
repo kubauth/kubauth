@@ -18,13 +18,13 @@ data:
       - name: {{ .name }}
         httpConfig:
           baseURL: {{ .httpConfig.baseUrl }}
-        credentialAuthority: {{ .credentialAuthority | default true }}
-        groupAuthority: {{ .groupAuthority | default true }}
+        credentialAuthority: {{ .credentialAuthority }}
+        groupAuthority: {{ .groupAuthority }}
         groupPattern: "{{ .groupPattern | default "%s" }}"
-        claimAuthority: {{ .claimAuthority | default true }}
+        claimAuthority: {{ .claimAuthority  }}
         claimPattern: "{{ .claimPattern | default "%s" }}"
-        nameAuthority: {{ .nameAuthority | default true }}
-        emailAuthority: {{ .emailAuthority | default true }}
+        nameAuthority: {{ .nameAuthority }}
+        emailAuthority: {{ .emailAuthority  }}
         critical: {{ .critical | default true }}
         uidOffset: {{ .uidOffset | default 0 }}
       {{- end }}

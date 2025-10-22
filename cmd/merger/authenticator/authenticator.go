@@ -62,16 +62,18 @@ func (m *mergerAuthenticator) Authenticate(ctx context.Context, request *proto.I
 			// Error logging and formatting has been performed by caller
 			return nil, err
 		}
-		if !userDetail.Provider.CredentialAuthority && priority(userDetail.Status) > priority(proto.PasswordMissing) {
-			// A non-authority provider can't check a password or disable a user
-			userDetail.Status = proto.PasswordMissing
-		}
-		if priority(userDetail.Status) > priority(response.Status) {
-			response.Status = userDetail.Status
-			if priority(userDetail.Status) > priority(proto.PasswordMissing) {
-				// Uid must be provided by the authority provider who test the password
-				response.User.Uid = userDetail.Translated.Uid
-				response.Authority = aProvider.GetName()
+		//if !userDetail.Provider.CredentialAuthority && priority(userDetail.Status) > priority(proto.PasswordMissing) {
+		//	// A non-authority provider can't check a password or disable a user
+		//	userDetail.Status = proto.PasswordMissing
+		//}
+		if userDetail.Provider.CredentialAuthority {
+			if priority(userDetail.Status) > priority(response.Status) {
+				response.Status = userDetail.Status
+				if priority(userDetail.Status) > priority(proto.PasswordMissing) {
+					// Uid must be provided by the authority provider who test the password
+					response.User.Uid = userDetail.Translated.Uid
+					response.Authority = aProvider.GetName()
+				}
 			}
 		}
 		// Whatever Status is, provider will return a well formed User. So, we can enrich our user.

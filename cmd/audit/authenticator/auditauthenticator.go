@@ -89,6 +89,7 @@ func (l *auditAuthenticator) createLoginAttemptRecord(ctx context.Context, respo
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      recordName,
 			Namespace: l.namespace,
+			Labels:    map[string]string{"kubauth.kubotal.io/login": response.User.Login},
 		},
 		Spec: kubauth.LoginAttemptSpec{
 			When:      metav1.NewTime(now),
