@@ -39,9 +39,9 @@ groupBindings: []
 
 groups: []
 #  - name: managers
-#    spec:
-#      claims:
-#        access: full
+#    claims:
+#      access: full
+#    comment
 
 roleBindings: []
 #  - name

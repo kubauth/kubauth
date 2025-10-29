@@ -155,7 +155,7 @@ var Cmd = &cobra.Command{
 		}
 
 		// Create and start HTTP server
-		httpServer := httpsrv.New("ldapConnector", &auditParams.httpConfig, mux)
+		httpServer := httpsrv.New("auditModule", &auditParams.httpConfig, mux)
 
 		if err := httpServer.Start(ctx); err != nil {
 			logger.Error("Error starting HTTP server", "error", err)

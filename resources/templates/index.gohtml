@@ -9,12 +9,12 @@
 </head>
 <body>
 <div class="index-container container">
+    {{if .Entries}}
     <div class="banner">
         <h1>Kubauth Applications</h1>
         <p class="subtitle">Select an application to sign in</p>
     </div>
 
-    {{if .Entries}}
     <div class="applications-grid">
         {{range .Entries}}
         <a href="{{.EntryURL}}" class="app-card">
@@ -30,8 +30,9 @@
         {{end}}
     </div>
     {{else}}
-    <div class="empty-state">
-        <p>No applications available</p>
+    <div class="banner">
+        <h1>Bye !</h1>
+        <p class="subtitle">You can now close this window</p>
     </div>
     {{end}}
 
