@@ -100,7 +100,7 @@ var flags struct {
 	cleanupPeriod time.Duration
 
 	// Idp (Identity provider) config
-	idpHttpConfig httpclient.Config
+	idProviderHttpConfig httpclient.Config
 }
 
 var (
@@ -158,9 +158,9 @@ func init() {
 	Cmd.PersistentFlags().DurationVar(&flags.cleanupPeriod, "cleanupPeriod", time.Minute*5, "SSO Session cleanup period")
 
 	// Idp (Identity provider) config
-	Cmd.PersistentFlags().StringVar(&flags.idpHttpConfig.BaseURL, "idpBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Logger.Entry), "The Identity provider base URL")
-	Cmd.PersistentFlags().StringArrayVar(&flags.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
-	Cmd.PersistentFlags().BoolVar(&flags.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
+	Cmd.PersistentFlags().StringVar(&flags.idProviderHttpConfig.BaseURL, "idProviderBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Logger.Entry), "The Identity provider base URL")
+	Cmd.PersistentFlags().StringArrayVar(&flags.idProviderHttpConfig.RootCaPaths, "idProviderRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
+	Cmd.PersistentFlags().BoolVar(&flags.idProviderHttpConfig.InsecureSkipVerify, "idProviderInsecureSkipVerify", false, "If set, skip the CA certificate verification")
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
@@ -182,7 +182,7 @@ var Cmd = &cobra.Command{
 		ctrl.SetLogger(logr.FromSlogHandler(logger.Handler()))
 		setupLog := ctrl.Log.WithName("setup")
 
-		logger.Info("Starting Kubauth OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs), slog.String("idp", flags.idpHttpConfig.BaseURL))
+		logger.Info("Starting Kubauth OIDC Server", slog.String("logLevel", flags.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs), slog.String("idp", flags.idProviderHttpConfig.BaseURL))
 		if flags.displayFlags {
 			sb := new(strings.Builder)
 			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
@@ -314,7 +314,7 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		idp, err := httpprovider.New(&flags.idpHttpConfig)
+		idp, err := httpprovider.New(&flags.idProviderHttpConfig)
 		if err != nil {
 			setupLog.Error(err, "unable to initialize user db")
 			os.Exit(1)

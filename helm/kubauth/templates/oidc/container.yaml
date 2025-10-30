@@ -46,9 +46,9 @@ Expand oidc container
     - --stickySso={{ .Values.oidc.sso.sticky }}
     - --ssoLifetime={{ .Values.oidc.sso.lifeTime }}
     - --cleanupPeriod={{ .Values.oidc.sso.cleanupPeriod }}
-    - --idpBaseURL={{ .Values.oidc.idp.baseURL }}
-    - --idpRootCAPath={{ .Values.oidc.idp.rootCAPath }}
-    - --idpInsecureSkipVerify={{ .Values.oidc.idp.insecureSkipVerify }}
+    - --idProviderBaseURL={{ .Values.oidc.idProvider.baseURL }}
+    - --idProviderRootCAPath={{ .Values.oidc.idProvider.rootCAPath }}
+    - --idProviderInsecureSkipVerify={{ .Values.oidc.idProvider.insecureSkipVerify }}
     - --allowPasswordGrant={{ .Values.oidc.allowPasswordGrant }}
     - --enforcePKCE={{ .Values.oidc.enforcePKCE }}
     {{-  range .Values.oidc.additionalArgs }}

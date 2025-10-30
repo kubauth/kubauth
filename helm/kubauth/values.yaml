@@ -137,7 +137,7 @@ oidc:
   allowPasswordGrant: false   # Allow Resource Owner Password Credentials (ROPC) grant type, aka the password grant.
   enforcePKCE: false  # If set, all authorization code grand must use PKCE
 
-  idp:
+  idProvider:
     baseURL: http://localhost:6805
     rootCAPath: # TBD if https.
     insecureSkipVerify: false
@@ -281,7 +281,7 @@ audit:
   namespace: kubauth-audit
   createNamespace: true
 
-  idp:
+  idProvider:
     baseURL: http://localhost:6802
     rootCAPath: # TBD if https.
     insecureSkipVerify: false
@@ -363,10 +363,10 @@ merger:
     tag:
     pullPolicy: IfNotPresent
 
-  providers:
+  idProviders:
     - name: ucrd
       httpConfig:
-        baseUrl: http://localhost:6802
+        baseURL: http://localhost:6802
       credentialAuthority: true
       groupAuthority: true
       groupPattern: "%s"

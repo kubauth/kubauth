@@ -44,12 +44,12 @@ import (
 )
 
 var auditParams struct {
-	logConfig     misc.LogConfig
-	displayFlags  bool
-	httpConfig    httpsrv.Config
-	bfaProtection bool
-	idpHttpConfig httpclient.Config
-	namespace     string
+	logConfig            misc.LogConfig
+	displayFlags         bool
+	httpConfig           httpsrv.Config
+	bfaProtection        bool
+	idProviderHttpConfig httpclient.Config
+	namespace            string
 
 	recordLifetime time.Duration
 	cleanupPeriod  time.Duration
@@ -75,9 +75,10 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&auditParams.bfaProtection, "bfaProtection", false, "Activate Brut Force Attack protection")
 
 	// Idp (Identity provider) config
-	Cmd.PersistentFlags().StringVar(&auditParams.idpHttpConfig.BaseURL, "idpBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Merger.Entry), "The Identity provider base URL")
-	Cmd.PersistentFlags().StringArrayVar(&auditParams.idpHttpConfig.RootCaPaths, "idpRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
-	Cmd.PersistentFlags().BoolVar(&auditParams.idpHttpConfig.InsecureSkipVerify, "idpInsecureSkipVerify", false, "If set, skip the CA certificate verification")
+	Cmd.PersistentFlags().StringVar(&auditParams.idProviderHttpConfig.BaseURL, "idProviderBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Merger.Entry), "The Identity provider base URL")
+	Cmd.PersistentFlags().StringArrayVar(&auditParams.idProviderHttpConfig.RootCaPaths, "idProviderRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
+	Cmd.PersistentFlags().BoolVar(&auditParams.idProviderHttpConfig.InsecureSkipVerify, "idProviderInsecureSkipVerify", false, "If set, skip the CA certificate verification")
+
 	Cmd.PersistentFlags().StringVarP(&auditParams.namespace, "namespace", "n", "kubauth-audit", "Namespace to store login records in")
 
 	Cmd.PersistentFlags().DurationVar(&auditParams.recordLifetime, "recordLifetime", time.Hour*8, "LoginAttempt record lifetime")
@@ -100,7 +101,7 @@ var Cmd = &cobra.Command{
 			os.Exit(2)
 		}
 
-		logger.Info("Starting audit module", slog.String("logLevel", auditParams.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs), slog.String("idp", auditParams.idpHttpConfig.BaseURL))
+		logger.Info("Starting audit module", slog.String("logLevel", auditParams.logConfig.Level), slog.String("version", global.Version), slog.String("build", global.BuildTs), slog.String("idp", auditParams.idProviderHttpConfig.BaseURL))
 		if auditParams.displayFlags {
 			sb := new(strings.Builder)
 			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
@@ -129,7 +130,7 @@ var Cmd = &cobra.Command{
 		// Create HTTP router
 		mux := http.NewServeMux()
 
-		authenticator, err := authenticator.New(&auditParams.idpHttpConfig, kubeClient, auditParams.namespace)
+		authenticator, err := authenticator.New(&auditParams.idProviderHttpConfig, kubeClient, auditParams.namespace)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to create authenticator: %v\n", err)
 			os.Exit(2)

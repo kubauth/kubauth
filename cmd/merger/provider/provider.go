@@ -32,7 +32,7 @@ type Provider interface {
 }
 
 type provider struct {
-	config     *config.ProviderConfig
+	config     *config.IdProviderConfig
 	httpClient httpclient.HttpClient
 }
 
@@ -40,7 +40,7 @@ var yes = true
 
 var _ Provider = &provider{}
 
-func New(config *config.ProviderConfig) (Provider, error) {
+func New(config *config.IdProviderConfig) (Provider, error) {
 	// Set config default
 	if config.CredentialAuthority == nil {
 		config.CredentialAuthority = &yes

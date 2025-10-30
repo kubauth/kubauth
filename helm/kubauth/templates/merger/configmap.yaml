@@ -13,11 +13,11 @@ metadata:
   {{- end }}
 data:
   config.yaml: |
-    providers:
-      {{- range .Values.merger.providers }}
+    idProviders:
+      {{- range .Values.merger.idProviders }}
       - name: {{ .name }}
         httpConfig:
-          baseURL: {{ .httpConfig.baseUrl }}
+          baseURL: {{ .httpConfig.baseURL }}
         credentialAuthority: {{ .credentialAuthority }}
         groupAuthority: {{ .groupAuthority }}
         groupPattern: "{{ .groupPattern | default "%s" }}"

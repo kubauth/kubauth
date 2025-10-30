@@ -18,7 +18,7 @@ package config
 
 import "kubauth/internal/httpclient"
 
-type ProviderConfig struct {
+type IdProviderConfig struct {
 	Name                string            `yaml:"name"`
 	HttpConfig          httpclient.Config `yaml:"httpConfig"`
 	CredentialAuthority *bool             `yaml:"credentialAuthority"` // Is this provider is authority for password checking
@@ -33,5 +33,5 @@ type ProviderConfig struct {
 }
 
 type Config struct {
-	Providers []*ProviderConfig `yaml:"providers"`
+	IdProviders []*IdProviderConfig `yaml:"idProviders"`
 }

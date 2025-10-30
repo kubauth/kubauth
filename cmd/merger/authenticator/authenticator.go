@@ -36,8 +36,8 @@ var _ handlers.Authenticator = &mergerAuthenticator{}
 
 func New(config *config.Config) (handlers.Authenticator, error) {
 	merger := &mergerAuthenticator{}
-	merger.providers = make([]provider.Provider, len(config.Providers))
-	for i, p := range config.Providers {
+	merger.providers = make([]provider.Provider, len(config.IdProviders))
+	for i, p := range config.IdProviders {
 		var err error
 		merger.providers[i], err = provider.New(p)
 		if err != nil {

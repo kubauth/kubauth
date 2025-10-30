@@ -17,9 +17,9 @@ Expand audit container
     - --bindAddr={{ .Values.audit.server.bindAddr }}
     - --bindPort={{ .Values.audit.server.bindPort }}
     - --certDir=/cert/server
-    - --idpBaseURL={{ .Values.audit.idp.baseURL }}
-    - --idpRootCAPath={{ .Values.audit.idp.rootCAPath }}
-    - --idpInsecureSkipVerify={{ .Values.audit.idp.insecureSkipVerify }}
+    - --idProviderBaseURL={{ .Values.audit.idProvider.baseURL }}
+    - --idProviderRootCAPath={{ .Values.audit.idProvider.rootCAPath }}
+    - --idProviderInsecureSkipVerify={{ .Values.audit.idProvider.insecureSkipVerify }}
     - --recordLifetime={{ .Values.audit.cleaner.recordLifetime }}
     - --cleanupPeriod={{ .Values.audit.cleaner.cleanupPeriod }}
     - --bfaProtection={{ .Values.audit.server.bfaProtection }}

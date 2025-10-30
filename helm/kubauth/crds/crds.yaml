@@ -325,11 +325,11 @@ spec:
     - jsonPath: .spec.public
       name: Pub.
       type: boolean
-    - jsonPath: .spec.displayName
-      name: Display
-      type: string
     - jsonPath: .spec.description
       name: Description
+      type: string
+    - jsonPath: .spec.displayName
+      name: Display
       type: string
     - jsonPath: .spec.entryURL
       name: Link
