@@ -26,6 +26,9 @@ spec:
       {{- if .Values.merger.enabled }}
         checksum/merger-config: {{ include (print $.Template.BasePath "/merger/configmap.yaml") . | sha256sum }}
       {{- end }}
+      {{- if .Values.ldap.enabled }}
+        checksum/ldap-config: {{ include (print $.Template.BasePath "/ladp/configmap.yaml") . | sha256sum }}
+      {{- end }}
       labels:
         {{- include "kubauth.labels" . | nindent 8 }}
         {{- include "kubauth.selectorLabels" . | nindent 8 }}
