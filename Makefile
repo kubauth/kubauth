@@ -12,9 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-APP_VERSION ?= 0.1.2-snapshot
-HELM_KUBAUTH_VERSION ?= 0.1.2-snapshot
-HELM_KUBAUTH_GRANT_VERSION ?= 0.1.2-snapshot
+APP_VERSION ?= 0.1.3-snapshot
+HELM_KUBAUTH_VERSION ?= 0.1.3-snapshot
+HELM_KUBAUTH_GRANT_VERSION ?= 0.1.3-snapshot
 
 DOCKER_TAG=${APP_VERSION}
 
@@ -22,7 +22,7 @@ IMG ?= quay.io/kubauth/exec/kubauth:${DOCKER_TAG}
 
 IMG_UBUNTU ?= quay.io/kubauth/exec/kubauth:${DOCKER_TAG}-ubuntu
 
-HELM_DOCKER_REPO := quay.io/kubauth/charts
+HELM_DOCKER_REPO ?= quay.io/kubauth/charts
 
 # To authenticate for pushing in quay repo (img) (Use encrypted password):
 # docker login quay.io

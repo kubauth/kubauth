@@ -9,14 +9,25 @@ metadata:
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   annotations:
-  {{ if .Values.oidc.server.tls }}
-    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
-  {{ end }}
-  {{- with .Values.commonAnnotations }}
+    {{- if .Values.oidc.server.tls }}
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    # For backend re-encryption, we don't need ssl-passthrough
+    # nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    {{- end }}
+    {{- with .Values.commonAnnotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    {{- with .Values.oidc.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   ingressClassName: nginx
+  {{- if .Values.oidc.server.tls }}
+  tls:
+    - hosts:
+        - {{ required "oidc.ingress.host must be defined!" .Values.oidc.ingress.host }}
+      secretName: {{ include "kubauth.oidc.server.certificateSecretName" . }}
+  {{- end }}
   rules:
     - host: {{ required "oidc.ingress.host must be defined!" .Values.oidc.ingress.host }}
       http:

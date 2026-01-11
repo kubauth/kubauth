@@ -33,14 +33,6 @@ func (s *OIDCServer) handleJWKS(w http.ResponseWriter, _ *http.Request) {
 	nBytes := publicKey.N.Bytes()
 	eBytes := big.NewInt(int64(publicKey.E)).Bytes()
 
-	// Ensure proper byte length for base64url encoding
-	if len(nBytes)%2 == 1 {
-		nBytes = append([]byte{0}, nBytes...)
-	}
-	if len(eBytes)%2 == 1 {
-		eBytes = append([]byte{0}, eBytes...)
-	}
-
 	// Create JWK from RSA public key
 	jwk := map[string]interface{}{
 		"kty": "RSA",
