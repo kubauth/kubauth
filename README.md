@@ -1,3 +1,9 @@
+
+# 🚧 **WARNING: PROJECT UNDER DEVELOPMENT** 🚧
+
+> This project is currently under active development and is **not yet operational**.  
+> Do **not** use in production. Features and APIs may change at any time.
+
 # Kubauth
 
 A Kubernetes-native OpenID Connect (OIDC) Identity Provider.

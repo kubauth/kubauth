@@ -26,7 +26,12 @@ image:
   pullSecrets: []
 
 # Setup toleration and node selector to run inside control plane
-deployInControlPlane: true
+# This is a shortcut appropriate for most vanilla kubernetes deployment.
+deployInControlPlane: false
+# NodeSelector for the pod to be installed (Ignored if deployInControlPlane: true)
+nodeSelector: {}
+# -- Tolerations for the pod to be installed (Ignored if deployInControlPlane: true)
+tolerations: []
 
 # -- Annotations to be added to the pod
 podAnnotations: {}
@@ -49,12 +54,6 @@ podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
-
-# NodeSelector for the pod to be installed
-nodeSelector: {}
-
-# -- Tolerations for the pod to be installed
-tolerations: []
 
 # -- Affinity for the pod to be installed
 affinity: {}

@@ -27,7 +27,7 @@ spec:
         checksum/merger-config: {{ include (print $.Template.BasePath "/merger/configmap.yaml") . | sha256sum }}
       {{- end }}
       {{- if .Values.ldap.enabled }}
-        checksum/ldap-config: {{ include (print $.Template.BasePath "/ladp/configmap.yaml") . | sha256sum }}
+        checksum/ldap-config: {{ include (print $.Template.BasePath "/ldap/configmap.yaml") . | sha256sum }}
       {{- end }}
       labels:
         {{- include "kubauth.labels" . | nindent 8 }}
@@ -44,6 +44,15 @@ spec:
           effect: "NoSchedule"
       nodeSelector:
         node-role.kubernetes.io/control-plane: ""
+      {{- else }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- end }}
       containers:
         {{- if .Values.oidc.enabled }}
@@ -65,16 +74,8 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       serviceAccountName: {{ include "kubauth.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       {{- with .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
