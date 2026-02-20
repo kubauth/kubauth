@@ -12,9 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-APP_VERSION ?= 0.1.2-snapshot
-HELM_KUBAUTH_VERSION ?= 0.1.2-snapshot
-HELM_KUBAUTH_GRANT_VERSION ?= 0.1.2-snapshot
+APP_VERSION ?= 0.1.2
+HELM_KUBAUTH_VERSION ?= 0.1.2
+HELM_KUBAUTH_GRANT_VERSION ?= 0.1.2
 
 DOCKER_TAG=${APP_VERSION}
 
@@ -103,10 +103,10 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 ##@ Build
 
 .PHONY: build
-build:  build-kubauth  ## Build kubocd binaries with dependencies
+build:  build-kubauth  ## Build kubauth binaries with dependencies
 
 .PHONY: build-kubauth
-build-kubauth: generate ## Build kubocd binary.
+build-kubauth: generate ## Build kubauth binary.
 	CGO_ENABLED=0 go build -o bin/kubauth main.go
 
 
