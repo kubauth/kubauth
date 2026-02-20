@@ -12,9 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-APP_VERSION ?= 0.1.2
-HELM_KUBAUTH_VERSION ?= 0.1.2
-HELM_KUBAUTH_GRANT_VERSION ?= 0.1.2
+APP_VERSION ?= 0.1.3-snapshot
+HELM_KUBAUTH_VERSION ?= 0.1.3-snapshot
+HELM_KUBAUTH_GRANT_VERSION ?= 0.1.3-snapshot
 
 DOCKER_TAG=${APP_VERSION}
 
