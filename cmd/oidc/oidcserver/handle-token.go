@@ -51,7 +51,7 @@ func (s *OIDCServer) handleToken(w http.ResponseWriter, r *http.Request) {
 	response, err := s.oauth2.NewAccessResponse(ctx, accessRequest) // access_response_writer/16
 	if err != nil {
 		err2 := fosite.ErrorToRFC6749Error(err)
-		fmt.Printf("Token handleToken.NewAccessResponse error: '%v'  hint:'%s' desc='%s'\n", err2, err2.HintField, err2.DescriptionField)
+		fmt.Printf("Token handleToken.NewAccessResponse error: '%v'  hint:'%s' desc='%s' debug='%s' cause='%+v'\n", err2, err2.HintField, err2.DescriptionField, err2.DebugField, err2.Unwrap())
 		s.oauth2.WriteAccessError(ctx, w, accessRequest, err) // access_error/13
 		return
 	}

@@ -135,6 +135,7 @@ oidc:
   # https://www.scottbrady.io/oauth/why-the-resource-owner-password-credentials-grant-type-is-not-authentication-nor-suitable-for-modern-applications
   allowPasswordGrant: false   # Allow Resource Owner Password Credentials (ROPC) grant type, aka the password grant.
   enforcePKCE: false  # If set, all authorization code grand must use PKCE
+  jwtAccessToken: false # If set, access token will be jwt. Otherwise opaque
 
   idProvider:
     baseURL: http://localhost:6805

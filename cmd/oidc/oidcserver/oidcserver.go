@@ -38,7 +38,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ory/fosite"
-	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/token/jwt"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -69,6 +68,7 @@ type OIDCServer struct {
 	AllowPasswordGrant   bool
 	EnforcePKCE          bool
 	AllowPKCEPlain       bool
+	JwtAccessToken       bool
 }
 
 func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
@@ -103,7 +103,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 		EnforcePKCEForPublicClients:    s.EnforcePKCE,    // Use same setting as general enforcement
 	}
 
-	s.oauth2 = fositepatch.ComposeAllEnabled(s.config, s.Storage, s.privateKey)
+	s.oauth2 = fositepatch.ComposeAllEnabled(s.config, s.Storage, s.privateKey, s.JwtAccessToken)
 
 	// Set up routes
 	router.HandleFunc("/oauth2/auth", s.handleAuthorize)
@@ -215,27 +215,50 @@ func (s *OIDCServer) ensureJwtSigningKey(ctx context.Context) error {
 // Usually, you could do:
 //
 //	session = new(fosite.DefaultSession)
-func (s *OIDCServer) newSession(user *authenticator.OidcUser, clientId string) *openid.DefaultSession {
-	if user == nil {
-		return &openid.DefaultSession{}
+func (s *OIDCServer) newSession(user *authenticator.OidcUser, clientId string) *fositepatch.OIDCSession {
+	// Always initialize Claims and Headers - required for JWT access token strategy
+	var subject string
+	var extra map[string]interface{}
+	now := time.Now()
+	if user != nil {
+		subject = user.Login
+		extra = user.Claims
 	}
-	claims := &jwt.IDTokenClaims{
+
+	// ID Token claims (for OpenID Connect)
+	idTokenClaims := &jwt.IDTokenClaims{
 		Issuer:      s.Issuer,
-		Subject:     user.Login,
+		Subject:     subject,
 		Audience:    []string{clientId},
-		IssuedAt:    time.Now(),
-		RequestedAt: time.Now(),
-		AuthTime:    time.Now(),
-		Extra:       user.Claims,
+		IssuedAt:    now,
+		RequestedAt: now,
+		AuthTime:    now,
+		Extra:       extra,
 	}
 	// fosite does not explicitly handle azp claims
-	claims.Add("azp", clientId)
-	return &openid.DefaultSession{
-		Claims: claims,
+	if clientId != "" {
+		idTokenClaims.Add("azp", clientId)
+	}
+
+	// JWT claims (for JWT access tokens)
+	jwtClaims := &jwt.JWTClaims{
+		Issuer:    s.Issuer,
+		Subject:   subject,
+		Audience:  []string{clientId},
+		IssuedAt:  now,
+		ExpiresAt: now.Add(s.AccessTokenLifespan),
+		Extra:     extra,
+	}
+
+	return &fositepatch.OIDCSession{
+		IDTokenClaims_: idTokenClaims,
+		JWTClaims_:     jwtClaims,
 		Headers: &jwt.Headers{
 			Extra: map[string]interface{}{
 				"kid": s.keyID,
 			},
 		},
+		Subject:  subject,
+		Username: subject,
 	}
 }

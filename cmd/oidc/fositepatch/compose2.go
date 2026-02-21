@@ -25,18 +25,40 @@ import (
 )
 
 // ComposeAllEnabled returns a fosite instance with all OAuth2 and OpenID Connect handlers enabled.
-func ComposeAllEnabled(config *fosite.Config, storage interface{}, key interface{}) fosite.OAuth2Provider {
+func ComposeAllEnabled(config *fosite.Config, storage interface{}, key interface{}, jwtAccessToken bool) fosite.OAuth2Provider {
 	keyGetter := func(context.Context) (interface{}, error) {
 		return key, nil
 	}
-	return compose.Compose(
-		config,
-		storage,
-		&compose.CommonStrategy{
+
+	var strategy *compose.CommonStrategy
+	if jwtAccessToken {
+		strategy = &compose.CommonStrategy{
+			CoreStrategy:               compose.NewOAuth2JWTStrategy(keyGetter, compose.NewOAuth2HMACStrategy(config), config),
+			OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
+			Signer:                     &jwt.DefaultSigner{GetPrivateKey: keyGetter},
+		}
+	} else {
+		strategy = &compose.CommonStrategy{
 			CoreStrategy:               compose.NewOAuth2HMACStrategy(config),
 			OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
 			Signer:                     &jwt.DefaultSigner{GetPrivateKey: keyGetter},
-		},
+		}
+	}
+
+	return compose.Compose(
+		config,
+		storage,
+		strategy,
+		//&compose.CommonStrategy{
+		//	CoreStrategy:               compose.NewOAuth2HMACStrategy(config),
+		//	OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
+		//	Signer:                     &jwt.DefaultSigner{GetPrivateKey: keyGetter},
+		//},
+		//&compose.CommonStrategy{
+		//	CoreStrategy:               compose.NewOAuth2JWTStrategy(keyGetter, compose.NewOAuth2HMACStrategy(config), config),
+		//	OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
+		//	Signer:                     &jwt.DefaultSigner{GetPrivateKey: keyGetter},
+		//},
 		compose.OAuth2AuthorizeExplicitFactory,
 		compose.OAuth2AuthorizeImplicitFactory,
 		compose.OAuth2ClientCredentialsGrantFactory,

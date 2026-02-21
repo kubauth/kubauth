@@ -218,31 +218,49 @@ func (c *ResourceOwnerPasswordCredentialsGrantHandler) CanHandleTokenEndpointReq
 }
 
 // createSessionWithUserClaims creates a session with user claims (similar to OIDCServer.newSession)
-func (c *ResourceOwnerPasswordCredentialsGrantHandler) createSessionWithUserClaims(user *authenticator.OidcUser, clientId string) *openid.DefaultSession {
-	if user == nil {
-		return &openid.DefaultSession{}
+func (c *ResourceOwnerPasswordCredentialsGrantHandler) createSessionWithUserClaims(user *authenticator.OidcUser, clientId string) *OIDCSession {
+	now := time.Now()
+	var subject string
+	var extra map[string]interface{}
+	if user != nil {
+		subject = user.Login
+		extra = user.Claims
 	}
 
 	// Create ID token claims with user data
-	claims := &jwt.IDTokenClaims{
+	idTokenClaims := &jwt.IDTokenClaims{
 		Issuer:      c.ExtendedStorage.GetIssuer(),
-		Subject:     user.Login,
+		Subject:     subject,
 		Audience:    []string{clientId},
-		IssuedAt:    time.Now(),
-		RequestedAt: time.Now(),
-		AuthTime:    time.Now(),
-		Extra:       user.Claims,
+		IssuedAt:    now,
+		RequestedAt: now,
+		AuthTime:    now,
+		Extra:       extra,
 	}
 
 	// fosite does not explicitly handle azp claims, so add it manually
-	claims.Add("azp", clientId)
+	if clientId != "" {
+		idTokenClaims.Add("azp", clientId)
+	}
 
-	return &openid.DefaultSession{
-		Claims: claims,
+	// JWT claims (for JWT access tokens)
+	jwtClaims := &jwt.JWTClaims{
+		Issuer:   c.ExtendedStorage.GetIssuer(),
+		Subject:  subject,
+		Audience: []string{clientId},
+		IssuedAt: now,
+		Extra:    extra,
+	}
+
+	return &OIDCSession{
+		IDTokenClaims_: idTokenClaims,
+		JWTClaims_:     jwtClaims,
 		Headers: &jwt.Headers{
 			Extra: map[string]interface{}{
 				"kid": c.ExtendedStorage.GetKeyID(),
 			},
 		},
+		Subject:  subject,
+		Username: subject,
 	}
 }

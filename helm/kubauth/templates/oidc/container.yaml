@@ -51,6 +51,7 @@ Expand oidc container
     - --idProviderInsecureSkipVerify={{ .Values.oidc.idProvider.insecureSkipVerify }}
     - --allowPasswordGrant={{ .Values.oidc.allowPasswordGrant }}
     - --enforcePKCE={{ .Values.oidc.enforcePKCE }}
+    - --jwtAccessToken={{ .Values.oidc.jwtAccessToken }}
     {{-  range .Values.oidc.additionalArgs }}
     - {{ . }}
     {{- end }}
