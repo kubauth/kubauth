@@ -39,6 +39,7 @@ func (s *OIDCServer) handleOpenIDConfiguration(w http.ResponseWriter, _ *http.Re
 		"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post"},
 		"claims_supported":                      []string{"sub", "iss", "name", "email", "profile", "email_verified", "groups"}, // This is non-exhaustive
 		"code_challenge_methods_supported":      s.getSupportedPKCEMethods(),
+		"grant_types_supported":                 []string{"authorization_code", "client_credentials", "password", "refresh_token"},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
