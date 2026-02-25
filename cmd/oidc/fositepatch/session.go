@@ -44,19 +44,19 @@ type OIDCSession struct {
 }
 
 // NewOIDCSession creates a new OIDCSession with initialized claims and headers
-func NewOIDCSession() *OIDCSession {
-	now := time.Now().UTC()
-	return &OIDCSession{
-		IDTokenClaims_: &jwt.IDTokenClaims{
-			RequestedAt: now,
-		},
-		JWTClaims_: &jwt.JWTClaims{
-			IssuedAt: now,
-		},
-		Headers:   &jwt.Headers{},
-		ExpiresAt: make(map[fosite.TokenType]time.Time),
-	}
-}
+//func NewOIDCSession() *OIDCSession {
+//	now := time.Now().UTC()
+//	return &OIDCSession{
+//		IDTokenClaims_: &jwt.IDTokenClaims{
+//			RequestedAt: now,
+//		},
+//		JWTClaims_: &jwt.JWTClaims{
+//			IssuedAt: now,
+//		},
+//		Headers:   &jwt.Headers{},
+//		ExpiresAt: make(map[fosite.TokenType]time.Time),
+//	}
+//}
 
 // Clone creates a deep copy of the session
 func (s *OIDCSession) Clone() fosite.Session {
