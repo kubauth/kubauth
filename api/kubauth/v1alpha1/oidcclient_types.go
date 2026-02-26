@@ -27,15 +27,28 @@ Not (yet?) implemented
 - ResponseModeClient
 */
 
+type OidcClientSecretSpec struct {
+	// +required
+	Name string `json:"name"`
+
+	// +required
+	Key string `json:"key"`
+}
+
 // OidcClientSpec defines the desired state of OidcClient
 // client_id is metadata.name
 type OidcClientSpec struct {
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-	// The hashed secret. (Required if !public)
+	// ----------------- One and only one of HashedSecret or Secret must be defined if client is private
+	// The hashed secret.
 	// +optional
 	HashedSecret string `json:"hashedSecret,omitempty"`
+	// A k8s secret hosting the client_secret
+	// +optional
+	Secret *OidcClientSecretSpec `json:"secret"`
+	// -----------------
 
 	// The client's allowed redirect URIs.
 	// +required
@@ -92,8 +105,17 @@ type OidcClientSpec struct {
 	IDTokenLifespan metav1.Duration `json:"idTokenLifespan,omitempty"`
 }
 
+type OidcClientPhase string
+
+const OidcClientPhaseReady = OidcClientPhase("READY")
+const OidcClientPhaseError = OidcClientPhase("ERROR")
+
 // OidcClientStatus defines the observed state of OidcClient.
 type OidcClientStatus struct {
+	Phase OidcClientPhase `json:"phase"`
+
+	// +optional
+	Message string `json:"message"`
 }
 
 // +kubebuilder:object:root=true
@@ -103,6 +125,7 @@ type OidcClientStatus struct {
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 // +kubebuilder:printcolumn:name="Display",type=string,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Link",type=string,JSONPath=`.spec.entryURL`
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 type OidcClient struct {

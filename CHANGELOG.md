@@ -5,3 +5,4 @@
 - fix: Access Token introspection was not working with a public client. Fixed.
 - feat: Add support for JWT Access Token (helm values: `oidc.jwtAccessToken: true|false`  )
 - feat: Support of the Client credential flow
+- feat: clientSecret can now also be stored in a k8s secret

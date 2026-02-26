@@ -331,6 +331,7 @@ var Cmd = &cobra.Command{
 			Client:  mgr.GetClient(),
 			Scheme:  mgr.GetScheme(),
 			Storage: storage,
+			Logger:  logger.With("logger", "oidcClientReconciler"),
 		}
 
 		err = ctrl.NewControllerManagedBy(mgr).

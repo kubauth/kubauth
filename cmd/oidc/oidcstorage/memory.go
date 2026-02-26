@@ -146,10 +146,26 @@ func (s *MemoryStore) GetClient(_ context.Context, id string) (fosite.Client, er
 	return cl, nil
 }
 
-func (s *MemoryStore) SetClients(_ context.Context, clients map[string]FositeClient) {
+//func (s *MemoryStore) SetClients(_ context.Context, clients map[string]FositeClient) {
+//	s.clientsMutex.Lock()
+//	defer s.clientsMutex.Unlock()
+//	s.Clients = clients
+//}
+
+func (s *MemoryStore) SetClient(ctx context.Context, client FositeClient) {
+	logger := logr.FromContextAsSlogLogger(ctx)
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()
-	s.Clients = clients
+	s.Clients[client.GetID()] = client
+	logger.Debug("SettingClient", "clientId", client.GetID(), "clientCount", len(s.Clients))
+}
+
+func (s *MemoryStore) DeleteClient(ctx context.Context, clientId string) {
+	logger := logr.FromContextAsSlogLogger(ctx)
+	s.clientsMutex.Lock()
+	defer s.clientsMutex.Unlock()
+	delete(s.Clients, clientId)
+	logger.Debug("DeleteClient", "clientId", clientId, "clientCount", len(s.Clients))
 }
 
 func (s *MemoryStore) SetTokenLifespans(clientID string, lifespans *fosite.ClientLifespanConfig) error {

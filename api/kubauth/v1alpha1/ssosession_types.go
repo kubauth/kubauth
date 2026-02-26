@@ -48,7 +48,7 @@ type SsoSessionSpec struct {
 	Claims *apiextensionsv1.JSON `json:"claims,omitempty"`
 
 	// The original token (cookie value) of the web session.
-	// Stored as the SsoSession name is a sanitized non-reversible version of this
+	// Used as the SsoSession name in a sanitized non-reversible version of this
 	// +required
 	WebToken string `json:"webToken"`
 }

@@ -27,6 +27,9 @@ spec:
     - jsonPath: .spec.entryURL
       name: Link
       type: string
+    - jsonPath: .status.phase
+      name: Status
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -80,7 +83,6 @@ spec:
                   type: string
                 type: array
               hashedSecret:
-                description: The hashed secret. (Required if !public)
                 type: string
               idTokenLifespan:
                 type: string
@@ -114,6 +116,17 @@ spec:
                 items:
                   type: string
                 type: array
+              secret:
+                description: A k8s secret hosting the client_secret
+                properties:
+                  key:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - key
+                - name
+                type: object
             required:
             - grantTypes
             - public
@@ -123,6 +136,13 @@ spec:
             type: object
           status:
             description: status defines the observed state of OidcClient
+            properties:
+              message:
+                type: string
+              phase:
+                type: string
+            required:
+            - phase
             type: object
         required:
         - spec

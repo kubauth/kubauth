@@ -34,14 +34,16 @@ type FositeClient interface {
 }
 
 type fositeClient struct {
-	clientId string // From metadata.name
-	spec     *v1alpha1.OidcClientSpec
+	clientId              string // From metadata.name
+	spec                  *v1alpha1.OidcClientSpec
+	effectiveHashedSecret string // Spec.HashedSecret of value hosted in Spec.Secret
 }
 
-func NewFositeClient(cli *v1alpha1.OidcClient) FositeClient {
+func NewFositeClient(cli *v1alpha1.OidcClient, effectiveHashedSecret string) FositeClient {
 	return &fositeClient{
-		clientId: cli.GetName(),
-		spec:     &cli.Spec,
+		clientId:              cli.GetName(),
+		spec:                  &cli.Spec,
+		effectiveHashedSecret: effectiveHashedSecret,
 	}
 }
 
@@ -54,7 +56,8 @@ func (k *fositeClient) GetID() string {
 }
 
 func (k *fositeClient) GetHashedSecret() []byte {
-	return []byte(k.spec.HashedSecret)
+	//return []byte(k.spec.HashedSecret)
+	return []byte(k.effectiveHashedSecret)
 }
 
 func (k *fositeClient) GetRedirectURIs() []string {
