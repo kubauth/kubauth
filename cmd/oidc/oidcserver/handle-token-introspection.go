@@ -28,7 +28,7 @@ import (
 func (s *OIDCServer) HandleTokenIntrospection(rw http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	logger := logr.FromContextAsSlogLogger(ctx)
-	mySessionData := s.newSession(nil, "")
+	mySessionData := s.newSession(nil, GetClientIdFromRequest(req))
 
 	// Try standard introspection first (handles confidential clients with Basic Auth or Bearer token)
 	ir, err := s.oauth2.NewIntrospectionRequest(ctx, req, mySessionData)

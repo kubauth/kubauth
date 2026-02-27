@@ -37,7 +37,7 @@ func (s *OIDCServer) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	accessToken := strings.TrimPrefix(authz, "Bearer ")
 
-	_, ar, err := s.oauth2.IntrospectToken(ctx, accessToken, fosite.AccessToken, s.newSession(nil, ""), "openid")
+	_, ar, err := s.oauth2.IntrospectToken(ctx, accessToken, fosite.AccessToken, s.newSession(nil, GetClientIdFromRequest(r)), "openid")
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\", error_description=\"token invalid or expired\"")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)

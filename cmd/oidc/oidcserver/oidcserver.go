@@ -249,6 +249,9 @@ func (s *OIDCServer) newSession(user *authenticator.OidcUser, clientId string) *
 		ExpiresAt: now.Add(s.AccessTokenLifespan),
 		Extra:     extra,
 	}
+	if clientId != "" {
+		jwtClaims.Add("azp", clientId)
+	}
 
 	return &fositepatch.OIDCSession{
 		IDTokenClaims_: idTokenClaims,
@@ -261,4 +264,13 @@ func (s *OIDCServer) newSession(user *authenticator.OidcUser, clientId string) *
 		Subject:  subject,
 		Username: subject,
 	}
+}
+
+func GetClientIdFromRequest(r *http.Request) string {
+	err := r.ParseForm()
+	if err != nil {
+		return ""
+	}
+	clientId := r.Form.Get("client_id")
+	return clientId
 }

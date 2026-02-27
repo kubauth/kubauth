@@ -29,6 +29,13 @@ type ScopeRequester interface {
 	GrantScope(scope string)
 }
 
+type AudienceRequester interface {
+	GetRequestedAudience() (audience fosite.Arguments)
+	GetClient() (client fosite.Client)
+	GrantAudience(audience string)
+}
+
+// HandleScopes grants all requested scopes on the authorize request
 func HandleScopes(ar ScopeRequester, logger *slog.Logger) {
 	client := ar.GetClient()
 	for _, sc := range ar.GetRequestedScopes() { // Request with scope not in client scope list are rejected before this
@@ -41,5 +48,21 @@ func HandleScopes(ar ScopeRequester, logger *slog.Logger) {
 			ar.GrantScope("openid") // Will take care of duplicate
 		}
 	}
+}
 
+// HandleAudience grants the requested audience on the authorize request.
+// If no audience is requested, it grants the client_id as the default audience.
+func HandleAudience(ar AudienceRequester, logger *slog.Logger) {
+	requestedAudience := ar.GetRequestedAudience()
+	if len(requestedAudience) > 0 {
+		for _, aud := range requestedAudience {
+			logger.Debug("Adding audience", "audience", aud)
+			ar.GrantAudience(aud)
+		}
+	} else {
+		// Default: grant client_id as audience if none requested
+		clientID := ar.GetClient().GetID()
+		logger.Debug("No audience requested, using client_id as default audience", "audience", clientID)
+		ar.GrantAudience(clientID)
+	}
 }

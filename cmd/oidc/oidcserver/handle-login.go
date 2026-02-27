@@ -51,13 +51,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 							if err == nil {
 
 								fositepatch.HandleScopes(ar, logger)
-								//for _, sc := range ar.GetRequestedScopes() {
-								//	logger.Debug("Adding scope", "scope", sc, "method", "GET")
-								//	ar.GrantScope(sc)
-								//}
-
-								//ar.GrantScope("offline")
-								//ar.GrantScope("openid")
+								fositepatch.HandleAudience(ar, logger)
 
 								session := s.newSession(&authenticator.OidcUser{Login: login, Claims: claims}, clientId)
 								response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
@@ -128,24 +122,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fositepatch.HandleScopes(ar, logger)
-		//client := ar.GetClient()
-		//for _, sc := range ar.GetRequestedScopes() {
-		//	if client.GetScopes().Has(sc) || client.GetScopes().Has("*") {
-		//		logger.Debug("Adding scope", "scope", sc)
-		//		ar.GrantScope(sc)
-		//	} else {
-		//		logger.Debug("Skipping scope", "scope", sc)
-		//	}
-		//}
-		//if client2, ok := client.(oidcstorage.FositeClient); ok {
-		//	if client2.IsForceOpenIdScope() {
-		//		logger.Debug("Forcing openid scope")
-		//		ar.GrantScope("openid") // Will take care of duplicate
-		//	}
-		//}
-		// Grant required scopes and create session
-		//ar.GrantScope("offline") // To have a refresh token
-		//ar.GrantScope("openid")
+		fositepatch.HandleAudience(ar, logger)
 
 		session := s.newSession(user, clientId)
 

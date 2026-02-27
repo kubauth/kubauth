@@ -18,8 +18,10 @@ package oidcserver
 
 import (
 	"fmt"
+	"kubauth/cmd/oidc/fositepatch"
 	"net/http"
 
+	"github.com/go-logr/logr"
 	"github.com/ory/fosite"
 )
 
@@ -28,7 +30,7 @@ func (s *OIDCServer) handleToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// This will create an access request object and iterate through the registered TokenEndpointHandlers to validate the request.
-	session := s.newSession(nil, "")
+	session := s.newSession(nil, GetClientIdFromRequest(r))
 	accessRequest, err := s.oauth2.NewAccessRequest(ctx, r, session) // access_request_handler/46
 	if err != nil {
 		err2 := fosite.ErrorToRFC6749Error(err)
@@ -37,13 +39,13 @@ func (s *OIDCServer) handleToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If this is a client_credentials grant, grant all requested scopes
+	// If this is a client_credentials grant, grant all requested scopes and audience
 	// NewAccessRequest validated that all requested scopes the client is allowed to perform
 	// based on configured scope matching strategy.
 	if accessRequest.GetGrantTypes().ExactOne("client_credentials") { // access_request.go/23
-		for _, scope := range accessRequest.GetRequestedScopes() { // request.go/63
-			accessRequest.GrantScope(scope) // request.go/120
-		}
+		logger := logr.FromContextAsSlogLogger(ctx)
+		fositepatch.HandleScopes(accessRequest, logger)
+		fositepatch.HandleAudience(accessRequest, logger)
 	}
 
 	// Next we create a response for the access request. Again, we iterate through the TokenEndpointHandlers

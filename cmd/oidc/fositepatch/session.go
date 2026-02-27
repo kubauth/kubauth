@@ -66,6 +66,11 @@ func (s *OIDCSession) Clone() fosite.Session {
 	return deepcopy.Copy(s).(fosite.Session)
 }
 
+func (s *OIDCSession) SetAudience(audience []string) {
+	s.IDTokenClaims_.Audience = audience
+	s.JWTClaims_.Audience = audience
+}
+
 // SetExpiresAt sets the expiration time for a token type
 func (s *OIDCSession) SetExpiresAt(key fosite.TokenType, exp time.Time) {
 	if s.ExpiresAt == nil {
