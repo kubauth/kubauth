@@ -15,6 +15,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.clientId
+      name: client_id
+      type: string
     - jsonPath: .spec.public
       name: Pub.
       type: boolean
@@ -144,11 +147,14 @@ spec:
           status:
             description: status defines the observed state of OidcClient
             properties:
+              clientId:
+                type: string
               message:
                 type: string
               phase:
                 type: string
             required:
+            - clientId
             - phase
             type: object
         required:

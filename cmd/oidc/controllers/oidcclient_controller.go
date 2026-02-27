@@ -44,6 +44,14 @@ type OidcClientReconciler struct {
 	Storage          *oidcstorage2.MemoryStore
 	statusErrorCount int
 	Logger           *slog.Logger
+	MultiTenant      bool
+}
+
+func (r *OidcClientReconciler) getClientId(name string, namespace string) string {
+	if r.MultiTenant {
+		return fmt.Sprintf("%s-%s", namespace, name)
+	}
+	return name
 }
 
 // +kubebuilder:rbac:groups=kubauth.kubotal.io,resources=oidcclients,verbs=get;list;watch;create;update;patch;delete
@@ -61,24 +69,27 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	ctx = logr.NewContextWithSlogLogger(ctx, logger)
 
-	oidcClient := &kubauthv1alpha1.OidcClient{}
+	clientId := r.getClientId(req.Name, req.Namespace)
 
+	oidcClient := &kubauthv1alpha1.OidcClient{}
 	err := r.Get(ctx, req.NamespacedName, oidcClient)
 	if err != nil {
 		// Deleted object (There is no finalizer in this implementation)
 		logger.Info("Unable to fetch resource. Seems deleted. Remove from referential")
-		r.Storage.DeleteClient(ctx, req.Name) // TODO: client_id for multi-tenancy
+		r.Storage.DeleteClient(ctx, clientId) // TODO: client_id for multi-tenancy
 		// we'll ignore not-found errors, since they can't be fixed by an immediate requeue
 		// (we'll need to wait for a new notification), and we can get them on deleted requests.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	oidcClient.Status.ClientId = clientId // Stored in first update, immutable after
 
 	if oidcClient.Spec.Public {
 		if oidcClient.Spec.Secrets != nil {
 			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "'secrets' set while public is enabled")
 		}
 		// OK. Just register it
-		r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, nil))
+		r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, clientId, nil))
 		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseReady, "")
 	}
 
@@ -111,7 +122,7 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 		}
 	}
-	r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, hashedSecrets))
+	r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, clientId, hashedSecrets))
 	return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseReady, "")
 }
 
@@ -143,7 +154,7 @@ func (r *OidcClientReconciler) updateStatus(ctx context.Context, oidcClient *kub
 	}
 	if oidcClient.Status.Phase == kubauthv1alpha1.OidcClientPhaseError {
 		// Remove from referential if in error
-		r.Storage.DeleteClient(ctx, oidcClient.Name)
+		r.Storage.DeleteClient(ctx, r.getClientId(oidcClient.Name, oidcClient.Namespace))
 	}
 	return ctrl.Result{}, nil
 }

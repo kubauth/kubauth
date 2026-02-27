@@ -100,6 +100,7 @@ var flags struct {
 	enforcePKCE           bool
 	allowPKCEPlain        bool
 	jwtAccessToken        bool
+	multiTenant           bool
 
 	// SSO Config
 	ssoNamespace  string
@@ -159,6 +160,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&flags.enforcePKCE, "enforcePKCE", false, "Enforce PKCE for authorization code flows (recommended for security)")
 	Cmd.PersistentFlags().BoolVar(&flags.allowPKCEPlain, "allowPKCEPlain", false, "Allow PKCE 'plain' challenge method (not recommended, use S256 instead)")
 	Cmd.PersistentFlags().BoolVar(&flags.jwtAccessToken, "jwtAccessToken", false, "Access token is a JWT. Otherwise is an opaque value")
+	Cmd.PersistentFlags().BoolVar(&flags.multiTenant, "multiTenant", false, "Activate multi tenancy for OIDC client")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -200,8 +202,12 @@ var Cmd = &cobra.Command{
 			fmt.Printf("Flags:\n%s", sb.String())
 		}
 
-		if flags.oidcClientNamespace == "" {
-			setupLog.Error(nil, "oidcClientNamespace must be specified and non null")
+		if !flags.multiTenant && flags.oidcClientNamespace == "" {
+			setupLog.Error(nil, "oidcClientNamespace must be specified and non null if not in multiTenant mode")
+			os.Exit(1)
+		}
+		if flags.multiTenant && flags.oidcClientNamespace != "" {
+			setupLog.Error(nil, "oidcClientNamespace must NOT be specified if in multiTenant mode")
 			os.Exit(1)
 		}
 		if flags.ssoNamespace == "" {
@@ -304,7 +310,7 @@ var Cmd = &cobra.Command{
 
 		ctx := logr.NewContextWithSlogLogger(context.Background(), logger)
 
-		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		managerOptions := ctrl.Options{
 			Scheme:                 scheme,
 			Metrics:                metricsServerOptions,
 			WebhookServer:          webhookServer,
@@ -312,12 +318,16 @@ var Cmd = &cobra.Command{
 			LeaderElection:         flags.enableLeaderElection,
 			LeaderElectionID:       "33b8e6ab.kubotal.io",
 			BaseContext:            func() context.Context { return ctx },
-			Cache: cache.Options{
+		}
+		if !flags.multiTenant {
+			managerOptions.Cache = cache.Options{
 				DefaultNamespaces: map[string]cache.Config{
 					flags.oidcClientNamespace: {},
 				},
-			},
-		})
+			}
+		}
+
+		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
 		if err != nil {
 			setupLog.Error(err, "unable to start manager")
 			os.Exit(1)
@@ -335,10 +345,11 @@ var Cmd = &cobra.Command{
 
 		// Setup OidcClient Reconciler
 		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
-			Client:  mgr.GetClient(),
-			Scheme:  mgr.GetScheme(),
-			Storage: storage,
-			Logger:  logger.With("logger", "oidcClientReconciler"),
+			Client:      mgr.GetClient(),
+			Scheme:      mgr.GetScheme(),
+			Storage:     storage,
+			MultiTenant: flags.multiTenant,
+			Logger:      logger.With("logger", "oidcClientReconciler"),
 		}
 
 		// ---------------------------------------------------------------------------------------------------- Release controller setup

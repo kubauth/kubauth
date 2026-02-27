@@ -112,7 +112,11 @@ const OidcClientPhaseError = OidcClientPhase("ERROR")
 
 // OidcClientStatus defines the observed state of OidcClient.
 type OidcClientStatus struct {
+	// +required
 	Phase OidcClientPhase `json:"phase"`
+
+	// +required
+	ClientId string `json:"clientId"`
 
 	// +optional
 	Message string `json:"message"`
@@ -121,6 +125,7 @@ type OidcClientStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced
+// +kubebuilder:printcolumn:name="client_id",type=string,JSONPath=`.status.clientId`
 // +kubebuilder:printcolumn:name="Pub.",type=boolean,JSONPath=`.spec.public`
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 // +kubebuilder:printcolumn:name="Display",type=string,JSONPath=`.spec.displayName`

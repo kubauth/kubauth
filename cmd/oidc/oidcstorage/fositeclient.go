@@ -40,9 +40,9 @@ type fositeClient struct {
 	hashedSecrets [][]byte
 }
 
-func NewFositeClient(cli *v1alpha1.OidcClient, hashedSecrets [][]byte) FositeClient {
+func NewFositeClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets [][]byte) FositeClient {
 	return &fositeClient{
-		clientId:      cli.GetName(),
+		clientId:      clientId,
 		spec:          &cli.Spec,
 		hashedSecrets: hashedSecrets,
 	}
