@@ -82,8 +82,6 @@ spec:
                 items:
                   type: string
                 type: array
-              hashedSecret:
-                type: string
               idTokenLifespan:
                 type: string
               postLogoutURL:
@@ -116,17 +114,26 @@ spec:
                 items:
                   type: string
                 type: array
-              secret:
-                description: A k8s secret hosting the client_secret
-                properties:
-                  key:
-                    type: string
-                  name:
-                    type: string
-                required:
-                - key
-                - name
-                type: object
+              secrets:
+                description: |-
+                  A list of k8s secret hosting the client_secret.
+                  Required for non public oidcClient
+                items:
+                  properties:
+                    hashed:
+                      default: false
+                      description: true, if the value is hashed (More secured)
+                      type: boolean
+                    key:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                  - hashed
+                  - key
+                  - name
+                  type: object
+                type: array
             required:
             - grantTypes
             - public

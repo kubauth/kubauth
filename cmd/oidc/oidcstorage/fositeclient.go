@@ -24,26 +24,27 @@ import (
 )
 
 type FositeClient interface {
-	fosite.Client
+	fosite.ClientWithSecretRotation
 	GetName() string
 	GetDescription() string
 	GetEntryURL() string
 	GetPostLogoutURL() string
 	GetDisplayName() string
 	IsForceOpenIdScope() bool
+	GetSecretCount() int
 }
 
 type fositeClient struct {
-	clientId              string // From metadata.name
-	spec                  *v1alpha1.OidcClientSpec
-	effectiveHashedSecret string // Spec.HashedSecret of value hosted in Spec.Secret
+	clientId      string // From metadata.name
+	spec          *v1alpha1.OidcClientSpec
+	hashedSecrets [][]byte
 }
 
-func NewFositeClient(cli *v1alpha1.OidcClient, effectiveHashedSecret string) FositeClient {
+func NewFositeClient(cli *v1alpha1.OidcClient, hashedSecrets [][]byte) FositeClient {
 	return &fositeClient{
-		clientId:              cli.GetName(),
-		spec:                  &cli.Spec,
-		effectiveHashedSecret: effectiveHashedSecret,
+		clientId:      cli.GetName(),
+		spec:          &cli.Spec,
+		hashedSecrets: hashedSecrets,
 	}
 }
 
@@ -56,8 +57,24 @@ func (k *fositeClient) GetID() string {
 }
 
 func (k *fositeClient) GetHashedSecret() []byte {
-	//return []byte(k.spec.HashedSecret)
-	return []byte(k.effectiveHashedSecret)
+	if k.hashedSecrets == nil || len(k.hashedSecrets) == 0 {
+		return nil
+	}
+	return []byte(k.hashedSecrets[0])
+}
+
+func (k *fositeClient) GetRotatedHashes() [][]byte {
+	if k.hashedSecrets == nil || len(k.hashedSecrets) < 1 {
+		return nil
+	}
+	return k.hashedSecrets[1:]
+}
+
+func (k *fositeClient) GetSecretCount() int {
+	if k.hashedSecrets == nil {
+		return 0
+	}
+	return len(k.hashedSecrets)
 }
 
 func (k *fositeClient) GetRedirectURIs() []string {

@@ -74,48 +74,44 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if oidcClient.Spec.Public {
-		if oidcClient.Spec.HashedSecret != "" {
-			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "'HashedSecret' set while public is enabled")
-		}
-		if oidcClient.Spec.Secret != nil {
-			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "'secret' set while public is enabled")
+		if oidcClient.Spec.Secrets != nil {
+			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "'secrets' set while public is enabled")
 		}
 		// OK. Just register it
-		r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, ""))
+		r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, nil))
 		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseReady, "")
 	}
 
-	if oidcClient.Spec.HashedSecret != "" {
-		if oidcClient.Spec.Secret != nil {
-			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "Both 'hashedSecret' and 'secret' are enabled")
+	if oidcClient.Spec.Secrets == nil || len(oidcClient.Spec.Secrets) == 0 {
+		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "When not public, one of 'secrets' must be defined with at least one item")
+	}
+	hashedSecrets := make([][]byte, len(oidcClient.Spec.Secrets))
+	for idx, secretRef := range oidcClient.Spec.Secrets {
+		var secret corev1.Secret
+		err = r.Get(ctx, types.NamespacedName{
+			Name:      secretRef.Name,
+			Namespace: req.Namespace,
+		}, &secret)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("Unable to fetch secret '%s:%s'", secretRef.Name, req.Namespace))
+			}
+			return ctrl.Result{}, err
 		}
-		r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, oidcClient.Spec.HashedSecret))
-		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseReady, "")
-	}
-	if oidcClient.Spec.Secret == nil {
-		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "When not public, one of 'secret' or 'hashedSecret' is required")
-	}
-	var secret corev1.Secret
-	err = r.Get(ctx, types.NamespacedName{
-		Name:      oidcClient.Spec.Secret.Name,
-		Namespace: req.Namespace,
-	}, &secret)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("Unable to fetch secret '%s:%s'", oidcClient.Spec.Secret.Name, req.Namespace))
+		valueBytes, exists := secret.Data[secretRef.Key]
+		if !exists {
+			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("No '%s' key in secret '%s:%s'", secretRef.Key, secretRef.Name, req.Namespace))
 		}
-		return ctrl.Result{}, err
+		if secretRef.Hashed {
+			hashedSecrets[idx] = valueBytes
+		} else {
+			hashedSecrets[idx], err = bcrypt.GenerateFromPassword(valueBytes, DefaultBCryptWorkFactor)
+			if err != nil {
+				return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("Unable to hash value from secret '%s:%s[%s]'", secretRef.Name, req.Namespace, secretRef.Key))
+			}
+		}
 	}
-	valueBytes, exists := secret.Data[oidcClient.Spec.Secret.Key]
-	if !exists {
-		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("No '%s' key in secret '%s:%s'", oidcClient.Spec.Secret.Key, oidcClient.Spec.Secret.Name, req.Namespace))
-	}
-	hash, err := bcrypt.GenerateFromPassword(valueBytes, DefaultBCryptWorkFactor)
-	if err != nil {
-		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("Unable to hash value from secret '%s:%s[%s]'", oidcClient.Spec.Secret.Name, req.Namespace, oidcClient.Spec.Secret.Key))
-	}
-	r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, string(hash)))
+	r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, hashedSecrets))
 	return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseReady, "")
 }
 

@@ -157,7 +157,7 @@ func (s *MemoryStore) SetClient(ctx context.Context, client FositeClient) {
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()
 	s.Clients[client.GetID()] = client
-	logger.Debug("SettingClient", "clientId", client.GetID(), "clientCount", len(s.Clients))
+	logger.Debug("SettingClient", "clientId", client.GetID(), "clientCount", len(s.Clients), "secretCount", client.GetSecretCount())
 }
 
 func (s *MemoryStore) DeleteClient(ctx context.Context, clientId string) {

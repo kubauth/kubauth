@@ -33,6 +33,10 @@ type OidcClientSecretSpec struct {
 
 	// +required
 	Key string `json:"key"`
+
+	// true, if the value is hashed (More secured)
+	// +default:value=false
+	Hashed bool `json:"hashed"`
 }
 
 // OidcClientSpec defines the desired state of OidcClient
@@ -41,14 +45,10 @@ type OidcClientSpec struct {
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-	// ----------------- One and only one of HashedSecret or Secret must be defined if client is private
-	// The hashed secret.
+	// A list of k8s secret hosting the client_secret.
+	// Required for non public oidcClient
 	// +optional
-	HashedSecret string `json:"hashedSecret,omitempty"`
-	// A k8s secret hosting the client_secret
-	// +optional
-	Secret *OidcClientSecretSpec `json:"secret"`
-	// -----------------
+	Secrets []OidcClientSecretSpec `json:"secrets"`
 
 	// The client's allowed redirect URIs.
 	// +required
