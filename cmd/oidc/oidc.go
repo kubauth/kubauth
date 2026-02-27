@@ -43,7 +43,14 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	scsV2 "github.com/alexedwards/scs/v2"
 	"github.com/spf13/pflag"
@@ -334,10 +341,56 @@ var Cmd = &cobra.Command{
 			Logger:  logger.With("logger", "oidcClientReconciler"),
 		}
 
+		// ---------------------------------------------------------------------------------------------------- Release controller setup
+		// Create an index to retrieve an oidcClient from a secret in an efficient way
+		// index oidcClient by secret
+		const secretIndexOnOidcClient = "secretIndexOnOidcClient"
+		err = mgr.GetFieldIndexer().IndexField(context.Background(), &kubauthv1alpha1.OidcClient{}, secretIndexOnOidcClient, func(rawObj client.Object) []string {
+			oidcClient := rawObj.(*kubauthv1alpha1.OidcClient)
+			secrets := make([]string, 0, len(oidcClient.Spec.Secrets))
+			for _, secret := range oidcClient.Spec.Secrets {
+				secrets = append(secrets, fmt.Sprintf("%s:%s", oidcClient.Namespace, secret.Name))
+			}
+			return secrets
+		})
+		if err != nil {
+			setupLog.Error(err, "unable to index oidcClient by secret")
+			os.Exit(1)
+		}
+
+		findOidcClientFromSecret := func(ctx context.Context, secret client.Object) []reconcile.Request {
+			oidcClients := kubauthv1alpha1.OidcClientList{}
+			listOpts := &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(secretIndexOnOidcClient, fmt.Sprintf("%s:%s", secret.GetNamespace(), secret.GetName())),
+			}
+			err := mgr.GetClient().List(context.Background(), &oidcClients, listOpts)
+			if err != nil {
+				if !apierrors.IsNotFound(err) {
+					logger.Error("findOidcClientFromSecret(): Unable to find secret bindings", "error", err)
+				}
+				return []reconcile.Request{}
+			}
+			requests := make([]reconcile.Request, 0, 10)
+			for _, item := range oidcClients.Items {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				})
+			}
+			return requests
+		}
+
 		err = ctrl.NewControllerManagedBy(mgr).
 			For(&kubauthv1alpha1.OidcClient{}).
 			Named("kubauth-oidcClient").
+			Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(findOidcClientFromSecret)).
 			Complete(oidcClientReconciler)
+		if err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "oidcClient")
+			os.Exit(1)
+		}
 
 		if flags.enableWebhook {
 			if err := oidcWebhooks.SetupOidcClientWebhookWithManager(mgr); err != nil {
