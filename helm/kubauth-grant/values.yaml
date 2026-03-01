@@ -13,9 +13,8 @@
 #    limitations under the License.
 
 namespaces:
-  kubauth:
     users: kubauth-users
-    oidcClients: kubauth-oidc
+    oidcClientsDefault: kubauth
 
 users: []
 #  - login: john
@@ -61,12 +60,21 @@ oidcClients: []
 #  - name: example
 #    spec:
 #      id: example-app
-#      hashedSecret: "$2a$12$pxfZs1UOw3y.4IJAOVqG8OIr4n6304Y2QRBefiQpB3AnDGthYF4ba" # // hash of ZXhhbXBsZS1hcHAtc2VjcmV0
+#      namespace: tenant1 # Used for multiTenant
 #      redirectURIs:
 #        - "http://example.local/callback"
 #      grantTypes: [ "implicit", "refresh_token", "authorization_code", "password", "client_credentials" ]
 #      responseTypes: ["id_token", "code", "token", "id_token token", "code id_token", "code token", "code id_token token"]
 #      scopes: [ "openid", "offline", "profile", "groups", "email"]
+#      secrets:
+#        - name: oidcSecret1
+#          key: secret
+#          hashed: false
+#          value: inout5feg   # If "", then  it is assumed the secret exists.
+#        - name: oidcSecret2
+#          key: secret
+#          hashed: true
+#          value: 1973VRShk370ps2b0FJsjeD5rJG3JOWYZMKIX.gGidagWcAX4EiLO   # Result of `kc hash inout5feg`
 
 
 

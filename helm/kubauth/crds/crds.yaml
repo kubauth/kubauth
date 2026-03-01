@@ -322,6 +322,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.clientId
+      name: client_id
+      type: string
     - jsonPath: .spec.public
       name: Pub.
       type: boolean
@@ -333,6 +336,9 @@ spec:
       type: string
     - jsonPath: .spec.entryURL
       name: Link
+      type: string
+    - jsonPath: .status.phase
+      name: Status
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -386,9 +392,6 @@ spec:
                 items:
                   type: string
                 type: array
-              hashedSecret:
-                description: The hashed secret. (Required if !public)
-                type: string
               idTokenLifespan:
                 type: string
               postLogoutURL:
@@ -421,6 +424,26 @@ spec:
                 items:
                   type: string
                 type: array
+              secrets:
+                description: |-
+                  A list of k8s secret hosting the client_secret.
+                  Required for non public oidcClient
+                items:
+                  properties:
+                    hashed:
+                      default: false
+                      description: true, if the value is hashed (More secured)
+                      type: boolean
+                    key:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                  - hashed
+                  - key
+                  - name
+                  type: object
+                type: array
             required:
             - grantTypes
             - public
@@ -430,6 +453,16 @@ spec:
             type: object
           status:
             description: status defines the observed state of OidcClient
+            properties:
+              clientId:
+                type: string
+              message:
+                type: string
+              phase:
+                type: string
+            required:
+            - clientId
+            - phase
             type: object
         required:
         - spec
@@ -516,7 +549,7 @@ spec:
               webToken:
                 description: |-
                   The original token (cookie value) of the web session.
-                  Stored as the SsoSession name is a sanitized non-reversible version of this
+                  Used as the SsoSession name in a sanitized non-reversible version of this
                 type: string
             required:
             - deadline

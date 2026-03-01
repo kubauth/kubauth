@@ -7,3 +7,5 @@
 - feat: Support of the Client credential flow
 - feat: HashedSecret has been removed. A list of secrets can be provided instead, thus allowing secrets rotation
 - feat: kc hash subcommand has been modified
+- feat: A multiTenant mode has been implemented
+- fix: 'aud' claim was not set in JWT Access Token: Fixed

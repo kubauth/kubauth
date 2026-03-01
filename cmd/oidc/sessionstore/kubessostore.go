@@ -124,7 +124,11 @@ func (s *KubeSsoStore) CommitCtx(ctx context.Context, token string, b []byte, ex
 			raw, _ := json.Marshal(claims)
 			ss.Spec.Claims = &apiextensionsv1.JSON{Raw: raw}
 		}
-		return s.client.Create(ctx, &ss)
+		err = s.client.Create(ctx, &ss)
+		if err != nil {
+			logger.Error("Failed to store SSO session", "error", err)
+		}
+		return err
 	}
 
 	// Update existing
@@ -143,7 +147,9 @@ func (s *KubeSsoStore) CommitCtx(ctx context.Context, token string, b []byte, ex
 	} else {
 		existing.Spec.Claims = nil
 	}
-	return s.client.Update(ctx, &existing)
+	err = s.client.Update(ctx, &existing)
+	logger.Error("Failed to update SSO session", "error", err)
+	return err
 }
 
 // Delete removes the SsoSession resource.

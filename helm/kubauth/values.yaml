@@ -153,9 +153,10 @@ oidc:
 
   # Where to store OidcClient resources.
   clients:
-    createNamespace: true
-    namespace: kubauth-oidc
-    # Default to {{ include "kubauth.baseName" .}}-oidc-client
+    # For oidcClients stored in this namespace, the client_id will NOT be prefixed by the namespace
+    # Default to .Release.namespace
+    privilegedClientNamespace:
+    # Default to {{ include "kubauth.baseName" .}}-oidc-client. If multiTenant, will be a clusterRole
     roleName:
 
   server:
@@ -180,11 +181,10 @@ oidc:
     host: # TBD
 
   sso:
-    createNamespace: true
-    namespace: kubauth-sso
     sticky: true
     lifeTime: "8h"
     cleanupPeriod: "5m"
+    sessionNamespace: # Default to .Release.namespace (kubauth)
     # Default to {{ include "kubauth.baseName" .}}-oidc-sso
     roleName:
 

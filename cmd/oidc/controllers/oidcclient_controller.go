@@ -39,16 +39,16 @@ const DefaultBCryptWorkFactor = 12
 // OidcClientReconciler reconciles a OidcClient object
 type OidcClientReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	Namespace        string // Where OidcClient are stored
-	Storage          *oidcstorage2.MemoryStore
-	statusErrorCount int
-	Logger           *slog.Logger
-	MultiTenant      bool
+	Scheme                    *runtime.Scheme
+	Namespace                 string // Where OidcClient are stored
+	Storage                   *oidcstorage2.MemoryStore
+	statusErrorCount          int
+	Logger                    *slog.Logger
+	PrivilegedClientNamespace string
 }
 
-func (r *OidcClientReconciler) getClientId(name string, namespace string) string {
-	if r.MultiTenant {
+func (r *OidcClientReconciler) buildClientId(name string, namespace string) string {
+	if namespace != r.PrivilegedClientNamespace {
 		return fmt.Sprintf("%s-%s", namespace, name)
 	}
 	return name
@@ -69,7 +69,7 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	ctx = logr.NewContextWithSlogLogger(ctx, logger)
 
-	clientId := r.getClientId(req.Name, req.Namespace)
+	clientId := r.buildClientId(req.Name, req.Namespace)
 
 	oidcClient := &kubauthv1alpha1.OidcClient{}
 	err := r.Get(ctx, req.NamespacedName, oidcClient)
@@ -93,11 +93,11 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseReady, "")
 	}
 
-	if oidcClient.Spec.Secrets == nil || len(oidcClient.Spec.Secrets) == 0 {
+	if oidcClient.Spec.Secrets == nil || len(*oidcClient.Spec.Secrets) == 0 {
 		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "When not public, one of 'secrets' must be defined with at least one item")
 	}
-	hashedSecrets := make([][]byte, len(oidcClient.Spec.Secrets))
-	for idx, secretRef := range oidcClient.Spec.Secrets {
+	hashedSecrets := make([][]byte, len(*oidcClient.Spec.Secrets))
+	for idx, secretRef := range *oidcClient.Spec.Secrets {
 		var secret corev1.Secret
 		err = r.Get(ctx, types.NamespacedName{
 			Name:      secretRef.Name,
@@ -154,7 +154,7 @@ func (r *OidcClientReconciler) updateStatus(ctx context.Context, oidcClient *kub
 	}
 	if oidcClient.Status.Phase == kubauthv1alpha1.OidcClientPhaseError {
 		// Remove from referential if in error
-		r.Storage.DeleteClient(ctx, r.getClientId(oidcClient.Name, oidcClient.Namespace))
+		r.Storage.DeleteClient(ctx, r.buildClientId(oidcClient.Name, oidcClient.Namespace))
 	}
 	return ctrl.Result{}, nil
 }

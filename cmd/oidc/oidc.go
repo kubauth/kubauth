@@ -47,7 +47,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -89,18 +88,17 @@ var flags struct {
 	metricsCertKey  string
 
 	// OIDC config
-	oidcClientNamespace   string
-	oidcHttpConfig        httpsrv.Config
-	issuer                string
-	resources             string
-	postLogoutURL         string
-	jwtKeySecretName      string
-	jwtKeySecretNamespace string
-	allowPasswordGrant    bool
-	enforcePKCE           bool
-	allowPKCEPlain        bool
-	jwtAccessToken        bool
-	multiTenant           bool
+	oidcHttpConfig            httpsrv.Config
+	issuer                    string
+	resources                 string
+	postLogoutURL             string
+	jwtKeySecretName          string
+	jwtKeySecretNamespace     string
+	allowPasswordGrant        bool
+	enforcePKCE               bool
+	allowPKCEPlain            bool
+	jwtAccessToken            bool
+	privilegedClientNamespace string
 
 	// SSO Config
 	ssoNamespace  string
@@ -142,7 +140,6 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.metricsCertKey, "metricsCertKey", "tls.key", "The name of the metrics server key file.")
 
 	// OIDC config
-	Cmd.PersistentFlags().StringVar(&flags.oidcClientNamespace, "oidcClientNamespace", "", "The namespace hosting OidcClient resources.")
 	Cmd.PersistentFlags().BoolVarP(&flags.oidcHttpConfig.Tls, "tls", "t", false, "enable TLS")
 	Cmd.PersistentFlags().IntVar(&flags.oidcHttpConfig.DumpExchanges, "dumpExchanges", 0, "Dump http server req/resp (0, 1, 2 or 3")
 	Cmd.PersistentFlags().StringVarP(&flags.oidcHttpConfig.BindAddr, "bindAddr", "a", "0.0.0.0", "Bind Address")
@@ -160,7 +157,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&flags.enforcePKCE, "enforcePKCE", false, "Enforce PKCE for authorization code flows (recommended for security)")
 	Cmd.PersistentFlags().BoolVar(&flags.allowPKCEPlain, "allowPKCEPlain", false, "Allow PKCE 'plain' challenge method (not recommended, use S256 instead)")
 	Cmd.PersistentFlags().BoolVar(&flags.jwtAccessToken, "jwtAccessToken", false, "Access token is a JWT. Otherwise is an opaque value")
-	Cmd.PersistentFlags().BoolVar(&flags.multiTenant, "multiTenant", false, "Activate multi tenancy for OIDC client")
+	Cmd.PersistentFlags().StringVar(&flags.privilegedClientNamespace, "privilegedClientNamespace", "", "The only OIDC client namespace, where client_id is not préfixed by namespace.")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -202,14 +199,6 @@ var Cmd = &cobra.Command{
 			fmt.Printf("Flags:\n%s", sb.String())
 		}
 
-		if !flags.multiTenant && flags.oidcClientNamespace == "" {
-			setupLog.Error(nil, "oidcClientNamespace must be specified and non null if not in multiTenant mode")
-			os.Exit(1)
-		}
-		if flags.multiTenant && flags.oidcClientNamespace != "" {
-			setupLog.Error(nil, "oidcClientNamespace must NOT be specified if in multiTenant mode")
-			os.Exit(1)
-		}
 		if flags.ssoNamespace == "" {
 			setupLog.Error(nil, "ssoNamespace must be specified and non null")
 			os.Exit(1)
@@ -319,13 +308,13 @@ var Cmd = &cobra.Command{
 			LeaderElectionID:       "33b8e6ab.kubotal.io",
 			BaseContext:            func() context.Context { return ctx },
 		}
-		if !flags.multiTenant {
-			managerOptions.Cache = cache.Options{
-				DefaultNamespaces: map[string]cache.Config{
-					flags.oidcClientNamespace: {},
-				},
-			}
-		}
+		//if !flags.multiTenant {
+		//	managerOptions.Cache = cache.Options{
+		//		DefaultNamespaces: map[string]cache.Config{
+		//			flags.oidcClientNamespace: {},
+		//		},
+		//	}
+		//}
 
 		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
 		if err != nil {
@@ -345,11 +334,11 @@ var Cmd = &cobra.Command{
 
 		// Setup OidcClient Reconciler
 		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
-			Client:      mgr.GetClient(),
-			Scheme:      mgr.GetScheme(),
-			Storage:     storage,
-			MultiTenant: flags.multiTenant,
-			Logger:      logger.With("logger", "oidcClientReconciler"),
+			Client:                    mgr.GetClient(),
+			Scheme:                    mgr.GetScheme(),
+			Storage:                   storage,
+			PrivilegedClientNamespace: flags.privilegedClientNamespace,
+			Logger:                    logger.With("logger", "oidcClientReconciler"),
 		}
 
 		// ---------------------------------------------------------------------------------------------------- Release controller setup
@@ -358,8 +347,11 @@ var Cmd = &cobra.Command{
 		const secretIndexOnOidcClient = "secretIndexOnOidcClient"
 		err = mgr.GetFieldIndexer().IndexField(context.Background(), &kubauthv1alpha1.OidcClient{}, secretIndexOnOidcClient, func(rawObj client.Object) []string {
 			oidcClient := rawObj.(*kubauthv1alpha1.OidcClient)
-			secrets := make([]string, 0, len(oidcClient.Spec.Secrets))
-			for _, secret := range oidcClient.Spec.Secrets {
+			if oidcClient.Spec.Secrets == nil {
+				return nil
+			}
+			secrets := make([]string, 0, len(*oidcClient.Spec.Secrets))
+			for _, secret := range *oidcClient.Spec.Secrets {
 				secrets = append(secrets, fmt.Sprintf("%s:%s", oidcClient.Namespace, secret.Name))
 			}
 			return secrets

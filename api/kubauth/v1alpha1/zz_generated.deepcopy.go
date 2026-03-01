@@ -479,8 +479,12 @@ func (in *OidcClientSpec) DeepCopyInto(out *OidcClientSpec) {
 	*out = *in
 	if in.Secrets != nil {
 		in, out := &in.Secrets, &out.Secrets
-		*out = make([]OidcClientSecretSpec, len(*in))
-		copy(*out, *in)
+		*out = new([]OidcClientSecretSpec)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]OidcClientSecretSpec, len(*in))
+			copy(*out, *in)
+		}
 	}
 	if in.RedirectURIs != nil {
 		in, out := &in.RedirectURIs, &out.RedirectURIs

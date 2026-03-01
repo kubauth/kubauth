@@ -1,11 +1,11 @@
 {{- if .Values.oidc.enabled }}
 
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   name: {{ include "kubauth.oidc.clientRoleName" . }}
-  namespace: {{ .Values.oidc.clients.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}
@@ -21,14 +21,29 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - kubauth.kubotal.io
+    resources:
+      - oidcclients/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
 
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.oidc.clientRoleName" . }}
-  namespace: {{ .Values.oidc.clients.namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}
@@ -37,7 +52,7 @@ metadata:
   {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: ClusterRole
   name: {{ include "kubauth.oidc.clientRoleName" . }}
 subjects:
   - kind: ServiceAccount
@@ -45,13 +60,12 @@ subjects:
     namespace: {{ .Release.Namespace }}
 
 
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ include "kubauth.oidc.ssoRoleName" . }}
-  namespace: {{ .Values.oidc.sso.namespace }}
+  namespace: {{ .Values.oidc.sso.sessionNamespace | default .Release.Namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}
@@ -77,7 +91,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.oidc.ssoRoleName" . }}
-  namespace: {{ .Values.oidc.sso.namespace }}
+  namespace: {{ .Values.oidc.sso.sessionNamespace | default .Release.Namespace }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}

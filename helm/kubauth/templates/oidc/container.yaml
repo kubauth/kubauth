@@ -31,7 +31,6 @@ Expand oidc container
     {{- else }}
     - --metricsBindAddress=0
     {{- end }}
-    - --oidcClientNamespace={{ .Values.oidc.clients.namespace }}
     - --tls={{ .Values.oidc.server.tls }}
     - --dumpExchanges={{ .Values.oidc.dumpExchanges }}
     - --bindAddr={{ .Values.oidc.server.bindAddr }}
@@ -42,7 +41,7 @@ Expand oidc container
     - --jwtKeySecretNamespace={{ .Release.Namespace }}
     - --resources={{ .Values.oidc.server.resourcesFolder }}
     - --postLogoutURL={{ required "'oidc.postLogoutURL' must be defined" .Values.oidc.postLogoutURL }}
-    - --ssoNamespace={{ .Values.oidc.sso.namespace }}
+    - --ssoNamespace={{ .Values.oidc.sso.sessionNamespace | default .Release.Namespace }}
     - --stickySso={{ .Values.oidc.sso.sticky }}
     - --ssoLifetime={{ .Values.oidc.sso.lifeTime }}
     - --cleanupPeriod={{ .Values.oidc.sso.cleanupPeriod }}
@@ -52,6 +51,7 @@ Expand oidc container
     - --allowPasswordGrant={{ .Values.oidc.allowPasswordGrant }}
     - --enforcePKCE={{ .Values.oidc.enforcePKCE }}
     - --jwtAccessToken={{ .Values.oidc.jwtAccessToken }}
+    - --privilegedClientNamespace={{ .Values.oidc.clients.privilegedClientNamespace | default .Release.Namespace }}
     {{-  range .Values.oidc.additionalArgs }}
     - {{ . }}
     {{- end }}

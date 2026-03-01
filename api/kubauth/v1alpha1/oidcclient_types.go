@@ -48,7 +48,7 @@ type OidcClientSpec struct {
 	// A list of k8s secret hosting the client_secret.
 	// Required for non public oidcClient
 	// +optional
-	Secrets []OidcClientSecretSpec `json:"secrets"`
+	Secrets *[]OidcClientSecretSpec `json:"secrets,omitempty"`
 
 	// The client's allowed redirect URIs.
 	// +required
