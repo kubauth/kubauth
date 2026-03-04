@@ -51,7 +51,7 @@ Expand oidc container
     - --allowPasswordGrant={{ .Values.oidc.allowPasswordGrant }}
     - --enforcePKCE={{ .Values.oidc.enforcePKCE }}
     - --jwtAccessToken={{ .Values.oidc.jwtAccessToken }}
-    - --privilegedClientNamespace={{ .Values.oidc.clients.privilegedClientNamespace | default .Release.Namespace }}
+    - --clientPrivilegedNamespace={{ .Values.oidc.clientPrivilegedNamespace | default .Release.Namespace }}
     {{-  range .Values.oidc.additionalArgs }}
     - {{ . }}
     {{- end }}

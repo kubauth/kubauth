@@ -44,11 +44,11 @@ type OidcClientReconciler struct {
 	Storage                   *oidcstorage2.MemoryStore
 	statusErrorCount          int
 	Logger                    *slog.Logger
-	PrivilegedClientNamespace string
+	ClientPrivilegedNamespace string
 }
 
 func (r *OidcClientReconciler) buildClientId(name string, namespace string) string {
-	if namespace != r.PrivilegedClientNamespace {
+	if namespace != r.ClientPrivilegedNamespace {
 		return fmt.Sprintf("%s-%s", namespace, name)
 	}
 	return name

@@ -98,7 +98,7 @@ var flags struct {
 	enforcePKCE               bool
 	allowPKCEPlain            bool
 	jwtAccessToken            bool
-	privilegedClientNamespace string
+	clientPrivilegedNamespace string
 
 	// SSO Config
 	ssoNamespace  string
@@ -157,7 +157,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&flags.enforcePKCE, "enforcePKCE", false, "Enforce PKCE for authorization code flows (recommended for security)")
 	Cmd.PersistentFlags().BoolVar(&flags.allowPKCEPlain, "allowPKCEPlain", false, "Allow PKCE 'plain' challenge method (not recommended, use S256 instead)")
 	Cmd.PersistentFlags().BoolVar(&flags.jwtAccessToken, "jwtAccessToken", false, "Access token is a JWT. Otherwise is an opaque value")
-	Cmd.PersistentFlags().StringVar(&flags.privilegedClientNamespace, "privilegedClientNamespace", "", "The only OIDC client namespace, where client_id is not préfixed by namespace.")
+	Cmd.PersistentFlags().StringVar(&flags.clientPrivilegedNamespace, "clientPrivilegedNamespace", "", "The only OIDC client namespace, where client_id is not préfixed by namespace.")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -337,7 +337,7 @@ var Cmd = &cobra.Command{
 			Client:                    mgr.GetClient(),
 			Scheme:                    mgr.GetScheme(),
 			Storage:                   storage,
-			PrivilegedClientNamespace: flags.privilegedClientNamespace,
+			ClientPrivilegedNamespace: flags.clientPrivilegedNamespace,
 			Logger:                    logger.With("logger", "oidcClientReconciler"),
 		}
 

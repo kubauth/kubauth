@@ -1,0 +1,21 @@
+
+{{- range .Values.groupBindings }}
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: GroupBinding
+metadata:
+  name: {{ (printf "%s-%s" .group .user) | replace ":" "-" }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" $ | nindent 4 }}
+  {{- with $.Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  user: {{ .user }}
+  group: {{ .group }}
+
+{{- end }}
+
+

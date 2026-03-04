@@ -137,6 +137,16 @@ oidc:
   enforcePKCE: false  # If set, all authorization code grand must use PKCE
   jwtAccessToken: false # If set, access token will be jwt. Otherwise opaque
 
+  # For oidcClients stored in this namespace, the client_id will NOT be prefixed by the namespace
+  # Default to .Release.namespace
+  clientPrivilegedNamespace:
+  # To override the name of the role used by the controller to access oidcClients.
+  # Default to {{ include "kubauth.baseName" .}}-oidc-client-controller.
+  clientControllerClusterRoleName:
+  # To override the name of the clusterRole to be bound to roles intended to manage oidcClients
+  # Default to {{ include "kubauth.baseName" .}}-oidc-client-admin.
+  clientAdminClusterRoleName:
+
   idProvider:
     baseURL: http://localhost:6805
     rootCAPath: # TBD if https.
@@ -151,13 +161,6 @@ oidc:
   # Display all command line flags on boot
   displayFlags: true
 
-  # Where to store OidcClient resources.
-  clients:
-    # For oidcClients stored in this namespace, the client_id will NOT be prefixed by the namespace
-    # Default to .Release.namespace
-    privilegedClientNamespace:
-    # Default to {{ include "kubauth.baseName" .}}-oidc-client. If multiTenant, will be a clusterRole
-    roleName:
 
   server:
     tls: true

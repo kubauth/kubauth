@@ -12,10 +12,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-namespaces:
-    users: kubauth-users
-    oidcClientsDefault: kubauth
-
 users: []
 #  - login: john
 #    spec:
@@ -55,29 +51,6 @@ clusterRoleBindings: []
 #    clusterRole:
 #    users: []
 #    groups: []
-
-oidcClients: []
-#  - name: example
-#    spec:
-#      id: example-app
-#      namespace: tenant1 # Used for multiTenant
-#      redirectURIs:
-#        - "http://example.local/callback"
-#      grantTypes: [ "implicit", "refresh_token", "authorization_code", "password", "client_credentials" ]
-#      responseTypes: ["id_token", "code", "token", "id_token token", "code id_token", "code token", "code id_token token"]
-#      scopes: [ "openid", "offline", "profile", "groups", "email"]
-#      secrets:
-#        - name: oidcSecret1
-#          key: secret
-#          hashed: false
-#          value: inout5feg   # If "", then  it is assumed the secret exists.
-#        - name: oidcSecret2
-#          key: secret
-#          hashed: true
-#          value: 1973VRShk370ps2b0FJsjeD5rJG3JOWYZMKIX.gGidagWcAX4EiLO   # Result of `kc hash inout5feg`
-
-
-
 
 
 # -- Annotations to be added to all other resources

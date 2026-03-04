@@ -139,21 +139,28 @@ Create the name of the webhook network policy
 {{/* --------------------------------------------------------------------- RBAC */}}
 
 {{/*
-Create the name of the OidcClient access role
+Create the name of the clusterRole used by the controller to access oidcClients
 */}}
-{{- define "kubauth.oidc.clientRoleName" -}}
-{{- default (printf "%s-oidc-client" (include "kubauth.baseName" .)) .Values.oidc.clients.roleName }}
+{{- define "kubauth.oidc.clientControllerClusterRoleName" -}}
+{{- default (printf "%s-oidc-client-controler" (include "kubauth.baseName" .)) .Values.oidc.clientControllerClusterRoleName }}
 {{- end }}
 
 {{/*
-Create the name of the SsoSession access role
+Create the name of the clusterRole to be bound to roles intended to manage oidcClients
+*/}}
+{{- define "kubauth.oidc.clientAdminClusterRoleName" -}}
+{{- default (printf "%s-oidc-client-admin" (include "kubauth.baseName" .)) .Values.oidc.clientAdminClusterRoleName }}
+{{- end }}
+
+{{/*
+Create the name of the SsoSession access role used by the controller
 */}}
 {{- define "kubauth.oidc.ssoRoleName" -}}
 {{- default (printf "%s-oidc-sso" (include "kubauth.baseName" .)) .Values.oidc.sso.roleName }}
 {{- end }}
 
 {{/*
-Create the name of the JwtKeySecret access role
+Create the name of the JwtKeySecret access role used by the controller
 */}}
 {{- define "kubauth.oidc.jwtSecretRoleName" -}}
 {{- default (printf "%s-oidc-jwt-secret" (include "kubauth.baseName" .)) .Values.oidc.jwtSecretRoleName }}

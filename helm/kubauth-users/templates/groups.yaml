@@ -1,0 +1,25 @@
+
+{{- range .Values.groups }}
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: Group
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" $ | nindent 4 }}
+  {{- with $.Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .comment }}
+  comment: {{ . }}
+  {{- end }}
+  {{- with .claims }}
+  claims:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+{{- end }}
+

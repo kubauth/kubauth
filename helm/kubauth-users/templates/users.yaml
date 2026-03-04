@@ -1,0 +1,45 @@
+
+{{- range .Values.users }}
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: User
+metadata:
+  name: {{ .login }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "kubauth.labels" $ | nindent 4 }}
+  {{- with $.Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .name }}
+  name: {{ . }}
+  {{- end }}
+  {{- with .emails }}
+  emails:
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- with .passwordHash }}
+  passwordHash: "{{ . }}"
+  {{- end }}
+  {{- with .uid }}
+  uid: {{ . }}
+  {{- end }}
+  {{- with .comment }}
+  comment: {{ . }}
+  {{- end }}
+  {{- with .disabled }}
+  disabled: {{ . }}
+  {{- end }}
+  {{- with .claims }}
+  claims:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+{{- end }}
+
+
+

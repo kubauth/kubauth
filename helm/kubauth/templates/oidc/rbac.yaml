@@ -1,11 +1,50 @@
 {{- if .Values.oidc.enabled }}
 
-
 ---
+# This ClusterRole to be used in roleBinding to grant oidcClient management permissions.
+# Referencing from a RoleBinding (Not a ClusterRoleBinding) limits the scope to the hosting namespace.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "kubauth.oidc.clientRoleName" . }}
+  name: {{ include "kubauth.oidc.clientAdminClusterRoleName" . }}
+  labels:
+    {{- include "kubauth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  - apiGroups:
+      - kubauth.kubotal.io
+    resources:
+      - oidcclients
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+
+---
+# This ClusterRole is intended to be used by the kubauth controller.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kubauth.oidc.clientControllerClusterRoleName" . }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}
@@ -43,7 +82,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.oidc.clientRoleName" . }}
+  name: {{ include "kubauth.serviceAccountName" . }}-{{ include "kubauth.oidc.clientControllerClusterRoleName" . }}
   labels:
     {{- include "kubauth.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}
@@ -53,7 +92,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "kubauth.oidc.clientRoleName" . }}
+  name: {{ include "kubauth.oidc.clientControllerClusterRoleName" . }}
 subjects:
   - kind: ServiceAccount
     name: {{ include "kubauth.serviceAccountName" . }}
@@ -61,6 +100,7 @@ subjects:
 
 
 ---
+# This Role is intended to be used by the kubauth controller.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -107,7 +147,9 @@ subjects:
     name: {{ include "kubauth.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 
+
 ---
+# This Role is intended to be used by the kubauth controller.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -132,7 +174,8 @@ rules:
       - delete
       - patch
       - update
-
+    resourceNames:
+      - {{ include "kubauth.oidc.jwtSigningKeySecretName" . }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
