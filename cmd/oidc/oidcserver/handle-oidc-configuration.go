@@ -25,6 +25,11 @@ import (
 func (s *OIDCServer) handleOpenIDConfiguration(w http.ResponseWriter, _ *http.Request) {
 	baseURL := s.Issuer
 
+	grantTypesSupported := []string{"authorization_code", "client_credentials", "refresh_token"}
+	if s.AllowPasswordGrant {
+		grantTypesSupported = append(grantTypesSupported, "password")
+	}
+
 	oidcConfig := map[string]interface{}{
 		"issuer":                                baseURL,
 		"authorization_endpoint":                baseURL + "/oauth2/auth",
@@ -40,7 +45,7 @@ func (s *OIDCServer) handleOpenIDConfiguration(w http.ResponseWriter, _ *http.Re
 		"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post"},
 		"claims_supported":                      []string{"sub", "iss", "name", "email", "profile", "email_verified", "groups"}, // This is non-exhaustive
 		"code_challenge_methods_supported":      s.getSupportedPKCEMethods(),
-		"grant_types_supported":                 []string{"authorization_code", "client_credentials", "password", "refresh_token"},
+		"grant_types_supported":                 grantTypesSupported,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
