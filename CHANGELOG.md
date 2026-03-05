@@ -1,5 +1,5 @@
 
-# v0.1.3
+# v0.2.0
 
 - feat: Added `grant_types_supported` and `introspection_endpoint` in discovery URL response
 - fix: Access Token introspection was not working with a public client. Fixed.
