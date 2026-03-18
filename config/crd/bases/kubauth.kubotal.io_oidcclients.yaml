@@ -18,6 +18,12 @@ spec:
     - jsonPath: .status.clientId
       name: client_id
       type: string
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .status.message
+      name: Message
+      type: string
     - jsonPath: .spec.public
       name: Pub.
       type: boolean
@@ -29,9 +35,6 @@ spec:
       type: string
     - jsonPath: .spec.entryURL
       name: Link
-      type: string
-    - jsonPath: .status.phase
-      name: Status
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -66,6 +69,16 @@ spec:
                 items:
                   type: string
                 type: array
+              clientId:
+                description: |-
+                  The client_id for the OIDC protocol.
+                  Default to:
+                  - The resource name if the resource is defined in the clientPrivilegedNamespace
+                  - <namespace>-<resourceName> in other cases
+                  These default values ensure uniqueness of the client_id. If you override it by setting this value, you are responsible to maintains this uniqueness.
+                  So, the recommended pattern is to NOT set this values.
+                  NB: The effective clientId, used by the OIDC protocol is set in the Status part.
+                type: string
               description:
                 description: A human oriented description
                 type: string

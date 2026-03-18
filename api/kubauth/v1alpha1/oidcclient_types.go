@@ -103,6 +103,16 @@ type OidcClientSpec struct {
 	RefreshTokenLifespan metav1.Duration `json:"refreshTokenLifespan,omitempty"`
 	// +optional
 	IDTokenLifespan metav1.Duration `json:"idTokenLifespan,omitempty"`
+
+	// The client_id for the OIDC protocol.
+	// Default to:
+	// - The resource name if the resource is defined in the clientPrivilegedNamespace
+	// - <namespace>-<resourceName> in other cases
+	// These default values ensure uniqueness of the client_id. If you override it by setting this value, you are responsible to maintains this uniqueness.
+	// So, the recommended pattern is to NOT set this values.
+	// NB: The effective clientId, used by the OIDC protocol is set in the Status part.
+	// +optional
+	ClientId string `json:"clientId,omitempty"`
 }
 
 type OidcClientPhase string
@@ -126,11 +136,12 @@ type OidcClientStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:printcolumn:name="client_id",type=string,JSONPath=`.status.clientId`
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.message`
 // +kubebuilder:printcolumn:name="Pub.",type=boolean,JSONPath=`.spec.public`
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 // +kubebuilder:printcolumn:name="Display",type=string,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Link",type=string,JSONPath=`.spec.entryURL`
-// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 type OidcClient struct {

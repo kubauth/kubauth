@@ -9,19 +9,11 @@ rules:
   resources:
   - oidcclients
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
   - update
   - watch
-- apiGroups:
-  - kubauth.kubotal.io
-  resources:
-  - oidcclients/finalizers
-  verbs:
-  - update
 - apiGroups:
   - kubauth.kubotal.io
   resources:

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
-	oidcstorage2 "kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/oidc/oidcstorage"
 	"log/slog"
 	"time"
 
@@ -30,33 +30,40 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const DefaultBCryptWorkFactor = 12
 
+const finalizerName = "kubauth.kubotal.io/finalizer"
+
 // OidcClientReconciler reconciles a OidcClient object
 type OidcClientReconciler struct {
 	client.Client
+	record.EventRecorder
 	Scheme                    *runtime.Scheme
 	Namespace                 string // Where OidcClient are stored
-	Storage                   *oidcstorage2.MemoryStore
+	Storage                   *oidcstorage.MemoryStore
 	statusErrorCount          int
 	Logger                    *slog.Logger
 	ClientPrivilegedNamespace string
 }
 
-func (r *OidcClientReconciler) buildClientId(name string, namespace string) string {
+func (r *OidcClientReconciler) buildClientId(spec *kubauthv1alpha1.OidcClientSpec, name string, namespace string) string {
+	if spec.ClientId != "" {
+		return spec.ClientId
+	}
 	if namespace != r.ClientPrivilegedNamespace {
 		return fmt.Sprintf("%s-%s", namespace, name)
 	}
 	return name
 }
 
-// +kubebuilder:rbac:groups=kubauth.kubotal.io,resources=oidcclients,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kubauth.kubotal.io,resources=oidcclients,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups=kubauth.kubotal.io,resources=oidcclients/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=kubauth.kubotal.io,resources=oidcclients/finalizers,verbs=update
 
 // Reconcile For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
@@ -69,32 +76,61 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	ctx = logr.NewContextWithSlogLogger(ctx, logger)
 
-	clientId := r.buildClientId(req.Name, req.Namespace)
-
 	oidcClient := &kubauthv1alpha1.OidcClient{}
 	err := r.Get(ctx, req.NamespacedName, oidcClient)
 	if err != nil {
 		// Deleted object (There is no finalizer in this implementation)
-		logger.Info("Unable to fetch resource. Seems deleted. Remove from referential")
-		r.Storage.DeleteClient(ctx, clientId) // TODO: client_id for multi-tenancy
+		logger.Debug("Unable to fetch resource. Seems deleted.")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate requeue
 		// (we'll need to wait for a new notification), and we can get them on deleted requests.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	oidcClient.Status.ClientId = clientId // Stored in first update, immutable after
+	if oidcClient.Status.ClientId == "" {
+		// clientId is set on first run, then immutable
+		// (We are sure status will ne updated as Phase == "" on first run)
+		oidcClient.Status.ClientId = r.buildClientId(&oidcClient.Spec, req.Name, req.Namespace)
+	}
+
+	if !oidcClient.ObjectMeta.DeletionTimestamp.IsZero() {
+		patch := client.MergeFrom(oidcClient.DeepCopy())
+		// Deletion is requested. Remove from referential
+		logger.Info("OidcClient is being deleted.")
+		// Only 'Ready' client are registered in storage
+		if oidcClient.Status.Phase == kubauthv1alpha1.OidcClientPhaseReady {
+			r.Storage.DeleteClient(ctx, oidcClient.Status.ClientId)
+		}
+		controllerutil.RemoveFinalizer(oidcClient, finalizerName)
+		logger.Debug(">-> Update resource (Remove finalizer)")
+		if err := r.Patch(ctx, oidcClient, patch); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Not under deletion. Add a finalizer if not already set
+	if !controllerutil.ContainsFinalizer(oidcClient, finalizerName) {
+		patch := client.MergeFrom(oidcClient.DeepCopy())
+		logger.Debug("Add finalizer")
+		controllerutil.AddFinalizer(oidcClient, finalizerName)
+		logger.Debug(">-> Update resource (Add finalizer)")
+		err := r.Patch(ctx, oidcClient, patch)
+		return ctrl.Result{}, err // we reschedule, to avoid an 'object has been modified' on next status update
+		//if err != nil {
+		//	return ctrl.Result{}, err
+		//}
+	}
 
 	if oidcClient.Spec.Public {
 		if oidcClient.Spec.Secrets != nil {
-			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "'secrets' set while public is enabled")
+			return r.UpdateStorageAndStatus(ctx, oidcClient, nil, fmt.Errorf("'secrets' set while public is enabled"))
 		}
 		// OK. Just register it
-		r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, clientId, nil))
-		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseReady, "")
+		return r.UpdateStorageAndStatus(ctx, oidcClient, nil, nil)
 	}
 
 	if oidcClient.Spec.Secrets == nil || len(*oidcClient.Spec.Secrets) == 0 {
-		return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, "When not public, one of 'secrets' must be defined with at least one item")
+		return r.UpdateStorageAndStatus(ctx, oidcClient, nil, fmt.Errorf("when not public, one of 'secrets' must be defined with at least one item"))
 	}
 	hashedSecrets := make([][]byte, len(*oidcClient.Spec.Secrets))
 	for idx, secretRef := range *oidcClient.Spec.Secrets {
@@ -105,29 +141,49 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}, &secret)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("Unable to fetch secret '%s:%s'", secretRef.Name, req.Namespace))
+				return r.UpdateStorageAndStatus(ctx, oidcClient, nil, fmt.Errorf("unable to fetch secret '%s:%s'", req.Namespace, secretRef.Name))
 			}
 			return ctrl.Result{}, err
 		}
 		valueBytes, exists := secret.Data[secretRef.Key]
 		if !exists {
-			return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("No '%s' key in secret '%s:%s'", secretRef.Key, secretRef.Name, req.Namespace))
+			return r.UpdateStorageAndStatus(ctx, oidcClient, nil, fmt.Errorf("no '%s' key in secret '%s:%s'", secretRef.Key, req.Namespace, secretRef.Name))
 		}
 		if secretRef.Hashed {
 			hashedSecrets[idx] = valueBytes
 		} else {
 			hashedSecrets[idx], err = bcrypt.GenerateFromPassword(valueBytes, DefaultBCryptWorkFactor)
 			if err != nil {
-				return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseError, fmt.Sprintf("Unable to hash value from secret '%s:%s[%s]'", secretRef.Name, req.Namespace, secretRef.Key))
+				return r.UpdateStorageAndStatus(ctx, oidcClient, nil, fmt.Errorf("unable to hash value from secret '%s:%s[%s]'", req.Namespace, secretRef.Name, secretRef.Key))
 			}
 		}
 	}
-	r.Storage.SetClient(ctx, oidcstorage2.NewFositeClient(oidcClient, clientId, hashedSecrets))
-	return r.updateStatus(ctx, oidcClient, kubauthv1alpha1.OidcClientPhaseReady, "")
+	return r.UpdateStorageAndStatus(ctx, oidcClient, hashedSecrets, nil)
 }
 
-func (r *OidcClientReconciler) updateStatus(ctx context.Context, oidcClient *kubauthv1alpha1.OidcClient, phase kubauthv1alpha1.OidcClientPhase, message string) (ctrl.Result, error) {
+func (r *OidcClientReconciler) UpdateStorageAndStatus(ctx context.Context, oidcClient *kubauthv1alpha1.OidcClient, hashedSecrets [][]byte, err error) (ctrl.Result, error) {
+	if err == nil {
+		err = r.Storage.SetClient(ctx, oidcstorage.NewFositeClient(oidcClient, oidcClient.Status.ClientId, hashedSecrets))
+		if err == nil {
+			r.Event(oidcClient, "Normal", "Created", "Created client with client_id '"+oidcClient.Status.ClientId+"'")
+		} else {
+			r.Event(oidcClient, "Warning", "Duplicate", err.Error())
+		}
+		return r.updateStatus(ctx, oidcClient, err)
+	}
+	r.Event(oidcClient, "Warning", "Error", err.Error())
+	r.Storage.DeleteClient(ctx, oidcClient.Status.ClientId)
+	return r.updateStatus(ctx, oidcClient, err)
+}
+
+func (r *OidcClientReconciler) updateStatus(ctx context.Context, oidcClient *kubauthv1alpha1.OidcClient, err error) (ctrl.Result, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
+	message := "OK"
+	phase := kubauthv1alpha1.OidcClientPhaseReady
+	if err != nil {
+		message = err.Error()
+		phase = kubauthv1alpha1.OidcClientPhaseError
+	}
 	toUpdate := false
 	if oidcClient.Status.Phase != phase {
 		oidcClient.Status.Phase = phase
@@ -151,10 +207,6 @@ func (r *OidcClientReconciler) updateStatus(ctx context.Context, oidcClient *kub
 		}
 	} else {
 		logger.Debug("OidcClient.Status is up to date. No update", "phase", phase, "message", message)
-	}
-	if oidcClient.Status.Phase == kubauthv1alpha1.OidcClientPhaseError {
-		// Remove from referential if in error
-		r.Storage.DeleteClient(ctx, r.buildClientId(oidcClient.Name, oidcClient.Namespace))
 	}
 	return ctrl.Result{}, nil
 }

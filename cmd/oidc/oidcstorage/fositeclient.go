@@ -17,6 +17,7 @@ limitations under the License.
 package oidcstorage
 
 import (
+	"fmt"
 	"kubauth/api/kubauth/v1alpha1"
 	"time"
 
@@ -32,12 +33,14 @@ type FositeClient interface {
 	GetDisplayName() string
 	IsForceOpenIdScope() bool
 	GetSecretCount() int
+	GetK8sId() string // Used to check against duplicated OIDC client_id
 }
 
 type fositeClient struct {
 	clientId      string // From metadata.name
 	spec          *v1alpha1.OidcClientSpec
 	hashedSecrets [][]byte
+	k8sId         string
 }
 
 func NewFositeClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets [][]byte) FositeClient {
@@ -45,6 +48,7 @@ func NewFositeClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets []
 		clientId:      clientId,
 		spec:          &cli.Spec,
 		hashedSecrets: hashedSecrets,
+		k8sId:         fmt.Sprintf("%s:%s", cli.Namespace, cli.GetName()),
 	}
 }
 
@@ -54,6 +58,10 @@ var _ fosite.ClientWithCustomTokenLifespans = &fositeClient{}
 
 func (k *fositeClient) GetID() string {
 	return k.clientId
+}
+
+func (k *fositeClient) GetK8sId() string {
+	return k.k8sId
 }
 
 func (k *fositeClient) GetHashedSecret() []byte {

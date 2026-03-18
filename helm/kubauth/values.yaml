@@ -136,10 +136,10 @@ oidc:
   allowPasswordGrant: false   # Allow Resource Owner Password Credentials (ROPC) grant type, aka the password grant.
   enforcePKCE: false  # If set, all authorization code grand must use PKCE
   jwtAccessToken: false # If set, access token will be jwt. Otherwise opaque
-
   # For oidcClients stored in this namespace, the client_id will NOT be prefixed by the namespace
   # Default to .Release.namespace
   clientPrivilegedNamespace:
+
   # To override the name of the role used by the controller to access oidcClients.
   # Default to {{ include "kubauth.baseName" .}}-oidc-client-controller.
   clientControllerClusterRoleName:
@@ -154,7 +154,7 @@ oidc:
 
   # Allow to change some logger configuration
   logger:
-    mode: json  # "Log mode (dev or json)
+    mode: json  # "Log mode (dev or text)
     level: info # Log level(DEBUG, INFO, WARN, ERROR)
   # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
   dumpExchanges: 0

@@ -7,6 +7,7 @@ package oidcstorage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"kubauth/cmd/oidc/authenticator"
 	"sync"
 	"time"
@@ -152,12 +153,31 @@ func (s *MemoryStore) GetClient(_ context.Context, id string) (fosite.Client, er
 //	s.Clients = clients
 //}
 
-func (s *MemoryStore) SetClient(ctx context.Context, client FositeClient) {
+type ClientDuplicationError struct {
+	existingClient string
+}
+
+func (e *ClientDuplicationError) Error() string {
+	return fmt.Sprintf("duplicate client_id with %s", e.existingClient)
+}
+
+func (e *ClientDuplicationError) GetExistingClient() string {
+	return e.existingClient
+}
+
+func (s *MemoryStore) SetClient(ctx context.Context, client FositeClient) error {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()
+	oldClient, ok := s.Clients[client.GetID()]
+	if ok && oldClient.GetK8sId() != client.GetK8sId() {
+		return &ClientDuplicationError{
+			existingClient: oldClient.GetK8sId(),
+		}
+	}
 	s.Clients[client.GetID()] = client
 	logger.Debug("SettingClient", "clientId", client.GetID(), "clientCount", len(s.Clients), "secretCount", client.GetSecretCount())
+	return nil
 }
 
 func (s *MemoryStore) DeleteClient(ctx context.Context, clientId string) {

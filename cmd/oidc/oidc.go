@@ -335,6 +335,7 @@ var Cmd = &cobra.Command{
 		// Setup OidcClient Reconciler
 		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
 			Client:                    mgr.GetClient(),
+			EventRecorder:             mgr.GetEventRecorderFor("oidcclients"),
 			Scheme:                    mgr.GetScheme(),
 			Storage:                   storage,
 			ClientPrivilegedNamespace: flags.clientPrivilegedNamespace,
