@@ -106,7 +106,14 @@ func (k *fositeClient) IsPublic() bool {
 }
 
 func (k *fositeClient) GetAudience() fosite.Arguments {
-	return k.spec.Audiences
+	for _, aud := range k.spec.Audiences {
+		if aud == k.clientId {
+			return k.spec.Audiences
+		}
+	}
+	// Always allow the client's own ID as audience, since HandleAudience()
+	// defaults to granting client_id when no audience is explicitly requested.
+	return append(k.spec.Audiences, k.clientId)
 }
 
 func (k *fositeClient) GetName() string {
