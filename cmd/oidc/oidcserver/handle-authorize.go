@@ -22,7 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/ory/fosite"
+	"github.com/ory/hydra/v2/fosite"
 )
 
 func (s *OIDCServer) displayLoginResponse(w http.ResponseWriter, rawQuery string, invalidLogin bool) {

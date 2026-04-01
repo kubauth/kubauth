@@ -19,13 +19,13 @@ package fositepatch
 import (
 	"context"
 
-	"github.com/ory/fosite"
-	"github.com/ory/fosite/compose"
-	"github.com/ory/fosite/token/jwt"
+	"github.com/ory/hydra/v2/fosite"
+	"github.com/ory/hydra/v2/fosite/compose"
+	"github.com/ory/hydra/v2/fosite/token/jwt"
 )
 
 // ComposeAllEnabled returns a fosite instance with all OAuth2 and OpenID Connect handlers enabled.
-func ComposeAllEnabled(config *fosite.Config, storage interface{}, key interface{}, jwtAccessToken bool) fosite.OAuth2Provider {
+func ComposeAllEnabled(config *fosite.Config, storage fosite.Storage, key interface{}, jwtAccessToken bool) fosite.OAuth2Provider {
 	keyGetter := func(context.Context) (interface{}, error) {
 		return key, nil
 	}
@@ -33,15 +33,15 @@ func ComposeAllEnabled(config *fosite.Config, storage interface{}, key interface
 	var strategy *compose.CommonStrategy
 	if jwtAccessToken {
 		strategy = &compose.CommonStrategy{
-			CoreStrategy:               compose.NewOAuth2JWTStrategy(keyGetter, compose.NewOAuth2HMACStrategy(config), config),
-			OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
-			Signer:                     &jwt.DefaultSigner{GetPrivateKey: keyGetter},
+			CoreStrategy:    compose.NewOAuth2JWTStrategy(keyGetter, compose.NewOAuth2HMACStrategy(config), config),
+			OIDCTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
+			Signer:          &jwt.DefaultSigner{GetPrivateKey: keyGetter},
 		}
 	} else {
 		strategy = &compose.CommonStrategy{
-			CoreStrategy:               compose.NewOAuth2HMACStrategy(config),
-			OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
-			Signer:                     &jwt.DefaultSigner{GetPrivateKey: keyGetter},
+			CoreStrategy:    compose.NewOAuth2HMACStrategy(config),
+			OIDCTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
+			Signer:          &jwt.DefaultSigner{GetPrivateKey: keyGetter},
 		}
 	}
 
@@ -49,16 +49,6 @@ func ComposeAllEnabled(config *fosite.Config, storage interface{}, key interface
 		config,
 		storage,
 		strategy,
-		//&compose.CommonStrategy{
-		//	CoreStrategy:               compose.NewOAuth2HMACStrategy(config),
-		//	OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
-		//	Signer:                     &jwt.DefaultSigner{GetPrivateKey: keyGetter},
-		//},
-		//&compose.CommonStrategy{
-		//	CoreStrategy:               compose.NewOAuth2JWTStrategy(keyGetter, compose.NewOAuth2HMACStrategy(config), config),
-		//	OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
-		//	Signer:                     &jwt.DefaultSigner{GetPrivateKey: keyGetter},
-		//},
 		compose.OAuth2AuthorizeExplicitFactory,
 		compose.OAuth2AuthorizeImplicitFactory,
 		compose.OAuth2ClientCredentialsGrantFactory,

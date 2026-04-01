@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ory/fosite"
-	"github.com/ory/fosite/handler/openid"
+	"github.com/ory/hydra/v2/fosite"
+	"github.com/ory/hydra/v2/fosite/handler/openid"
 )
 
 // Handle userinfo endpoint

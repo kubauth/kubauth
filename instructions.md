@@ -154,3 +154,13 @@ You can also mention https://github.com/kubauth/kc for testing and generate hash
 
 
 Modify the README.md: there is no helm chart repository. The helm chart is provided as OCI image: quay.io/kubauth/charts/kubauth:0.1.1-snapshot
+
+
+---------
+This project use the fosite library (https://github.com/ory/fosite.git )
+
+Now, this library is not maintained anymore. It has been integrated in the hydra project (https://github.com/ory/hydra) under the 'fosite' path
+
+Modify this project to use the updated fosite embedded in hydra
+
+

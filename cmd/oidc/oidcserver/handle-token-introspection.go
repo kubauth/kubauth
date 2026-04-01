@@ -22,7 +22,7 @@ import (
 	"net/url"
 
 	"github.com/go-logr/logr"
-	"github.com/ory/fosite"
+	"github.com/ory/hydra/v2/fosite"
 )
 
 func (s *OIDCServer) HandleTokenIntrospection(rw http.ResponseWriter, req *http.Request) {

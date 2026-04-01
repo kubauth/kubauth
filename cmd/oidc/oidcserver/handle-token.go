@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	"github.com/go-logr/logr"
-	"github.com/ory/fosite"
+	"github.com/ory/hydra/v2/fosite"
 )
 
 // Handle token endpoint

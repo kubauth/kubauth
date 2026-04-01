@@ -21,7 +21,7 @@ import (
 	"kubauth/api/kubauth/v1alpha1"
 	"time"
 
-	"github.com/ory/fosite"
+	"github.com/ory/hydra/v2/fosite"
 )
 
 type FositeClient interface {

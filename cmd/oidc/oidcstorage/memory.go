@@ -13,9 +13,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/ory/hydra/v2/fosite/handler/rfc7523"
 
 	"github.com/go-jose/go-jose/v3"
-	"github.com/ory/fosite"
+	"github.com/ory/hydra/v2/fosite"
+	"github.com/ory/hydra/v2/fosite/handler/oauth2"
+	"github.com/ory/hydra/v2/fosite/handler/openid"
+	"github.com/ory/hydra/v2/fosite/handler/pkce"
 )
 
 type MemoryUserRelation struct {
@@ -532,3 +536,19 @@ func (s *MemoryStore) RotateRefreshToken(ctx context.Context, requestID string, 
 	}
 	return s.RevokeAccessToken(ctx, requestID)
 }
+
+// Storage provider methods required by the hydra-embedded fosite.
+// Each returns self since MemoryStore directly implements all sub-storage interfaces.
+
+var _ fosite.Storage = &MemoryStore{}
+
+func (s *MemoryStore) ClientManager() fosite.ClientManager                             { return s }
+func (s *MemoryStore) AccessTokenStorage() oauth2.AccessTokenStorage                   { return s }
+func (s *MemoryStore) RefreshTokenStorage() oauth2.RefreshTokenStorage                 { return s }
+func (s *MemoryStore) AuthorizeCodeStorage() oauth2.AuthorizeCodeStorage               { return s }
+func (s *MemoryStore) OpenIDConnectRequestStorage() openid.OpenIDConnectRequestStorage { return s }
+func (s *MemoryStore) PKCERequestStorage() pkce.PKCERequestStorage                     { return s }
+func (s *MemoryStore) PARStorage() fosite.PARStorage                                   { return s }
+
+func (s *MemoryStore) TokenRevocationStorage() oauth2.TokenRevocationStorage { return s }
+func (s *MemoryStore) RFC7523KeyStorage() rfc7523.RFC7523KeyStorage          { return s }

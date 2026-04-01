@@ -20,7 +20,7 @@ import (
 	"kubauth/cmd/oidc/oidcstorage"
 	"log/slog"
 
-	"github.com/ory/fosite"
+	"github.com/ory/hydra/v2/fosite"
 )
 
 type ScopeRequester interface {
