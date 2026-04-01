@@ -37,7 +37,7 @@ func (s *OIDCServer) handleOpenIDConfiguration(w http.ResponseWriter, _ *http.Re
 		"userinfo_endpoint":                     baseURL + "/userinfo",
 		"end_session_endpoint":                  baseURL + "/oauth2/logout",
 		"jwks_uri":                              baseURL + "/.well-known/jwks.json",
-		"introspection_endpoint":                baseURL + "/oauth2/token/introspect",
+		"introspection_endpoint":                baseURL + "/oauth2/introspect",
 		"response_types_supported":              []string{"code", "token", "id_token", "code token", "code id_token"},
 		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"RS256"},
