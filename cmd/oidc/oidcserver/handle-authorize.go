@@ -17,7 +17,6 @@ limitations under the License.
 package oidcserver
 
 import (
-	"html/template"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -25,10 +24,8 @@ import (
 	"github.com/ory/hydra/v2/fosite"
 )
 
-func (s *OIDCServer) displayLoginResponse(w http.ResponseWriter, rawQuery string, invalidLogin bool) {
-	//fmt.Printf("RawQuery: %s\n", rawQuery)
+func (s *OIDCServer) displayLoginResponse(w http.ResponseWriter, invalidLogin bool) {
 	data := map[string]interface{}{
-		"RawQuery":     template.HTML(rawQuery),
 		"InvalidLogin": invalidLogin,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -438,21 +438,35 @@ var Cmd = &cobra.Command{
 		}
 
 		// Session manager only for /oauth2/login
-		sm := scsV2.New()
+		ssoSessionManager := scsV2.New()
 		// IdleTimeout is meaningless, as this session is cross application
 		//s.SessionManager.IdleTimeout = time.Minute * 10
 		// Use Kubernetes-backed store for SSO sessions
-		sm.Store = sessionstore.NewKubeSsoStore(kubeClient, flags.ssoNamespace)
-		sm.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
-		sm.Lifetime = flags.ssoLifetime
-		sm.Cookie.Name = "kubauth_login"
-		sm.Cookie.HttpOnly = true
-		sm.Cookie.SameSite = http.SameSiteLaxMode
-		sm.Cookie.Persist = flags.stickySso // Session lifecycle is browser based or not
-		sm.HashTokenInStore = true
+		ssoSessionManager.Store = sessionstore.NewKubeSsoStore(kubeClient, flags.ssoNamespace)
+		ssoSessionManager.Codec = sessioncodec.JSONCodec{} // Use custom JSON codec to serialize session data as a JSON string
+		ssoSessionManager.Lifetime = flags.ssoLifetime
+		ssoSessionManager.Cookie.Name = "kubauth_sso"
+		ssoSessionManager.Cookie.HttpOnly = true
+		ssoSessionManager.Cookie.SameSite = http.SameSiteLaxMode
+		ssoSessionManager.Cookie.Persist = flags.stickySso // Session lifecycle is browser based or not
+		ssoSessionManager.HashTokenInStore = true
 		// Secure cookie only if issuer is https
 		if strings.HasPrefix(flags.issuer, "https://") {
-			sm.Cookie.Secure = true
+			ssoSessionManager.Cookie.Secure = true
+		}
+
+		// Login session manager
+		loginSessionManager := scsV2.New()
+		loginSessionManager.IdleTimeout = time.Minute * 30
+		loginSessionManager.Lifetime = time.Hour * 2
+		loginSessionManager.Cookie.Name = "kubauth_login"
+		loginSessionManager.Cookie.HttpOnly = true
+		loginSessionManager.Cookie.SameSite = http.SameSiteLaxMode
+		loginSessionManager.Cookie.Persist = false
+		loginSessionManager.HashTokenInStore = true
+		// Secure cookie only if issuer is https
+		if strings.HasPrefix(flags.issuer, "https://") {
+			loginSessionManager.Cookie.Secure = true
 		}
 
 		// Add SSO session cleanup runnable if enabled (similar to scs memstore)
@@ -474,7 +488,8 @@ var Cmd = &cobra.Command{
 			Resources:               flags.resources,
 			LoginTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "login.gohtml"))),
 			IndexTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "index.gohtml"))),
-			SessionManager:          sm,
+			SsoSessionManager:       ssoSessionManager,
+			LoginSessionManager:     loginSessionManager,
 			PostLogoutURL:           flags.postLogoutURL,
 			KubeClient:              kubeClient,
 			JWTSigningKeySecretName: flags.jwtKeySecretName,

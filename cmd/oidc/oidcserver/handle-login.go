@@ -20,7 +20,6 @@ import (
 	"kubauth/cmd/oidc/authenticator"
 	"kubauth/cmd/oidc/fositepatch"
 	"net/http"
-	"net/url"
 
 	"github.com/go-logr/logr"
 )
@@ -32,24 +31,24 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
+		rawQuery := r.URL.RawQuery
 		clientId := r.URL.Query().Get("client_id")
 		logger.Debug("handleLogin(GET)", "clientID", clientId)
+
+		// Persist the authorization query in the session so the POST can retrieve it
+		s.LoginSessionManager.Put(ctx, "authQuery", rawQuery)
+
 		// If user already authenticated (SSO), complete the OIDC flow directly
-		if v := s.SessionManager.Get(ctx, "ssoUser"); v != nil {
-			//fmt.Printf("============ v.type: %T  v:%v\n", v, v)
+		if v := s.SsoSessionManager.Get(ctx, "ssoUser"); v != nil {
 			u, ok := v.(map[string]interface{})
 			if ok {
 				if login, ok := u["Login"].(string); ok && login != "" {
 					claims := u["Claims"].(map[string]interface{})
-					//if login, ok := v.(string); ok && login != "" {
-					rawQuery := r.URL.RawQuery
 					if rawQuery != "" {
-						// Recreate authorize request and finish flow without prompting login
 						req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
 						if err == nil {
 							ar, err := s.oauth2.NewAuthorizeRequest(ctx, req)
 							if err == nil {
-
 								fositepatch.HandleScopes(ar, logger)
 								fositepatch.HandleAudience(ar, logger)
 
@@ -67,7 +66,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		// Otherwise, render login page
-		s.displayLoginResponse(w, r.URL.RawQuery, false)
+		s.displayLoginResponse(w, false)
 		return
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
@@ -78,16 +77,18 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 		login := r.PostForm.Get("login")
 		password := r.PostForm.Get("password")
-		rawQuery := r.PostForm.Get("rq")
 		remember := r.PostForm.Get("remember") == "on"
 
-		query, err := url.ParseQuery(rawQuery)
-		if err != nil {
-			logger.Error("failed to parse initial query", "query", rawQuery, "error", err)
-			http.Error(w, "Internal error on ID provider subsystem. Contact your system administrator", http.StatusInternalServerError)
+		rawQuery := s.LoginSessionManager.GetString(ctx, "authQuery")
+		if rawQuery == "" {
+			logger.Error("No authorization query found in session")
+			http.Error(w, "Session expired. Please restart the login flow.", http.StatusBadRequest)
 			return
 		}
-		clientId := query.Get("client_id")
+
+		r.URL.RawQuery = rawQuery
+		clientId := r.URL.Query().Get("client_id")
+
 		user, err := s.Authenticator.Authenticate(ctx, login, password)
 		if err != nil {
 			logger.Error("failed to authenticate", "login", login, "error", err)
@@ -95,14 +96,14 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if user == nil {
-			s.displayLoginResponse(w, rawQuery, true)
+			s.displayLoginResponse(w, true)
 			return
 		}
 
 		// Successful authentication: renew session and conditionally persist SSO principal
-		_ = s.SessionManager.RenewToken(ctx)
+		_ = s.SsoSessionManager.RenewToken(ctx)
 		if remember {
-			s.SessionManager.Put(ctx, "ssoUser", user)
+			s.SsoSessionManager.Put(ctx, "ssoUser", user)
 		}
 
 		// Reconstruct original authorize request using preserved raw query

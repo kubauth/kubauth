@@ -46,14 +46,15 @@ import (
 )
 
 type OIDCServer struct {
-	Issuer         string
-	Storage        *oidcstorage.MemoryStore
-	Resources      string
-	Authenticator  authenticator.OidcAuthenticator
-	LoginTemplate  *template.Template
-	IndexTemplate  *template.Template
-	SessionManager *scsV2.SessionManager
-	PostLogoutURL  string
+	Issuer              string
+	Storage             *oidcstorage.MemoryStore
+	Resources           string
+	Authenticator       authenticator.OidcAuthenticator
+	LoginTemplate       *template.Template
+	IndexTemplate       *template.Template
+	SsoSessionManager   *scsV2.SessionManager
+	LoginSessionManager *scsV2.SessionManager
+	PostLogoutURL       string
 
 	KubeClient              client.Client
 	JWTSigningKeySecretName string
@@ -107,8 +108,8 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 
 	// Set up routes
 	router.HandleFunc("/oauth2/auth", s.handleAuthorize)
-	router.Handle("/oauth2/login", s.SessionManager.LoadAndSave(http.HandlerFunc(s.handleLogin)))
-	router.Handle("/oauth2/logout", s.SessionManager.LoadAndSave(http.HandlerFunc(s.handleLogout)))
+	router.Handle("/oauth2/login", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleLogin))))
+	router.Handle("/oauth2/logout", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleLogout))))
 	router.HandleFunc("/oauth2/token", s.handleToken)
 	router.HandleFunc("/.well-known/openid-configuration", s.handleOpenIDConfiguration)
 	router.HandleFunc("/userinfo", s.handleUserInfo)

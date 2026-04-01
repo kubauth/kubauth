@@ -163,4 +163,12 @@ Now, this library is not maintained anymore. It has been integrated in the hydra
 
 Modify this project to use the updated fosite embedded in hydra
 
+-------
+
+In cmd/oidc/oidcserver/handleLogin.go, if the user is redirected to the login page, the initial r.URL.RawQuery value is encapsulated 
+and set as hidden field in the form (resources/template/login.gohtml).
+Could you explain the content of this RawQuery.
+Is there a simpler identifier we can use to correlate the POST to the initial session ? Just describe an alternate solution, if existing. Don't implement anything now.
+
+
 
