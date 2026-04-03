@@ -332,17 +332,7 @@ var Cmd = &cobra.Command{
 		// ------------------------------------- Create our storage
 		storage := oidcstorage.NewMemoryStore(idp)
 
-		// Setup OidcClient Reconciler
-		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
-			Client:                    mgr.GetClient(),
-			EventRecorder:             mgr.GetEventRecorderFor("oidcclients"),
-			Scheme:                    mgr.GetScheme(),
-			Storage:                   storage,
-			ClientPrivilegedNamespace: flags.clientPrivilegedNamespace,
-			Logger:                    logger.With("logger", "oidcClientReconciler"),
-		}
-
-		// ---------------------------------------------------------------------------------------------------- Release controller setup
+		// ---------------------------------------------------------------------------------------------------- OidcClient controller setup
 		// Create an index to retrieve an oidcClient from a secret in an efficient way
 		// index oidcClient by secret
 		const secretIndexOnOidcClient = "secretIndexOnOidcClient"
@@ -386,6 +376,16 @@ var Cmd = &cobra.Command{
 			return requests
 		}
 
+		// Setup OidcClient Reconciler
+		oidcClientReconciler := &oidcControllers.OidcClientReconciler{
+			Client:                    mgr.GetClient(),
+			EventRecorder:             mgr.GetEventRecorderFor("oidcclients"),
+			Scheme:                    mgr.GetScheme(),
+			Storage:                   storage,
+			ClientPrivilegedNamespace: flags.clientPrivilegedNamespace,
+			Logger:                    logger.With("logger", "oidcClientReconciler"),
+		}
+
 		err = ctrl.NewControllerManagedBy(mgr).
 			For(&kubauthv1alpha1.OidcClient{}).
 			Named("kubauth-oidcClient").
@@ -395,6 +395,26 @@ var Cmd = &cobra.Command{
 			setupLog.Error(err, "unable to create controller", "controller", "oidcClient")
 			os.Exit(1)
 		}
+
+		// Setup OidcClient Reconciler
+		upstreamProviderReconciler := &oidcControllers.UpstreamProviderReconciler{
+			Client:        mgr.GetClient(),
+			EventRecorder: mgr.GetEventRecorderFor("oidcclients"),
+			Scheme:        mgr.GetScheme(),
+			Storage:       storage,
+			Logger:        logger.With("logger", "oidcClientReconciler"),
+		}
+
+		err = ctrl.NewControllerManagedBy(mgr).
+			For(&kubauthv1alpha1.UpstreamProvider{}).
+			Named("kubauth-upstreamProvider").
+			Complete(upstreamProviderReconciler)
+		if err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "upstreamProvider")
+			os.Exit(1)
+		}
+
+		// -------------------------------------------------
 
 		if flags.enableWebhook {
 			if err := oidcWebhooks.SetupOidcClientWebhookWithManager(mgr); err != nil {

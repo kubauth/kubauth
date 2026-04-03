@@ -19,6 +19,7 @@ package oidcstorage
 import (
 	"fmt"
 	"kubauth/api/kubauth/v1alpha1"
+	"kubauth/cmd/oidc/upstreams"
 	"time"
 
 	"github.com/ory/hydra/v2/fosite"
@@ -41,6 +42,11 @@ type fositeClient struct {
 	spec          *v1alpha1.OidcClientSpec
 	hashedSecrets [][]byte
 	k8sId         string
+}
+
+func (k *fositeClient) GetLabels() []upstreams.UpstreamLabel {
+	//TODO implement me
+	panic("implement me")
 }
 
 func NewFositeClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets [][]byte) FositeClient {

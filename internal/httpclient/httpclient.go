@@ -25,6 +25,7 @@ import (
 	"kubauth/internal/misc"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
@@ -42,6 +43,7 @@ type Config struct {
 	RootCaPaths        []string  `yaml:"rootCaPaths"`
 	RootCaDatas        []string  `yaml:"rootCaDatas"`
 	InsecureSkipVerify bool      `yaml:"insecureSkipVerify"`
+	DumpExchanges      bool      `yaml:"dumpExchanges"`
 	HttpAuth           *HttpAuth `yaml:"httpAuth"`
 }
 
@@ -55,6 +57,7 @@ type Config struct {
 
 type HttpClient interface {
 	Do(method string, path string, contentType string, body io.Reader) (*http.Response, error)
+	GetBaseHttpDotClient() *http.Client
 }
 
 type httpClient struct {
@@ -117,10 +120,17 @@ func New(conf *Config) (HttpClient, error) {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
+	if conf.DumpExchanges {
+		httpclient.Transport = debugTransport{httpclient.Transport}
+	}
 	return &httpClient{
 		Config:     *conf,
 		httpClient: httpclient,
 	}, nil
+}
+
+func (c *httpClient) GetBaseHttpDotClient() *http.Client {
+	return c.httpClient
 }
 
 func appendCaFromFile(pool *x509.CertPool, caPath string) error {
@@ -145,6 +155,39 @@ func appendCaFromBase64(pool *x509.CertPool, b64 string) error {
 	}
 	return nil
 }
+
+type debugTransport struct {
+	t http.RoundTripper
+}
+
+var exchangeCount = 0
+
+func (d debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	reqDump, err := httputil.DumpRequest(req, true)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("-----------------> REQUEST (%d)\n%s\n----------------->\n", exchangeCount, string(reqDump))
+	exchangeCount++
+	//log.Printf("%s", reqDump)
+
+	resp, err := d.t.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+
+	respDump, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+	fmt.Printf("<----------------- RESPONSE (%d)\n%s\n<-----------------\n", exchangeCount, string(respDump))
+	exchangeCount++
+	//log.Printf("%s", respDump)
+	return resp, nil
+}
+
+// ------------------------------------------------------------------------
 
 type UnauthorizedError struct{}
 

@@ -1,0 +1,218 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: upstreamproviders.kubauth.kubotal.io
+spec:
+  group: kubauth.kubotal.io
+  names:
+    kind: UpstreamProvider
+    listKind: UpstreamProviderList
+    plural: upstreamproviders
+    shortNames:
+    - upstreams
+    singular: upstreamprovider
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.issuerURL
+      name: IssuerURL
+      type: string
+    - jsonPath: .spec.clientId
+      name: ClientId
+      type: string
+    - jsonPath: .spec.redirectURL
+      name: RedirectURL
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              certificateAuthority:
+                description: CertificateAuthority references a PEM-encoded CA bundle
+                  used to verify TLS to the upstream issuer (e.g. private PKI).
+                properties:
+                  configMap:
+                    description: ConfigMap containing the CA bundle. Mutually exclusive
+                      with Secret.
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  key:
+                    description: Key within the referenced ConfigMap or Secret. Defaults
+                      to "ca.crt" if empty.
+                    type: string
+                  secret:
+                    description: Secret containing the CA bundle. Mutually exclusive
+                      with ConfigMap.
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              clientId:
+                type: string
+              clientSecret:
+                properties:
+                  key:
+                    description: Key within the referenced ConfigMap or Secret.
+                    type: string
+                  secret:
+                    description: K8s Secret containing the secret value.
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - key
+                - secret
+                type: object
+              clientSpecific:
+                default: false
+                description: If set, will appear only if in the client upstream list
+                type: boolean
+              displayName:
+                description: |-
+                  Name prompted to the user
+                  Required for all but internal. When internal, "" means display the dialog. A value means display a button
+                type: string
+              dumpExchanges:
+                default: false
+                description: For debugging
+                type: boolean
+              explicitConfig:
+                description: |-
+                  Allow to replace missing configuration discovery. Or to fix uncorrected value
+                  It all or nothing -> if != nil take this config and don't perform discovery. If == nil, use discovery.
+                properties:
+                  authorization_endpoint:
+                    description: IssuerURL string `json:"issuer"`
+                    type: string
+                  device_authorization_endpoint:
+                    type: string
+                  end_session_endpoint:
+                    type: string
+                  id_token_signing_alg_values_supported:
+                    items:
+                      type: string
+                    type: array
+                  introspection_endpoint:
+                    description: The following are not provided by the github.com/coreos/go-oidc/v3/oidc
+                      library, directly
+                    type: string
+                  jwks_uri:
+                    type: string
+                  token_endpoint:
+                    type: string
+                  userinfo_endpoint:
+                    type: string
+                type: object
+              insecureSkipVerify:
+                default: false
+                description: Allow to skip server certificate validation
+                type: boolean
+              issuerURL:
+                description: The issuer URL
+                type: string
+              redirectURL:
+                type: string
+              scopes:
+                items:
+                  type: string
+                type: array
+              type:
+                description: The upstream type.
+                enum:
+                - oidc
+                - internal
+                type: string
+            required:
+            - type
+            type: object
+          status:
+            description: UpstreamProviderStatus defines the observed state of User
+            properties:
+              effectiveConfig:
+                description: The resulting configuration in case of discovery
+                properties:
+                  authorization_endpoint:
+                    description: IssuerURL string `json:"issuer"`
+                    type: string
+                  device_authorization_endpoint:
+                    type: string
+                  end_session_endpoint:
+                    type: string
+                  id_token_signing_alg_values_supported:
+                    items:
+                      type: string
+                    type: array
+                  introspection_endpoint:
+                    description: The following are not provided by the github.com/coreos/go-oidc/v3/oidc
+                      library, directly
+                    type: string
+                  jwks_uri:
+                    type: string
+                  token_endpoint:
+                    type: string
+                  userinfo_endpoint:
+                    type: string
+                type: object
+              message:
+                type: string
+              phase:
+                type: string
+            required:
+            - effectiveConfig
+            - phase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

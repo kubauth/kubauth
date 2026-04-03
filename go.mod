@@ -10,7 +10,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
-	github.com/ory/hydra/v2 v2.3.1-0.20251107121735-de9baaa9bc1b  // This corresponds to the v25.4.0 tag.
+	github.com/ory/hydra/v2 v2.3.1-0.20251107121735-de9baaa9bc1b // This corresponds to the v25.4.0 tag.
 	github.com/ory/x v0.0.724
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.10.1
@@ -25,6 +25,8 @@ require (
 	k8s.io/client-go v0.33.0
 	sigs.k8s.io/controller-runtime v0.21.0
 )
+
+require github.com/coreos/go-oidc/v3 v3.17.0
 
 require (
 	cel.dev/expr v0.24.0 // indirect
@@ -43,6 +45,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.2 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect

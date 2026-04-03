@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kubauthmodel
+package controllers
 
 import (
 	"context"
@@ -45,7 +45,6 @@ type OidcClientReconciler struct {
 	client.Client
 	record.EventRecorder
 	Scheme                    *runtime.Scheme
-	Namespace                 string // Where OidcClient are stored
 	Storage                   *oidcstorage.MemoryStore
 	statusErrorCount          int
 	Logger                    *slog.Logger

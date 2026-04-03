@@ -8,6 +8,7 @@ resources:
   - bases/kubauth.kubotal.io_ssosessions.yaml
   - bases/kubauth.kubotal.io_users.yaml
   - bases/kubauth.kubotal.io_loginattempts.yaml
+  - bases/kubauth.kubotal.io_upstreamproviders.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

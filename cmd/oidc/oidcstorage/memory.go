@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"kubauth/cmd/oidc/authenticator"
+	"kubauth/cmd/oidc/upstreams"
 	"sync"
 	"time"
 
@@ -57,6 +58,7 @@ type MemoryStore struct {
 	// Public keys to check signature in auth grant jwt assertion.
 	IssuerPublicKeys   map[string]IssuerPublicKeys
 	PARSessions        map[string]fosite.AuthorizeRequester
+	Upstreams          map[string]upstreams.Upstream
 	Authenticator      authenticator.OidcAuthenticator
 	Issuer             string
 	KeyID              string
@@ -74,6 +76,7 @@ type MemoryStore struct {
 	refreshTokenRequestIDsMutex sync.RWMutex
 	issuerPublicKeysMutex       sync.RWMutex
 	parSessionsMutex            sync.RWMutex
+	upstreamMutex               sync.RWMutex
 }
 
 func NewMemoryStore(idp authenticator.OidcAuthenticator) *MemoryStore {
@@ -90,6 +93,7 @@ func NewMemoryStore(idp authenticator.OidcAuthenticator) *MemoryStore {
 		BlacklistedJTIs:        make(map[string]time.Time),
 		IssuerPublicKeys:       make(map[string]IssuerPublicKeys),
 		PARSessions:            make(map[string]fosite.AuthorizeRequester),
+		Upstreams:              make(map[string]upstreams.Upstream),
 		Authenticator:          idp,
 	}
 }
@@ -104,6 +108,8 @@ type StoreRefreshToken struct {
 	accessTokenSignature string
 	fosite.Requester
 }
+
+// ------------------------------------------------------ OpenIDConnectSession
 
 func (s *MemoryStore) CreateOpenIDConnectSession(ctx context.Context, authorizeCode string, requester fosite.Requester) error {
 	s.idSessionsMutex.Lock()
@@ -139,6 +145,49 @@ func (s *MemoryStore) DeleteOpenIDConnectSession(ctx context.Context, authorizeC
 	delete(s.IDSessions, authorizeCode)
 	return nil
 }
+
+// ------------------------------------------------------ Upstreams
+
+func (s *MemoryStore) GetUpstream(key string) (upstreams.Upstream, error) {
+	s.upstreamMutex.RLock()
+	defer s.upstreamMutex.RUnlock()
+	upstream, ok := s.Upstreams[key]
+	if !ok {
+		return nil, fosite.ErrNotFound
+	}
+	return upstream, nil
+}
+
+func (s *MemoryStore) GetUpstreams() []upstreams.UpstreamLabel {
+	s.upstreamMutex.RLock()
+	defer s.upstreamMutex.RUnlock()
+	upstreams := make([]upstreams.UpstreamLabel, len(s.Upstreams))
+	idx := 0
+	for _, upstream := range s.Upstreams {
+		upstreams[idx] = upstream.GetLabel()
+		idx++
+	}
+	return upstreams
+}
+
+func (s *MemoryStore) SetUpstream(upstream upstreams.Upstream) {
+	s.upstreamMutex.Lock()
+	defer s.upstreamMutex.Unlock()
+	logger := logr.FromContextAsSlogLogger(context.Background())
+	logger.Debug("SetUpstream", "name", upstream.GetKey(), "upstream", upstream)
+	s.Upstreams[upstream.GetKey()] = upstream
+	return
+}
+
+func (s *MemoryStore) DeleteUpstream(key string) {
+	s.upstreamMutex.Lock()
+	defer s.upstreamMutex.Unlock()
+	logger := logr.FromContextAsSlogLogger(context.Background())
+	logger.Debug("DeleteUpstream", "name", key)
+	delete(s.Upstreams, key)
+}
+
+// ------------------------------------------------------ Oidc Clients
 
 func (s *MemoryStore) GetClient(_ context.Context, id string) (fosite.Client, error) {
 	s.clientsMutex.RLock()
@@ -191,6 +240,8 @@ func (s *MemoryStore) DeleteClient(ctx context.Context, clientId string) {
 	delete(s.Clients, clientId)
 	logger.Debug("DeleteClient", "clientId", clientId, "clientCount", len(s.Clients))
 }
+
+// ----------------------------------------------------------------
 
 func (s *MemoryStore) SetTokenLifespans(clientID string, lifespans *fosite.ClientLifespanConfig) error {
 	if client, ok := s.Clients[clientID]; ok {
