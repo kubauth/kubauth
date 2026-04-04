@@ -599,14 +599,20 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.issuerURL
-      name: IssuerURL
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .status.message
+      name: Message
       type: string
     - jsonPath: .spec.clientId
-      name: ClientId
+      name: Client_id
+      type: string
+    - jsonPath: .spec.issuerURL
+      name: Issuer_url
       type: string
     - jsonPath: .spec.redirectURL
-      name: RedirectURL
+      name: Redirect_url
       type: string
     name: v1alpha1
     schema:
@@ -790,7 +796,6 @@ spec:
               phase:
                 type: string
             required:
-            - effectiveConfig
             - phase
             type: object
         type: object

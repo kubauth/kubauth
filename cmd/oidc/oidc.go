@@ -396,18 +396,59 @@ var Cmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Setup OidcClient Reconciler
+		// ---------------------------------------------------------------------------------------------------- upstreamProvider controller setup
+		// Create an index to retrieve an upstreamProvider from a secret in an efficient way
+		// index upstreamProvider by secret
+		const secretIndexOnUpstreamProvider = "secretIndexOnUpstreamProvider"
+		err = mgr.GetFieldIndexer().IndexField(context.Background(), &kubauthv1alpha1.UpstreamProvider{}, secretIndexOnUpstreamProvider, func(rawObj client.Object) []string {
+			upstreamProvider := rawObj.(*kubauthv1alpha1.UpstreamProvider)
+			if upstreamProvider.Spec.ClientSecret == nil || upstreamProvider.Spec.ClientSecret.Secret.Name == "" {
+				return nil
+			}
+			return []string{fmt.Sprintf("%s:%s", upstreamProvider.Namespace, upstreamProvider.Spec.ClientSecret.Secret.Name)}
+		})
+		if err != nil {
+			setupLog.Error(err, "unable to index upstreamProvider by secret")
+			os.Exit(1)
+		}
+
+		findUpstreamProviderFromSecret := func(ctx context.Context, secret client.Object) []reconcile.Request {
+			upstreamProviders := kubauthv1alpha1.UpstreamProviderList{}
+			listOpts := &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(secretIndexOnUpstreamProvider, fmt.Sprintf("%s:%s", secret.GetNamespace(), secret.GetName())),
+			}
+			err := mgr.GetClient().List(context.Background(), &upstreamProviders, listOpts)
+			if err != nil {
+				if !apierrors.IsNotFound(err) {
+					logger.Error("findUpstreamProviderFromSecret(): Unable to find secret bindings", "error", err)
+				}
+				return []reconcile.Request{}
+			}
+			requests := make([]reconcile.Request, 0, 10)
+			for _, item := range upstreamProviders.Items {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				})
+			}
+			return requests
+		}
+
+		// Setup UpstreamProvider Reconciler
 		upstreamProviderReconciler := &oidcControllers.UpstreamProviderReconciler{
 			Client:        mgr.GetClient(),
-			EventRecorder: mgr.GetEventRecorderFor("oidcclients"),
+			EventRecorder: mgr.GetEventRecorderFor("upstreamProvider"),
 			Scheme:        mgr.GetScheme(),
 			Storage:       storage,
-			Logger:        logger.With("logger", "oidcClientReconciler"),
+			Logger:        logger.With("logger", "upstreamProviderReconciler"),
 		}
 
 		err = ctrl.NewControllerManagedBy(mgr).
 			For(&kubauthv1alpha1.UpstreamProvider{}).
 			Named("kubauth-upstreamProvider").
+			Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(findUpstreamProviderFromSecret)).
 			Complete(upstreamProviderReconciler)
 		if err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "upstreamProvider")

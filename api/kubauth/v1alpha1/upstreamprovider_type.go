@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,25 +25,33 @@ import (
 type CertificateAuthoritySource struct {
 	// ConfigMap containing the CA bundle. Mutually exclusive with Secret.
 	// +optional
-	ConfigMap *corev1.LocalObjectReference `json:"configMap,omitempty"`
+	ConfigMap *LocalConfigMapSpec `json:"configMap,omitempty"`
 
 	// Secret containing the CA bundle. Mutually exclusive with ConfigMap.
 	// +optional
-	Secret *corev1.LocalObjectReference `json:"secret,omitempty"`
-
-	// Key within the referenced ConfigMap or Secret. Defaults to "ca.crt" if empty.
-	// +optional
-	Key string `json:"key,omitempty"`
+	Secret *LocalSecretSpec `json:"secret,omitempty"`
 }
 
-type SecretSource struct {
-	// K8s Secret containing the secret value.
+type LocalConfigMapSpec struct {
 	// +required
-	Secret *corev1.LocalObjectReference `json:"secret"`
-
-	// Key within the referenced ConfigMap or Secret.
+	Name string `json:"name"`
 	// +required
 	Key string `json:"key"`
+}
+
+//type LocalConfigMapReference struct {
+//	ConfigMap LocalSecretSpec `json:"configMap"`
+//}
+
+type LocalSecretSpec struct {
+	// +required
+	Name string `json:"name"`
+	// +required
+	Key string `json:"key"`
+}
+
+type LocalSecretReference struct {
+	Secret LocalSecretSpec `json:"secret"`
 }
 
 // UpstreamProviderConfig mirrors the subset of the OIDC discovery document represented by
@@ -116,7 +123,7 @@ type UpstreamProviderSpec struct {
 	ClientId string `json:"clientId"`
 
 	// +optional
-	ClientSecret *SecretSource `json:"clientSecret"`
+	ClientSecret *LocalSecretReference `json:"clientSecret"`
 
 	// +optional
 	Scopes []string `json:"scopes"`
@@ -146,15 +153,20 @@ type UpstreamProviderStatus struct {
 	Message string `json:"message"`
 
 	// The resulting configuration in case of discovery
+	// +optional
 	EffectiveConfig *UpstreamProviderConfig `json:"effectiveConfig"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=upstreams
-// +kubebuilder:printcolumn:name="IssuerURL",type=string,JSONPath=`.spec.issuerURL`
-// +kubebuilder:printcolumn:name="ClientId",type=string,JSONPath=`.spec.clientId`
-// +kubebuilder:printcolumn:name="RedirectURL",type=string,JSONPath=`.spec.redirectURL`
+// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
+// +kubebuilder:printcolumn:name="Display_name",type=string,JSONPath=`.spec.displayName`
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.message`
+// +kubebuilder:printcolumn:name="Client_id",type=string,JSONPath=`.spec.clientId`
+// +kubebuilder:printcolumn:name="Issuer_url",type=string,JSONPath=`.spec.issuerURL`
+// +kubebuilder:printcolumn:name="Redirect_url",type=string,JSONPath=`.spec.redirectURL`
 
 type UpstreamProvider struct {
 	metav1.TypeMeta   `json:",inline"`

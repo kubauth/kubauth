@@ -5,9 +5,19 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - kubauth.kubotal.io
   resources:
   - oidcclients
+  - upstreamproviders
   verbs:
   - get
   - list
@@ -18,6 +28,7 @@ rules:
   - kubauth.kubotal.io
   resources:
   - oidcclients/status
+  - upstreamproviders/status
   verbs:
   - get
   - patch

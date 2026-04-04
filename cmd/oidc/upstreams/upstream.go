@@ -53,20 +53,8 @@ type upstream struct {
 	Algorithms       []string
 }
 
-func (u *upstream) GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig {
-	if u.provider == nil {
-		return nil
-	}
-	return &kubauthv1alpha1.UpstreamProviderConfig{
-		AuthURL:          u.provider.Endpoint().AuthURL,
-		TokenURL:         u.provider.Endpoint().TokenURL,
-		DeviceAuthURL:    u.provider.Endpoint().DeviceAuthURL,
-		UserInfoURL:      u.provider.UserInfoEndpoint(),
-		JWKSURL:          u.JwksURL,
-		Algorithms:       u.Algorithms,
-		IntrospectionURL: u.introspectionURL,
-		EndSessionURL:    u.endSessionURL,
-	}
+func BuildUpstreamId(name string, namespace string) string {
+	return fmt.Sprintf("%s:%s", namespace, name)
 }
 
 var _ Upstream = &upstream{}
@@ -76,7 +64,7 @@ var _ Upstream = &upstream{}
 func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.UpstreamProvider, clientSecret string, caData string) (Upstream, error) {
 	if upstreamProvider.Spec.Type == kubauthv1alpha1.UpstreamProviderTypeInternal {
 		upstream := &upstream{
-			key:         fmt.Sprintf("%s:%s", upstreamProvider.Name, upstreamProvider.Namespace),
+			key:         BuildUpstreamId(upstreamProvider.Name, upstreamProvider.Namespace),
 			myType:      upstreamProvider.Spec.Type,
 			displayName: upstreamProvider.Spec.DisplayName,
 		}
@@ -84,7 +72,7 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 		return upstream, nil
 	}
 	upstream := &upstream{
-		key:          fmt.Sprintf("%s:%s", upstreamProvider.Name, upstreamProvider.Namespace),
+		key:          BuildUpstreamId(upstreamProvider.Name, upstreamProvider.Namespace),
 		myType:       upstreamProvider.Spec.Type,
 		displayName:  upstreamProvider.Spec.DisplayName,
 		issuerURL:    upstreamProvider.Spec.IssuerURL,
@@ -110,7 +98,7 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 		// We will use discovery
 		upstream.provider, err = oidc.NewProvider(ctx, upstreamProvider.Spec.IssuerURL)
 		if err != nil {
-			return nil, fmt.Errorf("error creating oidc provider: %w", err)
+			return nil, fmt.Errorf("error on upstream oidc provider: %w", err)
 		}
 		// We need to claim some configuration values from the response.body as, either they are not managed by the oidc.Provider at all or they are private without getter
 		var extraConfig struct {
@@ -119,7 +107,7 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 			JwksURL          string   `json:"jwks_uri"`
 			Algorithms       []string `json:"id_token_signing_alg_values_supported"`
 		}
-		err = upstream.provider.Claims(extraConfig)
+		err = upstream.provider.Claims(&extraConfig)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching complementary endpoints: %w", err)
 		}
@@ -149,6 +137,22 @@ func (u *upstream) GetLabel() UpstreamLabel {
 	return UpstreamLabel{
 		Key:         u.key,
 		DisplayName: u.displayName,
+	}
+}
+
+func (u *upstream) GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig {
+	if u.provider == nil {
+		return nil
+	}
+	return &kubauthv1alpha1.UpstreamProviderConfig{
+		AuthURL:          u.provider.Endpoint().AuthURL,
+		TokenURL:         u.provider.Endpoint().TokenURL,
+		DeviceAuthURL:    u.provider.Endpoint().DeviceAuthURL,
+		UserInfoURL:      u.provider.UserInfoEndpoint(),
+		JWKSURL:          u.JwksURL,
+		Algorithms:       u.Algorithms,
+		IntrospectionURL: u.introspectionURL,
+		EndSessionURL:    u.endSessionURL,
 	}
 }
 

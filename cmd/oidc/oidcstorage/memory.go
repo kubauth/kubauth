@@ -148,7 +148,7 @@ func (s *MemoryStore) DeleteOpenIDConnectSession(ctx context.Context, authorizeC
 
 // ------------------------------------------------------ Upstreams
 
-func (s *MemoryStore) GetUpstream(key string) (upstreams.Upstream, error) {
+func (s *MemoryStore) GetUpstream(_ context.Context, key string) (upstreams.Upstream, error) {
 	s.upstreamMutex.RLock()
 	defer s.upstreamMutex.RUnlock()
 	upstream, ok := s.Upstreams[key]
@@ -158,7 +158,7 @@ func (s *MemoryStore) GetUpstream(key string) (upstreams.Upstream, error) {
 	return upstream, nil
 }
 
-func (s *MemoryStore) GetUpstreams() []upstreams.UpstreamLabel {
+func (s *MemoryStore) GetUpstreams(_ context.Context) []upstreams.UpstreamLabel {
 	s.upstreamMutex.RLock()
 	defer s.upstreamMutex.RUnlock()
 	upstreams := make([]upstreams.UpstreamLabel, len(s.Upstreams))
@@ -170,19 +170,25 @@ func (s *MemoryStore) GetUpstreams() []upstreams.UpstreamLabel {
 	return upstreams
 }
 
-func (s *MemoryStore) SetUpstream(upstream upstreams.Upstream) {
+func (s *MemoryStore) SetUpstream(ctx context.Context, upstream upstreams.Upstream) {
+	if upstream == nil {
+		fmt.Printf("*************************************************** 1\n")
+	}
 	s.upstreamMutex.Lock()
 	defer s.upstreamMutex.Unlock()
-	logger := logr.FromContextAsSlogLogger(context.Background())
+	logger := logr.FromContextAsSlogLogger(ctx)
+	if logger == nil {
+		fmt.Printf("***************************************************** 2\n")
+	}
 	logger.Debug("SetUpstream", "name", upstream.GetKey(), "upstream", upstream)
 	s.Upstreams[upstream.GetKey()] = upstream
 	return
 }
 
-func (s *MemoryStore) DeleteUpstream(key string) {
+func (s *MemoryStore) DeleteUpstream(ctx context.Context, key string) {
 	s.upstreamMutex.Lock()
 	defer s.upstreamMutex.Unlock()
-	logger := logr.FromContextAsSlogLogger(context.Background())
+	logger := logr.FromContextAsSlogLogger(ctx)
 	logger.Debug("DeleteUpstream", "name", key)
 	delete(s.Upstreams, key)
 }

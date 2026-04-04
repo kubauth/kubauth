@@ -17,14 +17,26 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.issuerURL
-      name: IssuerURL
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .spec.displayName
+      name: Display_name
+      type: string
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .status.message
+      name: Message
       type: string
     - jsonPath: .spec.clientId
-      name: ClientId
+      name: Client_id
+      type: string
+    - jsonPath: .spec.issuerURL
+      name: Issuer_url
       type: string
     - jsonPath: .spec.redirectURL
-      name: RedirectURL
+      name: Redirect_url
       type: string
     name: v1alpha1
     schema:
@@ -57,60 +69,42 @@ spec:
                     description: ConfigMap containing the CA bundle. Mutually exclusive
                       with Secret.
                     properties:
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      key:
                         type: string
+                      name:
+                        type: string
+                    required:
+                    - key
+                    - name
                     type: object
-                    x-kubernetes-map-type: atomic
-                  key:
-                    description: Key within the referenced ConfigMap or Secret. Defaults
-                      to "ca.crt" if empty.
-                    type: string
                   secret:
                     description: Secret containing the CA bundle. Mutually exclusive
                       with ConfigMap.
                     properties:
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      key:
                         type: string
+                      name:
+                        type: string
+                    required:
+                    - key
+                    - name
                     type: object
-                    x-kubernetes-map-type: atomic
                 type: object
               clientId:
                 type: string
               clientSecret:
                 properties:
-                  key:
-                    description: Key within the referenced ConfigMap or Secret.
-                    type: string
                   secret:
-                    description: K8s Secret containing the secret value.
                     properties:
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      key:
                         type: string
+                      name:
+                        type: string
+                    required:
+                    - key
+                    - name
                     type: object
-                    x-kubernetes-map-type: atomic
                 required:
-                - key
                 - secret
                 type: object
               clientSpecific:
@@ -208,7 +202,6 @@ spec:
               phase:
                 type: string
             required:
-            - effectiveConfig
             - phase
             type: object
         type: object

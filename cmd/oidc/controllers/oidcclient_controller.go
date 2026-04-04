@@ -193,7 +193,11 @@ func (r *OidcClientReconciler) updateStatus(ctx context.Context, oidcClient *kub
 		toUpdate = true
 	}
 	if toUpdate {
-		logger.Debug("OidcClient.Status will be updated", "phase", phase, "message", message)
+		if err != nil {
+			logger.Error("OidcClient.Status updated with error", "phase", phase, "message", message)
+		} else {
+			logger.Debug("OidcClient.Status will be updated", "phase", phase, "message", message)
+		}
 		err := r.Status().Update(ctx, oidcClient)
 		if err != nil {
 			if r.statusErrorCount == 0 {

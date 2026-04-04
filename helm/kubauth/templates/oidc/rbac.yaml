@@ -18,6 +18,7 @@ rules:
       - kubauth.kubotal.io
     resources:
       - oidcclients
+      - upstreamproviders
     verbs:
       - get
       - list
@@ -38,6 +39,14 @@ rules:
       - delete
       - patch
       - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
 
 ---
 # This ClusterRole is intended to be used by the kubauth controller.
@@ -56,6 +65,7 @@ rules:
       - kubauth.kubotal.io
     resources:
       - oidcclients
+      - upstreamproviders
     verbs:
       - get
       - list
@@ -66,6 +76,7 @@ rules:
       - kubauth.kubotal.io
     resources:
       - oidcclients/status
+      - upstreamproviders/status
     verbs:
       - get
       - patch
@@ -79,6 +90,14 @@ rules:
       - list
       - watch
       - create
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - ""
     resources:
