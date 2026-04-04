@@ -2,6 +2,7 @@
 
 # v0.3.0
 
+- feat: Add an 'enabled' (default: true) flag on oidcClient resource
 - feat: Added upstreamProvider resources
 - On authentication_code_flow, the request context is now saved in the session, instead of the browser.
 - Update fosite library, sync with hydra tag 'v25.4.0'

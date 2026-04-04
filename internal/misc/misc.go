@@ -21,9 +21,16 @@ import (
 	"sort"
 )
 
-func SafeBoolPtr(p *bool) bool {
+func BoolPtrFalse(p *bool) bool {
 	if p == nil {
 		return false
+	}
+	return *p
+}
+
+func BoolPtrTrue(p *bool) bool {
+	if p == nil {
+		return true
 	}
 	return *p
 }

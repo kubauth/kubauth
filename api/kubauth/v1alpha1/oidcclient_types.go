@@ -45,6 +45,10 @@ type OidcClientSpec struct {
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
+	// +kubebuilder:validation:Optional
+	// Default: true
+	Enabled *bool `json:"enabled,omitempty"`
+
 	// A list of k8s secret hosting the client_secret.
 	// Required for non public oidcClient
 	// +optional
@@ -119,6 +123,7 @@ type OidcClientPhase string
 
 const OidcClientPhaseReady = OidcClientPhase("READY")
 const OidcClientPhaseError = OidcClientPhase("ERROR")
+const OidcClientPhaseOff = OidcClientPhase("OFF")
 
 // OidcClientStatus defines the observed state of OidcClient.
 type OidcClientStatus struct {

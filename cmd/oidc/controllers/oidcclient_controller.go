@@ -21,6 +21,7 @@ import (
 	"fmt"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/oidc/oidcstorage"
+	"kubauth/internal/misc"
 	"log/slog"
 	"time"
 
@@ -119,6 +120,10 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		//	return ctrl.Result{}, err
 		//}
 	}
+	if !misc.BoolPtrTrue(oidcClient.Spec.Enabled) {
+		logger.Debug("OidcClient is disabled")
+		return r.UpdateStorageAndStatus(ctx, oidcClient, nil, nil)
+	}
 
 	if oidcClient.Spec.Public {
 		if oidcClient.Spec.Secrets != nil {
@@ -162,11 +167,16 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 func (r *OidcClientReconciler) UpdateStorageAndStatus(ctx context.Context, oidcClient *kubauthv1alpha1.OidcClient, hashedSecrets [][]byte, err error) (ctrl.Result, error) {
 	if err == nil {
-		err = r.Storage.SetClient(ctx, oidcstorage.NewFositeClient(oidcClient, oidcClient.Status.ClientId, hashedSecrets))
-		if err == nil {
-			r.Event(oidcClient, "Normal", "Created", "Created client with client_id '"+oidcClient.Status.ClientId+"'")
+		if misc.BoolPtrTrue(oidcClient.Spec.Enabled) {
+			err = r.Storage.SetClient(ctx, oidcstorage.NewFositeClient(oidcClient, oidcClient.Status.ClientId, hashedSecrets))
+			if err == nil {
+				r.Event(oidcClient, "Normal", "Created", "Created client with client_id '"+oidcClient.Status.ClientId+"'")
+			} else {
+				r.Event(oidcClient, "Warning", "Duplicate", err.Error())
+			}
 		} else {
-			r.Event(oidcClient, "Warning", "Duplicate", err.Error())
+			r.Event(oidcClient, "Normal", "Off", "Disabled")
+			r.Storage.DeleteClient(ctx, oidcClient.Status.ClientId)
 		}
 		return r.updateStatus(ctx, oidcClient, err)
 	}
@@ -182,6 +192,9 @@ func (r *OidcClientReconciler) updateStatus(ctx context.Context, oidcClient *kub
 	if err != nil {
 		message = err.Error()
 		phase = kubauthv1alpha1.OidcClientPhaseError
+	} else if !misc.BoolPtrTrue(oidcClient.Spec.Enabled) {
+		phase = kubauthv1alpha1.OidcClientPhaseOff
+		message = "Disabled"
 	}
 	toUpdate := false
 	if oidcClient.Status.Phase != phase {

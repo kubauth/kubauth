@@ -86,6 +86,9 @@ spec:
                 description: Application name. May be used to be displayed in an application
                   list
                 type: string
+              enabled:
+                description: 'Default: true'
+                type: boolean
               entryURL:
                 description: The application entry URL. May be used to build a user-friendly
                   list
