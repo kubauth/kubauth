@@ -171,15 +171,9 @@ func (s *MemoryStore) GetUpstreams(_ context.Context) []upstreams.UpstreamLabel 
 }
 
 func (s *MemoryStore) SetUpstream(ctx context.Context, upstream upstreams.Upstream) {
-	if upstream == nil {
-		fmt.Printf("*************************************************** 1\n")
-	}
 	s.upstreamMutex.Lock()
 	defer s.upstreamMutex.Unlock()
 	logger := logr.FromContextAsSlogLogger(ctx)
-	if logger == nil {
-		fmt.Printf("***************************************************** 2\n")
-	}
 	logger.Debug("SetUpstream", "name", upstream.GetKey(), "upstream", upstream)
 	s.Upstreams[upstream.GetKey()] = upstream
 	return

@@ -88,6 +88,10 @@ const UpstreamProviderTypeInternal UpstreamProviderType = "internal"
 
 type UpstreamProviderSpec struct {
 
+	// +kubebuilder:validation:Optional
+	// Default: true
+	Enabled *bool `json:"enabled,omitempty"`
+
 	// The upstream type.
 	// +kubebuilder:validation:Enum=oidc;internal
 	// +required
@@ -143,6 +147,7 @@ type UpstreamProviderPhase string
 
 const UpstreamProviderPhaseReady = UpstreamProviderPhase("READY")
 const UpstreamProviderPhaseError = UpstreamProviderPhase("ERROR")
+const UpstreamProviderPhaseOff = UpstreamProviderPhase("OFF")
 
 // UpstreamProviderStatus defines the observed state of User
 type UpstreamProviderStatus struct {

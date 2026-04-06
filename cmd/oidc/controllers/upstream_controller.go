@@ -23,6 +23,7 @@ import (
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/oidc/oidcstorage"
 	"kubauth/cmd/oidc/upstreams"
+	"kubauth/internal/misc"
 	"log/slog"
 	"time"
 
@@ -105,6 +106,13 @@ func (r *UpstreamProviderReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		//}
 	}
 
+	if !misc.BoolPtrTrue(upstreamProvider.Spec.Enabled) {
+		logger.Debug("UpstreamProvider is being disabled")
+		r.Storage.DeleteUpstream(ctx, upstreams.BuildUpstreamId(upstreamProvider.Name, upstreamProvider.Namespace))
+		r.Event(upstreamProvider, "Normal", "Off", "Disabled")
+		return r.updateStatus(ctx, upstreamProvider, nil, nil)
+	}
+
 	if upstreamProvider.Spec.Type == kubauthv1alpha1.UpstreamProviderTypeInternal {
 		upstream, _ := upstreams.NewUpstream(ctx, upstreamProvider, "", "")
 		r.Storage.SetUpstream(ctx, upstream)
@@ -184,8 +192,11 @@ func (r *UpstreamProviderReconciler) updateStatus(ctx context.Context, upstreamP
 		message = err.Error()
 		phase = kubauthv1alpha1.UpstreamProviderPhaseError
 		logger.Error("UpstreamProvider.Status updated in error", "phase", phase, "message", message)
+	} else if !misc.BoolPtrTrue(upstreamProvider.Spec.Enabled) {
+		phase = kubauthv1alpha1.UpstreamProviderPhaseOff
+		logger.Debug("UpstreamProvider.Status updated in", "phase", phase, "message", message)
 	} else {
-		logger.Debug("UpstreamProvider.Status will be updated", "phase", phase, "message", message)
+		logger.Debug("UpstreamProvider.Status updated in", "phase", phase, "message", message)
 	}
 	upstreamProvider.Status.Phase = phase
 	upstreamProvider.Status.Message = message

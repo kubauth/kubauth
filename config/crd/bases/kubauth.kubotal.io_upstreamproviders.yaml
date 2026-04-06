@@ -120,6 +120,9 @@ spec:
                 default: false
                 description: For debugging
                 type: boolean
+              enabled:
+                description: 'Default: true'
+                type: boolean
               explicitConfig:
                 description: |-
                   Allow to replace missing configuration discovery. Or to fix uncorrected value
