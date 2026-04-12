@@ -15,6 +15,10 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
+      {{ else if eq .Values.oidc.ingress.class "haproxy" }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-haproxy
       {{ else }}
         {{- fail "Unmanaged ingress class" }}
       {{ end }}

@@ -1,3 +1,8 @@
+
+# v0.2.2
+
+- feat[helm]: Added support of 'haproxy' as ingress class 
+
 # v0.2.1
 
 - The JWKS base64 encoding was incorrect. Fixed.

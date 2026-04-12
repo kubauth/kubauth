@@ -163,7 +163,7 @@ oidc:
 
 
   server:
-    tls: true
+    tls: true   #
     bindAddr: "0.0.0.0"
     bindPort: 6801    # See internal/global/default.go
     certificateIssuer: # TBD
@@ -180,8 +180,10 @@ oidc:
 
   ingress:
     enabled: true
-    class: nginx  # Only nginx currently supported
+    class: nginx
     host: # TBD
+    passthrough: true
+    annotations:
 
   sso:
     sticky: true
