@@ -19,7 +19,6 @@ package oidcstorage
 import (
 	"fmt"
 	"kubauth/api/kubauth/v1alpha1"
-	"kubauth/cmd/oidc/upstreams"
 	"time"
 
 	"github.com/ory/hydra/v2/fosite"
@@ -35,18 +34,14 @@ type FositeClient interface {
 	IsForceOpenIdScope() bool
 	GetSecretCount() int
 	GetK8sId() string // Used to check against duplicated OIDC client_id
+	GetStyle() string
 }
 
 type fositeClient struct {
-	clientId      string // From metadata.name
+	clientId      string // From metadata.name or metadata.namespace + "_" + metadata.name
 	spec          *v1alpha1.OidcClientSpec
 	hashedSecrets [][]byte
 	k8sId         string
-}
-
-func (k *fositeClient) GetLabels() []upstreams.UpstreamLabel {
-	//TODO implement me
-	panic("implement me")
 }
 
 func NewFositeClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets [][]byte) FositeClient {
@@ -171,4 +166,8 @@ func (k *fositeClient) GetEffectiveLifespan(gt fosite.GrantType, tt fosite.Token
 		return fallback
 	}
 	return fallback
+}
+
+func (k *fositeClient) GetStyle() string {
+	return k.spec.Style
 }

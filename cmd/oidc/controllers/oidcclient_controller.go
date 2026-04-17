@@ -50,6 +50,7 @@ type OidcClientReconciler struct {
 	statusErrorCount          int
 	Logger                    *slog.Logger
 	ClientPrivilegedNamespace string
+	DefaultStyle              string
 }
 
 func (r *OidcClientReconciler) buildClientId(spec *kubauthv1alpha1.OidcClientSpec, name string, namespace string) string {
@@ -123,6 +124,9 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if !misc.BoolPtrTrue(oidcClient.Spec.Enabled) {
 		logger.Debug("OidcClient is disabled")
 		return r.UpdateStorageAndStatus(ctx, oidcClient, nil, nil)
+	}
+	if oidcClient.Spec.Style == "" {
+		oidcClient.Spec.Style = r.DefaultStyle
 	}
 
 	if oidcClient.Spec.Public {

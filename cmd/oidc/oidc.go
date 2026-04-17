@@ -99,6 +99,7 @@ var flags struct {
 	allowPKCEPlain            bool
 	jwtAccessToken            bool
 	clientPrivilegedNamespace string
+	defaultStyle              string
 
 	// SSO Config
 	ssoNamespace  string
@@ -158,6 +159,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&flags.allowPKCEPlain, "allowPKCEPlain", false, "Allow PKCE 'plain' challenge method (not recommended, use S256 instead)")
 	Cmd.PersistentFlags().BoolVar(&flags.jwtAccessToken, "jwtAccessToken", false, "Access token is a JWT. Otherwise is an opaque value")
 	Cmd.PersistentFlags().StringVar(&flags.clientPrivilegedNamespace, "clientPrivilegedNamespace", "", "The only OIDC client namespace, where client_id is not préfixed by namespace.")
+	Cmd.PersistentFlags().StringVar(&flags.defaultStyle, "defaultStyle", "dark", "Allow to change template style and layout.")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -384,6 +386,7 @@ var Cmd = &cobra.Command{
 			Storage:                   storage,
 			ClientPrivilegedNamespace: flags.clientPrivilegedNamespace,
 			Logger:                    logger.With("logger", "oidcClientReconciler"),
+			DefaultStyle:              flags.defaultStyle,
 		}
 
 		err = ctrl.NewControllerManagedBy(mgr).

@@ -17,6 +17,7 @@ limitations under the License.
 package oidcserver
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -24,9 +25,17 @@ import (
 	"github.com/ory/hydra/v2/fosite"
 )
 
-func (s *OIDCServer) displayLoginResponse(w http.ResponseWriter, invalidLogin bool) {
+func (s *OIDCServer) displayLoginResponse(ctx context.Context, w http.ResponseWriter, clientId string, invalidLogin bool) {
+	//client, err := s.Storage.GetClient(ctx, clientId)
+	//if err != nil {
+	//	return
+	//}
+	//
+	//
+
 	data := map[string]interface{}{
 		"InvalidLogin": invalidLogin,
+		"Style":        "",
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.LoginTemplate.Execute(w, data); err != nil {

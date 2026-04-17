@@ -153,6 +153,11 @@ spec:
                   - name
                   type: object
                 type: array
+              style:
+                description: |-
+                  This value will be used by the templates to provide different stylas and layout on login and index pages
+                  Default to the defaultStyle global config file
+                type: string
             required:
             - grantTypes
             - public

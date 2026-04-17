@@ -161,13 +161,13 @@ func (s *MemoryStore) GetUpstream(_ context.Context, key string) (upstreams.Upst
 func (s *MemoryStore) GetUpstreams(_ context.Context) []upstreams.UpstreamLabel {
 	s.upstreamMutex.RLock()
 	defer s.upstreamMutex.RUnlock()
-	upstreams := make([]upstreams.UpstreamLabel, len(s.Upstreams))
+	upstreamLabels := make([]upstreams.UpstreamLabel, len(s.Upstreams))
 	idx := 0
 	for _, upstream := range s.Upstreams {
-		upstreams[idx] = upstream.GetLabel()
+		upstreamLabels[idx] = upstream.GetLabel()
 		idx++
 	}
-	return upstreams
+	return upstreamLabels
 }
 
 func (s *MemoryStore) SetUpstream(ctx context.Context, upstream upstreams.Upstream) {

@@ -83,6 +83,11 @@ type OidcClientSpec struct {
 	// +optional
 	ForceOpenIdScope *bool `json:"forceOpenIdScope,omitempty"`
 
+	// This value will be used by the templates to provide different stylas and layout on login and index pages
+	// +optional
+	// Default to the defaultStyle global config file
+	Style string `json:"style,omitempty"`
+
 	// Where to redirected user on logout.
 	// Will take precedence on the same global configuration value.
 	// May be overridden by a query parameter on the logout url
