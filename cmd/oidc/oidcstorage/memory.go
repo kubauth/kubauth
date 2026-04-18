@@ -44,7 +44,7 @@ type PublicKeyScopes struct {
 }
 
 type MemoryStore struct {
-	Clients        map[string]FositeClient
+	Clients        map[string]KubauthClient
 	AuthorizeCodes map[string]StoreAuthorizeCode
 	IDSessions     map[string]fosite.Requester
 	AccessTokens   map[string]fosite.Requester
@@ -81,7 +81,7 @@ type MemoryStore struct {
 
 func NewMemoryStore(idp authenticator.OidcAuthenticator) *MemoryStore {
 	return &MemoryStore{
-		Clients:        make(map[string]FositeClient),
+		Clients:        make(map[string]KubauthClient),
 		AuthorizeCodes: make(map[string]StoreAuthorizeCode),
 		IDSessions:     make(map[string]fosite.Requester),
 		AccessTokens:   make(map[string]fosite.Requester),
@@ -189,7 +189,7 @@ func (s *MemoryStore) DeleteUpstream(ctx context.Context, key string) {
 
 // ------------------------------------------------------ Oidc Clients
 
-func (s *MemoryStore) GetClient(_ context.Context, id string) (fosite.Client, error) {
+func (s *MemoryStore) GetKubauthClient(_ context.Context, id string) (KubauthClient, error) {
 	s.clientsMutex.RLock()
 	defer s.clientsMutex.RUnlock()
 
@@ -198,6 +198,12 @@ func (s *MemoryStore) GetClient(_ context.Context, id string) (fosite.Client, er
 		return nil, fosite.ErrNotFound
 	}
 	return cl, nil
+}
+
+// This to comply to fosite.ClientManager interface
+
+func (s *MemoryStore) GetClient(_ context.Context, id string) (fosite.Client, error) {
+	return s.GetKubauthClient(context.Background(), id)
 }
 
 //func (s *MemoryStore) SetClients(_ context.Context, clients map[string]FositeClient) {
@@ -218,7 +224,7 @@ func (e *ClientDuplicationError) GetExistingClient() string {
 	return e.existingClient
 }
 
-func (s *MemoryStore) SetClient(ctx context.Context, client FositeClient) error {
+func (s *MemoryStore) SetClient(ctx context.Context, client KubauthClient) error {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()

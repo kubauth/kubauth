@@ -34,18 +34,18 @@
 }
 
 .password-toggle:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--password-toggle-hover-bg);
 }
 
 .password-toggle svg {
     width: 20px;
     height: 20px;
-    fill: #b0b0b0;
+    fill: var(--password-toggle-icon);
     transition: fill 0.2s ease;
 }
 
 .password-toggle:hover svg {
-    fill: #e0e0e0;
+    fill: var(--password-toggle-icon-hover);
 }
 
 .login-button {
@@ -72,8 +72,8 @@
 .checkmark {
     width: 18px;
     height: 18px;
-    background-color: #3a3a3a;
-    border: 2px solid #555;
+    background-color: var(--checkbox-bg);
+    border: 2px solid var(--checkbox-border);
     border-radius: 3px;
     margin-right: 10px;
     position: relative;
@@ -82,12 +82,12 @@
 }
 
 .checkbox-container:hover .checkmark {
-    border-color: #0ea5e9;
+    border-color: var(--input-focus);
 }
 
 .checkbox-container input[type="checkbox"]:checked + .checkmark {
-    background-color: #0ea5e9;
-    border-color: #0ea5e9;
+    background-color: var(--btn-bg);
+    border-color: var(--btn-bg);
 }
 
 .checkbox-container input[type="checkbox"]:checked + .checkmark::after {

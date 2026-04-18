@@ -24,7 +24,7 @@ import (
 	"github.com/ory/hydra/v2/fosite"
 )
 
-type FositeClient interface {
+type KubauthClient interface {
 	fosite.ClientWithSecretRotation
 	GetName() string
 	GetDescription() string
@@ -37,15 +37,15 @@ type FositeClient interface {
 	GetStyle() string
 }
 
-type fositeClient struct {
+type kubauthClient struct {
 	clientId      string // From metadata.name or metadata.namespace + "_" + metadata.name
 	spec          *v1alpha1.OidcClientSpec
 	hashedSecrets [][]byte
 	k8sId         string
 }
 
-func NewFositeClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets [][]byte) FositeClient {
-	return &fositeClient{
+func NewKubauthClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets [][]byte) KubauthClient {
+	return &kubauthClient{
 		clientId:      clientId,
 		spec:          &cli.Spec,
 		hashedSecrets: hashedSecrets,
@@ -53,60 +53,60 @@ func NewFositeClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets []
 	}
 }
 
-var _ FositeClient = &fositeClient{}
+var _ KubauthClient = &kubauthClient{}
 
-var _ fosite.ClientWithCustomTokenLifespans = &fositeClient{}
+var _ fosite.ClientWithCustomTokenLifespans = &kubauthClient{}
 
-func (k *fositeClient) GetID() string {
+func (k *kubauthClient) GetID() string {
 	return k.clientId
 }
 
-func (k *fositeClient) GetK8sId() string {
+func (k *kubauthClient) GetK8sId() string {
 	return k.k8sId
 }
 
-func (k *fositeClient) GetHashedSecret() []byte {
+func (k *kubauthClient) GetHashedSecret() []byte {
 	if k.hashedSecrets == nil || len(k.hashedSecrets) == 0 {
 		return nil
 	}
 	return []byte(k.hashedSecrets[0])
 }
 
-func (k *fositeClient) GetRotatedHashes() [][]byte {
+func (k *kubauthClient) GetRotatedHashes() [][]byte {
 	if k.hashedSecrets == nil || len(k.hashedSecrets) < 1 {
 		return nil
 	}
 	return k.hashedSecrets[1:]
 }
 
-func (k *fositeClient) GetSecretCount() int {
+func (k *kubauthClient) GetSecretCount() int {
 	if k.hashedSecrets == nil {
 		return 0
 	}
 	return len(k.hashedSecrets)
 }
 
-func (k *fositeClient) GetRedirectURIs() []string {
+func (k *kubauthClient) GetRedirectURIs() []string {
 	return k.spec.RedirectURIs
 }
 
-func (k *fositeClient) GetGrantTypes() fosite.Arguments {
+func (k *kubauthClient) GetGrantTypes() fosite.Arguments {
 	return k.spec.GrantTypes
 }
 
-func (k *fositeClient) GetResponseTypes() fosite.Arguments {
+func (k *kubauthClient) GetResponseTypes() fosite.Arguments {
 	return k.spec.ResponseTypes
 }
 
-func (k *fositeClient) GetScopes() fosite.Arguments {
+func (k *kubauthClient) GetScopes() fosite.Arguments {
 	return k.spec.Scopes
 }
 
-func (k *fositeClient) IsPublic() bool {
+func (k *kubauthClient) IsPublic() bool {
 	return k.spec.Public
 }
 
-func (k *fositeClient) GetAudience() fosite.Arguments {
+func (k *kubauthClient) GetAudience() fosite.Arguments {
 	for _, aud := range k.spec.Audiences {
 		if aud == k.clientId {
 			return k.spec.Audiences
@@ -117,34 +117,34 @@ func (k *fositeClient) GetAudience() fosite.Arguments {
 	return append(k.spec.Audiences, k.clientId)
 }
 
-func (k *fositeClient) GetName() string {
+func (k *kubauthClient) GetName() string {
 	return k.GetName()
 }
 
-func (k *fositeClient) GetDescription() string {
+func (k *kubauthClient) GetDescription() string {
 	return k.spec.Description
 }
 
-func (k *fositeClient) GetEntryURL() string {
+func (k *kubauthClient) GetEntryURL() string {
 	return k.spec.EntryURL
 }
 
-func (k *fositeClient) GetPostLogoutURL() string {
+func (k *kubauthClient) GetPostLogoutURL() string {
 	return k.spec.PostLogoutURL
 }
 
-func (k *fositeClient) GetDisplayName() string {
+func (k *kubauthClient) GetDisplayName() string {
 	return k.spec.DisplayName
 }
 
-func (k *fositeClient) IsForceOpenIdScope() bool {
+func (k *kubauthClient) IsForceOpenIdScope() bool {
 	if k.spec.ForceOpenIdScope == nil {
 		return false
 	}
 	return *k.spec.ForceOpenIdScope
 }
 
-func (k *fositeClient) GetEffectiveLifespan(gt fosite.GrantType, tt fosite.TokenType, fallback time.Duration) time.Duration {
+func (k *kubauthClient) GetEffectiveLifespan(gt fosite.GrantType, tt fosite.TokenType, fallback time.Duration) time.Duration {
 	//fmt.Printf("############### GetEffectiveLifespan client:%s grant type:%s   tokenType:%s   fallBack:%s\n", k.clientId, gt, tt, fallback)
 	if tt == fosite.AccessToken {
 		if k.spec.AccessTokenLifespan.Duration != 0 {
@@ -168,6 +168,6 @@ func (k *fositeClient) GetEffectiveLifespan(gt fosite.GrantType, tt fosite.Token
 	return fallback
 }
 
-func (k *fositeClient) GetStyle() string {
+func (k *kubauthClient) GetStyle() string {
 	return k.spec.Style
 }

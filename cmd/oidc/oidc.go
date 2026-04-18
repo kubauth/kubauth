@@ -564,6 +564,7 @@ var Cmd = &cobra.Command{
 			EnforcePKCE:             flags.enforcePKCE,
 			AllowPKCEPlain:          flags.allowPKCEPlain,
 			JwtAccessToken:          flags.jwtAccessToken,
+			DefaultStyle:            flags.defaultStyle,
 		}).Setup(ctx, router)
 		if err != nil {
 			setupLog.Error(err, "unable to setup oidc server")

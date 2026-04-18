@@ -37,6 +37,8 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 		// Persist the authorization query in the session so the POST can retrieve it
 		s.LoginSessionManager.Put(ctx, "authQuery", rawQuery)
+		// For the index page.
+		s.LoginSessionManager.Put(ctx, "clientId", clientId)
 
 		// If user already authenticated (SSO), complete the OIDC flow directly
 		if v := s.SsoSessionManager.Get(ctx, "ssoUser"); v != nil {

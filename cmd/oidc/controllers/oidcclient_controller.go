@@ -172,7 +172,7 @@ func (r *OidcClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func (r *OidcClientReconciler) UpdateStorageAndStatus(ctx context.Context, oidcClient *kubauthv1alpha1.OidcClient, hashedSecrets [][]byte, err error) (ctrl.Result, error) {
 	if err == nil {
 		if misc.BoolPtrTrue(oidcClient.Spec.Enabled) {
-			err = r.Storage.SetClient(ctx, oidcstorage.NewFositeClient(oidcClient, oidcClient.Status.ClientId, hashedSecrets))
+			err = r.Storage.SetClient(ctx, oidcstorage.NewKubauthClient(oidcClient, oidcClient.Status.ClientId, hashedSecrets))
 			if err == nil {
 				r.Event(oidcClient, "Normal", "Created", "Created client with client_id '"+oidcClient.Status.ClientId+"'")
 			} else {

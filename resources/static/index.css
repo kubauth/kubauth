@@ -11,7 +11,7 @@
 }
 
 .subtitle {
-    color: #b0b0b0;
+    color: var(--subtitle-color);
     font-size: 16px;
     font-weight: 400;
 }
@@ -26,8 +26,8 @@
 .app-card {
     display: flex;
     align-items: center;
-    background-color: #3a3a3a;
-    border: 1px solid #555;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 8px;
     padding: 20px;
     text-decoration: none;
@@ -37,10 +37,10 @@
 }
 
 .app-card:hover {
-    background-color: #404040;
-    border-color: #0ea5e9;
+    background-color: var(--card-hover-bg);
+    border-color: var(--card-hover-border);
     transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(14, 165, 233, 0.15);
+    box-shadow: 0 6px 25px var(--card-hover-shadow);
 }
 
 .app-icon {
@@ -64,27 +64,27 @@
 }
 
 .app-name {
-    color: #ffffff;
+    color: var(--app-name-color);
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 4px;
 }
 
 .app-description {
-    color: #b0b0b0;
+    color: var(--subtitle-color);
     font-size: 14px;
     line-height: 1.4;
 }
 
 .app-arrow {
     font-size: 20px;
-    color: #888;
+    color: var(--app-arrow);
     margin-left: 16px;
     transition: color 0.3s ease;
 }
 
 .app-card:hover .app-arrow {
-    color: #0ea5e9;
+    color: var(--btn-bg);
 }
 
 /* Empty state and footer use shared.css styles */

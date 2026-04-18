@@ -17,6 +17,7 @@ limitations under the License.
 package oidcserver
 
 import (
+	"kubauth/internal/global"
 	"net/http"
 	"sort"
 
@@ -33,6 +34,7 @@ type indexEntry struct {
 func (s *OIDCServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logr.FromContextAsSlogLogger(ctx)
+	style := s.getStyle(ctx, s.LoginSessionManager.GetString(ctx, "clientId"))
 
 	// Collect applications with non-empty name and entryURL
 	var entries []indexEntry
@@ -60,8 +62,14 @@ func (s *OIDCServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	data := struct {
 		Entries []indexEntry
+		Style   string
+		Version string
+		BuildTs string
 	}{
 		Entries: entries,
+		Style:   style,
+		Version: global.Version,
+		BuildTs: global.BuildTs,
 	}
 
 	if err := s.IndexTemplate.Execute(w, data); err != nil {

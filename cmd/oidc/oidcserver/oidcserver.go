@@ -55,6 +55,7 @@ type OIDCServer struct {
 	SsoSessionManager   *scsV2.SessionManager
 	LoginSessionManager *scsV2.SessionManager
 	PostLogoutURL       string
+	DefaultStyle        string
 
 	KubeClient              client.Client
 	JWTSigningKeySecretName string
@@ -116,7 +117,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 	router.HandleFunc("/.well-known/jwks.json", s.handleJWKS)
 	//router.HandleFunc("/oauth2/revoke", oidcServer.revokeEndpoint)
 	router.HandleFunc("/oauth2/introspect", s.HandleTokenIntrospection)
-	router.HandleFunc("/index", s.handleIndex)
+	router.Handle("/index", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleIndex))))
 
 	// Static file server for CSS and other assets
 	staticDir := path.Join(s.Resources, "static")

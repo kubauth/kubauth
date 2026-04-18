@@ -18,7 +18,6 @@ package oidcserver
 
 import (
 	"fmt"
-	"kubauth/cmd/oidc/oidcstorage"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -54,13 +53,10 @@ func (s *OIDCServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 	// Override with client defined value, if any
 	clientId := r.URL.Query().Get("client_id")
 	if clientId != "" {
-		client, err := s.Storage.GetClient(ctx, clientId)
+		client, err := s.Storage.GetKubauthClient(ctx, clientId)
 		if err == nil {
-			cli, ok := client.(oidcstorage.FositeClient)
-			if ok {
-				if cli.GetPostLogoutURL() != "" {
-					postLogoutURL = cli.GetPostLogoutURL()
-				}
+			if client.GetPostLogoutURL() != "" {
+				postLogoutURL = client.GetPostLogoutURL()
 			}
 		}
 	}
@@ -76,8 +72,11 @@ func (s *OIDCServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if err := s.SsoSessionManager.Destroy(ctx); err != nil {
 		logger.Error("failed to destroy local SSO session", "error", err, "errType", fmt.Sprintf("%T", err))
 	}
+	// Clean the loginSession, but preserve clientId for the index page to be with the correct style
+	clientId2 := s.LoginSessionManager.GetString(ctx, "clientId")
 	if err := s.LoginSessionManager.Destroy(ctx); err != nil {
 		logger.Error("failed to destroy local login session", "error", err, "errType", fmt.Sprintf("%T", err))
 	}
+	s.LoginSessionManager.Put(ctx, "clientId", clientId2)
 	http.Redirect(w, r, postLogoutURL, http.StatusFound)
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"{{if eq .Style "light"}} class="theme-light"{{end}}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -40,5 +40,8 @@
         <p>Kubauth</p>
     </div>
 </div>
+<footer class="footer-zone">
+    <p>Version: {{ .Version}}  Build: {{ .BuildTs}}  Style: {{ .Style }}</p>
+</footer>
 </body>
 </html>

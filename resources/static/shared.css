@@ -1,4 +1,82 @@
-/* Shared base styles for Kubauth */
+/* Shared base styles for Kubauth — dark is default (:root); light via html.theme-light */
+:root {
+    --color-bg-body: #1a1a1a;
+    --color-text: #e0e0e0;
+    --color-container-bg: #2d2d2d;
+    --color-container-border: #404040;
+    --color-container-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --color-heading: #ffffff;
+    --color-muted: #b0b0b0;
+    --color-subtle: #888;
+    --color-footer-border: #404040;
+    --color-footer-text: #888;
+    --color-footer-zone-text: #555;
+    --btn-bg: #0ea5e9;
+    --btn-bg-hover: #0284c7;
+    --input-bg: #3a3a3a;
+    --input-border: #555;
+    --input-text: #ffffff;
+    --input-placeholder: #888;
+    --input-focus: #0ea5e9;
+    --input-focus-ring: rgba(14, 165, 233, 0.25);
+    --label-text: #b0b0b0;
+    --error-bg: #4a1a1a;
+    --error-text: #ff6b6b;
+    --error-border: #6b2c2c;
+    --password-toggle-hover-bg: rgba(255, 255, 255, 0.1);
+    --password-toggle-icon: #b0b0b0;
+    --password-toggle-icon-hover: #e0e0e0;
+    --checkbox-bg: #3a3a3a;
+    --checkbox-border: #555;
+    --card-bg: #3a3a3a;
+    --card-border: #555;
+    --card-hover-bg: #404040;
+    --card-hover-border: #0ea5e9;
+    --card-hover-shadow: rgba(14, 165, 233, 0.15);
+    --app-name-color: #ffffff;
+    --subtitle-color: #b0b0b0;
+    --app-arrow: #888;
+}
+
+html.theme-light {
+    --color-bg-body: #f4f4f5;
+    --color-text: #27272a;
+    --color-container-bg: #ffffff;
+    --color-container-border: #e4e4e7;
+    --color-container-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --color-heading: #18181b;
+    --color-muted: #52525b;
+    --color-subtle: #71717a;
+    --color-footer-border: #e4e4e7;
+    --color-footer-text: #71717a;
+    --color-footer-zone-text: #a1a1aa;
+    --btn-bg: #0ea5e9;
+    --btn-bg-hover: #0284c7;
+    --input-bg: #ffffff;
+    --input-border: #d4d4d8;
+    --input-text: #18181b;
+    --input-placeholder: #a1a1aa;
+    --input-focus: #0ea5e9;
+    --input-focus-ring: rgba(14, 165, 233, 0.2);
+    --label-text: #52525b;
+    --error-bg: #fef2f2;
+    --error-text: #b91c1c;
+    --error-border: #fecaca;
+    --password-toggle-hover-bg: rgba(0, 0, 0, 0.06);
+    --password-toggle-icon: #52525b;
+    --password-toggle-icon-hover: #18181b;
+    --checkbox-bg: #ffffff;
+    --checkbox-border: #d4d4d8;
+    --card-bg: #ffffff;
+    --card-border: #e4e4e7;
+    --card-hover-bg: #f4f4f5;
+    --card-hover-border: #0ea5e9;
+    --card-hover-shadow: rgba(14, 165, 233, 0.12);
+    --app-name-color: #18181b;
+    --subtitle-color: #52525b;
+    --app-arrow: #71717a;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -7,8 +85,8 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background-color: #1a1a1a;
-    color: #e0e0e0;
+    background-color: var(--color-bg-body);
+    color: var(--color-text);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -18,12 +96,12 @@ body {
 
 /* Common container styles */
 .container {
-    background-color: #2d2d2d;
+    background-color: var(--color-container-bg);
     border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--color-container-shadow);
     padding: 40px;
     width: 100%;
-    border: 1px solid #404040;
+    border: 1px solid var(--color-container-border);
 }
 
 /* Banner/header styles */
@@ -33,7 +111,7 @@ body {
 }
 
 .banner h1 {
-    color: #ffffff;
+    color: var(--color-heading);
     font-size: 24px;
     font-weight: 600;
 }
@@ -42,7 +120,7 @@ body {
 .btn {
     width: 100%;
     padding: 12px;
-    background-color: #0ea5e9;
+    background-color: var(--btn-bg);
     color: white;
     border: none;
     border-radius: 4px;
@@ -56,7 +134,7 @@ body {
 }
 
 .btn:hover {
-    background-color: #0284c7;
+    background-color: var(--btn-bg-hover);
 }
 
 .btn:active {
@@ -69,11 +147,11 @@ input[type="password"],
 input[type="search"] {
     width: 100%;
     padding: 12px;
-    border: 1px solid #555;
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     font-size: 16px;
-    background-color: #3a3a3a;
-    color: #ffffff;
+    background-color: var(--input-bg);
+    color: var(--input-text);
     transition: border-color 0.3s ease;
 }
 
@@ -81,29 +159,29 @@ input[type="text"]:focus,
 input[type="password"]:focus,
 input[type="search"]:focus {
     outline: none;
-    border-color: #0ea5e9;
-    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.25);
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 2px var(--input-focus-ring);
 }
 
 input[type="text"]::placeholder,
 input[type="password"]::placeholder,
 input[type="search"]::placeholder {
-    color: #888;
+    color: var(--input-placeholder);
 }
 
 /* Label styles */
 label {
     display: block;
     margin-bottom: 5px;
-    color: #b0b0b0;
+    color: var(--label-text);
     font-weight: 500;
 }
 
 /* Error/empty state styles */
 .error-message {
-    background-color: #4a1a1a;
-    color: #ff6b6b;
-    border: 1px solid #6b2c2c;
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    border: 1px solid var(--error-border);
     border-radius: 4px;
     padding: 10px;
     margin-bottom: 20px;
@@ -118,7 +196,7 @@ label {
 .empty-state {
     text-align: center;
     padding: 60px 20px;
-    color: #888;
+    color: var(--color-subtle);
 }
 
 /* Footer styles */
@@ -126,11 +204,11 @@ label {
     text-align: center;
     margin-top: 30px;
     padding-top: 20px;
-    border-top: 1px solid #404040;
+    border-top: 1px solid var(--color-footer-border);
 }
 
 .footer p {
-    color: #888;
+    color: var(--color-footer-text);
     font-size: 14px;
 }
 
@@ -143,4 +221,27 @@ label {
     .banner h1 {
         font-size: 20px;
     }
+}
+
+/* Footer Zone styles */
+.footer-zone {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.footer-zone:hover {
+    opacity: 1;
+}
+
+.footer-zone p {
+    color: var(--color-footer-zone-text);
+    font-size: 14px;
+    margin: 0;
 }

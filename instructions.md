@@ -172,3 +172,17 @@ Is there a simpler identifier we can use to correlate the POST to the initial se
 
 
 
+---------- 
+
+With Gemini
+In login page, (resource/template/login.gohtml)  modify the footer to:
+- Appears only when selecting the zone
+- Be located in the bottom of the page, without margin.
+- do not increase overall page height
+
+
+------
+
+in login and index page (In resources/templates), there is a {{ .Style }} go template variable.
+- When set to 'dark', use the current color scheme
+- When set to 'light', change the color scheme for a 'light' appearance
