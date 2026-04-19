@@ -7,6 +7,9 @@
 - On authentication_code_flow, the request context is now saved in the session, instead of the browser.
 - Update fosite library, sync with hydra tag 'v25.4.0'
 
+# v0.2.2
+
+- feat[helm]: Added support of 'haproxy' as ingress class 
 
 # v0.2.1
 
