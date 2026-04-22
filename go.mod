@@ -26,7 +26,10 @@ require (
 	sigs.k8s.io/controller-runtime v0.21.0
 )
 
-require github.com/coreos/go-oidc/v3 v3.17.0
+require (
+	github.com/coreos/go-oidc/v3 v3.17.0
+	golang.org/x/oauth2 v0.32.0
+)
 
 require (
 	cel.dev/expr v0.24.0 // indirect
@@ -114,7 +117,6 @@ require (
 	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6 // indirect
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/oauth2 v0.32.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect

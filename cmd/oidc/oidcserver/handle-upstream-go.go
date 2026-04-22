@@ -17,14 +17,32 @@ limitations under the License.
 package oidcserver
 
 import (
-	"html"
+	"crypto/rand"
+	"encoding/base64"
 	"net/http"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-logr/logr"
+	"golang.org/x/oauth2"
 )
 
-// handleUpstreamGo is a placeholder that echoes the selected upstream provider.
-// It will later start the upstream OIDC authorization code flow.
+const (
+	sessUpstreamState    = "upstreamOAuthState"
+	sessUpstreamNonce    = "upstreamOAuthNonce"
+	sessUpstreamVerifier = "upstreamPkceVerifier"
+	sessUpstreamPKCE     = "upstreamPkceUsed"
+	sessUpstreamProvider = "upstreamOAuthProvider"
+)
+
+func randomURLSafeString(byteLen int) (string, error) {
+	b := make([]byte, byteLen)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// handleUpstreamGo starts the upstream OIDC authorization code flow for the selected provider.
 func (s *OIDCServer) handleUpstreamGo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logr.FromContextAsSlogLogger(ctx)
@@ -38,8 +56,64 @@ func (s *OIDCServer) handleUpstreamGo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing upstreamProvider parameter", http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Upstream</title></head><body><p>Selected upstream provider: "))
-	_, _ = w.Write([]byte(html.EscapeString(name)))
-	_, _ = w.Write([]byte("</p></body></html>"))
+	rawQuery := s.LoginSessionManager.GetString(ctx, "authQuery")
+	if rawQuery == "" {
+		logger.Info("handleUpstreamGo: no auth query in session")
+		http.Error(w, "session expired: restart login from the client application", http.StatusBadRequest)
+		return
+	}
+
+	u := s.Storage.GetUpstream(ctx, name)
+	if u == nil {
+		logger.Info("handleUpstreamGo: unknown upstream", "upstream", name)
+		http.Error(w, "unknown upstream provider", http.StatusNotFound)
+		return
+	}
+	settings, ok := u.OAuth2AuthCodeSettings()
+	if !ok || settings == nil {
+		logger.Info("handleUpstreamGo: upstream does not support OIDC code flow", "upstream", name)
+		http.Error(w, "upstream does not support external OIDC login", http.StatusBadRequest)
+		return
+	}
+
+	state, err := randomURLSafeString(32)
+	if err != nil {
+		logger.Error("handleUpstreamGo: state", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	nonce, err := randomURLSafeString(16)
+	if err != nil {
+		logger.Error("handleUpstreamGo: nonce", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	s.LoginSessionManager.Put(ctx, sessUpstreamState, state)
+	s.LoginSessionManager.Put(ctx, sessUpstreamNonce, nonce)
+	s.LoginSessionManager.Put(ctx, sessUpstreamProvider, name)
+	s.LoginSessionManager.Put(ctx, sessUpstreamPKCE, "")
+
+	cfg := oauth2.Config{
+		ClientID:     settings.ClientID,
+		ClientSecret: settings.ClientSecret,
+		RedirectURL:  settings.RedirectURL,
+		Endpoint:     settings.Endpoint,
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+	}
+
+	opts := []oauth2.AuthCodeOption{
+		oauth2.SetAuthURLParam("nonce", nonce),
+		oauth2.AccessTypeOffline,
+	}
+	if settings.SupportsPKCES256 {
+		verifier := oauth2.GenerateVerifier()
+		s.LoginSessionManager.Put(ctx, sessUpstreamVerifier, verifier)
+		s.LoginSessionManager.Put(ctx, sessUpstreamPKCE, "1")
+		opts = append(opts, oauth2.S256ChallengeOption(verifier))
+	}
+
+	authURL := cfg.AuthCodeURL(state, opts...)
+	logger.Info("redirecting to upstream authorize", "upstream", name, "pkce", settings.SupportsPKCES256)
+	http.Redirect(w, r, authURL, http.StatusFound)
 }

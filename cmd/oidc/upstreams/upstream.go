@@ -19,10 +19,12 @@ package upstreams
 import (
 	"context"
 	"fmt"
+	"net/http"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/internal/httpclient"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
 )
 
 // Upstream is the representation if an upstream server in memory, after loading from an UpstreamProvider CRD
@@ -32,6 +34,16 @@ type Upstream interface {
 	GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig
 	GetProviderType() kubauthv1alpha1.UpstreamProviderType
 	IsClientSpecific() bool
+
+	// OAuth2AuthCodeSettings returns client and endpoint configuration for upstream OIDC
+	// authorization code flow. ok is false for providers that do not support it (e.g. Internal).
+	OAuth2AuthCodeSettings() (*OAuth2AuthCodeSettings, bool)
+	// ClientContext returns ctx wrapped with the upstream HTTP client for token/userinfo calls.
+	ClientContext(ctx context.Context) context.Context
+	// ParseAndVerifyIDToken verifies the ID token against this upstream and returns its claims as a map.
+	ParseAndVerifyIDToken(ctx context.Context, rawIDToken string) (map[string]interface{}, error)
+	// FetchUserInfoClaims returns UserInfo claims when supported; nil map if there is no userinfo endpoint.
+	FetchUserInfoClaims(ctx context.Context, tokenSource oauth2.TokenSource) (map[string]interface{}, error)
 }
 
 type upstream struct {
@@ -44,11 +56,13 @@ type upstream struct {
 	clientId       string
 	clientSecret   string
 	// Computed
-	provider         *oidc.Provider
-	introspectionURL string
-	endSessionURL    string
-	JwksURL          string
-	Algorithms       []string
+	provider               *oidc.Provider
+	httpClient             *http.Client
+	codeChallengeMethods   []string
+	introspectionURL       string
+	endSessionURL          string
+	JwksURL                string
+	Algorithms             []string
 }
 
 var _ Upstream = &upstream{}
@@ -88,7 +102,8 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 	if err != nil {
 		return nil, fmt.Errorf("error creating http client: %w", err)
 	}
-	ctx = oidc.ClientContext(ctx, httpClient.GetBaseHttpDotClient())
+	upstream.httpClient = httpClient.GetBaseHttpDotClient()
+	ctx = oidc.ClientContext(ctx, upstream.httpClient)
 
 	if upstreamProvider.Spec.ExplicitConfig == nil {
 		// We will use discovery
@@ -98,10 +113,11 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 		}
 		// We need to claim some configuration values from the response.body as, either they are not managed by the oidc.Provider at all or they are private without getter
 		var extraConfig struct {
-			IntrospectionURL string   `json:"introspection_endpoint"`
-			EndSessionURL    string   `json:"end_session_endpoint"`
-			JwksURL          string   `json:"jwks_uri"`
-			Algorithms       []string `json:"id_token_signing_alg_values_supported"`
+			IntrospectionURL     string   `json:"introspection_endpoint"`
+			EndSessionURL        string   `json:"end_session_endpoint"`
+			JwksURL              string   `json:"jwks_uri"`
+			Algorithms           []string `json:"id_token_signing_alg_values_supported"`
+			CodeChallengeMethods []string `json:"code_challenge_methods_supported"`
 		}
 		err = upstream.provider.Claims(&extraConfig)
 		if err != nil {
@@ -111,6 +127,7 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 		upstream.endSessionURL = extraConfig.EndSessionURL
 		upstream.JwksURL = extraConfig.JwksURL
 		upstream.Algorithms = extraConfig.Algorithms
+		upstream.codeChallengeMethods = extraConfig.CodeChallengeMethods
 
 	} else {
 		// No discovery. Use explicit config

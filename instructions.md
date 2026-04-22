@@ -237,8 +237,9 @@ Could you modify the  upstreamProviderReconciler setup to watch and cache only t
 
 ----
 
+Now modify the handleUpstreamGo handler to initiate an OIDC authorization code flow to the selected provider.
+implements handleUpstreamCallback handler to get back from this flow.
+Implement PKCE exchange if supported by provider.
+There will be the need to map the claims issued by this exchange to the claims returned to the user. Isolate this mapping to a specific function, with a simple implementation for now.
 
 
-Remove namespace from upstream.go and upstreamNamespace from OIDCServer
-
-Check OIDCServer.EventRecorder utility. 
