@@ -5,6 +5,72 @@
     max-width: 400px;
 }
 
+/* Misconfiguration: no authentication provider available */
+.no-provider {
+    margin-bottom: 20px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.5;
+    border: 1px solid rgba(202, 138, 4, 0.55);
+    background-color: rgba(202, 138, 4, 0.12);
+    color: #fbbf24;
+}
+
+html.theme-light .no-provider {
+    border-color: rgba(217, 119, 6, 0.5);
+    background-color: #fffbeb;
+    color: #92400e;
+}
+
+.upstream-providers {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.btn-upstream {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--color-container-bg);
+    color: var(--btn-bg);
+    border: 2px solid var(--btn-bg);
+}
+
+.btn-upstream:hover {
+    background-color: var(--btn-bg);
+    color: white;
+}
+
+html.theme-light .btn-upstream {
+    background-color: var(--color-container-bg);
+    color: var(--btn-bg);
+}
+
+/* Must set background on hover too: the non-hover rule above matches :hover and
+   would otherwise win the cascade and leave white-on-white with color: white. */
+html.theme-light .btn-upstream:hover {
+    background-color: var(--btn-bg);
+    color: #ffffff;
+}
+
+.login-form-fieldset {
+    margin: 0;
+    padding: 1rem 1rem 0.25rem;
+    border: 1px solid var(--color-container-border);
+    border-radius: 8px;
+    background-color: var(--color-bg-body);
+}
+
+.login-form-legend {
+    padding: 0 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-heading);
+}
+
 /* Form-specific styles */
 .form-group {
     margin-bottom: 20px;

@@ -17,40 +17,12 @@ limitations under the License.
 package oidcserver
 
 import (
-	"context"
-	"kubauth/internal/global"
 	"net/http"
 
 	"github.com/go-logr/logr"
 
 	"github.com/ory/hydra/v2/fosite"
 )
-
-func (s *OIDCServer) getStyle(ctx context.Context, clientId string) string {
-	if clientId == "" {
-		return s.DefaultStyle
-	}
-	client, err := s.Storage.GetKubauthClient(ctx, clientId)
-	if err != nil || client == nil {
-		logr.FromContextAsSlogLogger(ctx).Error("Failed to get KubauthClient", "error", err)
-		return s.DefaultStyle
-	}
-	return client.GetStyle()
-}
-
-func (s *OIDCServer) displayLoginResponse(ctx context.Context, w http.ResponseWriter, clientId string, invalidLogin bool) {
-	data := map[string]interface{}{
-		"InvalidLogin": invalidLogin,
-		"Style":        s.getStyle(ctx, clientId),
-		"Version":      global.Version,
-		"BuildTs":      global.BuildTs,
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.LoginTemplate.Execute(w, data); err != nil {
-		logr.FromContextAsSlogLogger(ctx).Error("Template error", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
-}
 
 // Handle authorization endpoint
 func (s *OIDCServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {

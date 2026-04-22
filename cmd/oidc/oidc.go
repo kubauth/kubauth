@@ -49,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	scsV2 "github.com/alexedwards/scs/v2"
@@ -60,6 +61,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -109,6 +112,9 @@ var flags struct {
 
 	// Idp (Identity provider) config
 	idProviderHttpConfig httpclient.Config
+
+	// Upstream providers config
+	upstreamNamespace string
 }
 
 var (
@@ -172,6 +178,9 @@ func init() {
 	Cmd.PersistentFlags().StringArrayVar(&flags.idProviderHttpConfig.RootCaPaths, "idProviderRootCAPath", []string{}, "The Identity provider root CA paths (Several values possible)")
 	Cmd.PersistentFlags().BoolVar(&flags.idProviderHttpConfig.InsecureSkipVerify, "idProviderInsecureSkipVerify", false, "If set, skip the CA certificate verification")
 
+	// Upstream providers config
+	Cmd.PersistentFlags().StringVar(&flags.upstreamNamespace, "upstreamNamespace", "", "Namespace containing all UpstreamProvider CRs (controller watches and caches only this namespace)")
+
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kubauthv1alpha1.AddToScheme(scheme))
 }
@@ -205,12 +214,20 @@ var Cmd = &cobra.Command{
 			setupLog.Error(nil, "ssoNamespace must be specified and non null")
 			os.Exit(1)
 		}
+		if flags.upstreamNamespace == "" {
+			setupLog.Error(nil, "upstreamNamespace must be specified and non-empty (namespace where all UpstreamProvider resources live)")
+			os.Exit(1)
+		}
 		if flags.postLogoutURL == "" {
 			setupLog.Error(nil, "postLogoutURL must be specified and non null")
 			os.Exit(1)
 		}
 		if flags.jwtKeySecretNamespace == "" {
 			setupLog.Error(nil, "jwtKeySecretNamespace must be specified and non null")
+			os.Exit(1)
+		}
+		if flags.upstreamNamespace == "" {
+			setupLog.Error(nil, "upstreamNamespace must be specified and non null")
 			os.Exit(1)
 		}
 
@@ -309,14 +326,18 @@ var Cmd = &cobra.Command{
 			LeaderElection:         flags.enableLeaderElection,
 			LeaderElectionID:       "33b8e6ab.kubotal.io",
 			BaseContext:            func() context.Context { return ctx },
+			Cache: cache.Options{
+				ByObject: map[client.Object]cache.ByObject{
+					&kubauthv1alpha1.UpstreamProvider{}: {
+						Namespaces: map[string]cache.Config{
+							flags.upstreamNamespace: {},
+						},
+					},
+				},
+			},
 		}
-		//if !flags.multiTenant {
-		//	managerOptions.Cache = cache.Options{
-		//		DefaultNamespaces: map[string]cache.Config{
-		//			flags.oidcClientNamespace: {},
-		//		},
-		//	}
-		//}
+
+		setupLog.Info("UpstreamProvider controller restricted to single namespace", "upstreamNamespace", flags.upstreamNamespace)
 
 		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
 		if err != nil {
@@ -441,17 +462,21 @@ var Cmd = &cobra.Command{
 
 		// Setup UpstreamProvider Reconciler
 		upstreamProviderReconciler := &oidcControllers.UpstreamProviderReconciler{
-			Client:        mgr.GetClient(),
-			EventRecorder: mgr.GetEventRecorderFor("upstreamProvider"),
-			Scheme:        mgr.GetScheme(),
-			Storage:       storage,
-			Logger:        logger.With("logger", "upstreamProviderReconciler"),
+			Client:            mgr.GetClient(),
+			EventRecorder:     mgr.GetEventRecorderFor("upstreamProvider"),
+			Scheme:            mgr.GetScheme(),
+			Storage:           storage,
+			Logger:            logger.With("logger", "upstreamProviderReconciler"),
+			UpstreamNamespace: flags.upstreamNamespace,
 		}
 
+		upstreamSecretPred := predicate.NewPredicateFuncs(func(o client.Object) bool {
+			return o.GetNamespace() == flags.upstreamNamespace
+		})
 		err = ctrl.NewControllerManagedBy(mgr).
 			For(&kubauthv1alpha1.UpstreamProvider{}).
 			Named("kubauth-upstreamProvider").
-			Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(findUpstreamProviderFromSecret)).
+			Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(findUpstreamProviderFromSecret), builder.WithPredicates(upstreamSecretPred)).
 			Complete(upstreamProviderReconciler)
 		if err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "upstreamProvider")
@@ -556,6 +581,7 @@ var Cmd = &cobra.Command{
 			LoginSessionManager:     loginSessionManager,
 			PostLogoutURL:           flags.postLogoutURL,
 			KubeClient:              kubeClient,
+			EventRecorder:           mgr.GetEventRecorderFor("kubauth-oidc-server"),
 			JWTSigningKeySecretName: flags.jwtKeySecretName,
 			JWTSigningKeySecretNS:   flags.jwtKeySecretNamespace,
 			AccessTokenLifespan:     time.Hour,

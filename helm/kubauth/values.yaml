@@ -185,6 +185,10 @@ oidc:
     passthrough: true
     annotations:
 
+  # All UpstreamProvider CRs must live in this namespace (OIDC controller watches/cache only here).
+  # Defaults to .Release.Namespace in the chart template.
+  upstreamNamespace:
+
   sso:
     sticky: true
     lifeTime: "8h"

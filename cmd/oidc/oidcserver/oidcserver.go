@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/client-go/tools/record"
 
 	scsV2 "github.com/alexedwards/scs/v2"
 	"github.com/google/uuid"
@@ -58,6 +59,7 @@ type OIDCServer struct {
 	DefaultStyle        string
 
 	KubeClient              client.Client
+	EventRecorder           record.EventRecorder
 	JWTSigningKeySecretName string
 	JWTSigningKeySecretNS   string
 
@@ -118,6 +120,8 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 	//router.HandleFunc("/oauth2/revoke", oidcServer.revokeEndpoint)
 	router.HandleFunc("/oauth2/introspect", s.HandleTokenIntrospection)
 	router.Handle("/index", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleIndex))))
+	router.Handle("/upstream/go", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleUpstreamGo))))
+	router.Handle("/upstream/callback", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleUpstreamCallback))))
 
 	// Static file server for CSS and other assets
 	staticDir := path.Join(s.Resources, "static")

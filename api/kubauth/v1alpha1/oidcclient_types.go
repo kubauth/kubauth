@@ -122,6 +122,14 @@ type OidcClientSpec struct {
 	// NB: The effective clientId, used by the OIDC protocol is set in the Status part.
 	// +optional
 	ClientId string `json:"clientId,omitempty"`
+
+	// List of upstreams providers presented to the users.
+	// If empty, all active upstreams providers will be presented.
+	// If this list contains invalid values, they are skipped with a logged error and events
+	// If list is empty and there is no upstreams providers at all, default to the internal one.
+	// Even if there is one, the login page with the 'remember me' button is presented.
+	// +optional
+	UpstreamProviders []string `json:"upstreamProviders,omitempty"`
 }
 
 type OidcClientPhase string

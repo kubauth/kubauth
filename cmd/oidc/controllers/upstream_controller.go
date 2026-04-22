@@ -49,10 +49,11 @@ const defaultUpstreamCAKey = "ca.crt"
 type UpstreamProviderReconciler struct {
 	client.Client
 	record.EventRecorder
-	Scheme           *runtime.Scheme
-	Storage          *oidcstorage.MemoryStore
-	statusErrorCount int
-	Logger           *slog.Logger
+	Scheme            *runtime.Scheme
+	Storage           *oidcstorage.MemoryStore
+	statusErrorCount  int
+	Logger            *slog.Logger
+	UpstreamNamespace string
 }
 
 // Reconcile
@@ -62,10 +63,16 @@ func (r *UpstreamProviderReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// _ = logf.FromContext(ctx)
 	// Don't use this, has too context verbose
 	//logger := logr.FromContextAsSlogLogger(ctx)
-
 	logger := r.Logger.With("namespace", req.Namespace, "name", req.Name)
 
 	ctx = logr.NewContextWithSlogLogger(ctx, logger)
+
+	if req.Namespace != r.UpstreamNamespace {
+		// Should never append, due to reconciler cache config
+		logger.Error("UpstreamProvider in unallowed namespace", "namespace", req.Namespace, "name", req.Name)
+		// We don't retry
+		return ctrl.Result{}, nil
+	}
 
 	upstreamProvider := &kubauthv1alpha1.UpstreamProvider{}
 	err := r.Get(ctx, req.NamespacedName, upstreamProvider)
@@ -83,7 +90,7 @@ func (r *UpstreamProviderReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logger.Info("UpstreamProvider is being deleted.")
 		// Only Ready upstreams are registered in storage
 		if upstreamProvider.Status.Phase == kubauthv1alpha1.UpstreamProviderPhaseReady {
-			r.Storage.DeleteUpstream(ctx, upstreams.BuildUpstreamId(upstreamProvider.Name, upstreamProvider.Namespace))
+			r.Storage.DeleteUpstream(ctx, upstreamProvider.Name)
 		}
 		controllerutil.RemoveFinalizer(upstreamProvider, finalizerName)
 		logger.Debug(">-> Update resource (Remove finalizer)")
@@ -108,7 +115,7 @@ func (r *UpstreamProviderReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if !misc.BoolPtrTrue(upstreamProvider.Spec.Enabled) {
 		logger.Debug("UpstreamProvider is being disabled")
-		r.Storage.DeleteUpstream(ctx, upstreams.BuildUpstreamId(upstreamProvider.Name, upstreamProvider.Namespace))
+		r.Storage.DeleteUpstream(ctx, upstreamProvider.Name)
 		r.Event(upstreamProvider, "Normal", "Off", "Disabled")
 		return r.updateStatus(ctx, upstreamProvider, nil, nil)
 	}

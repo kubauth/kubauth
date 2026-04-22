@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"kubauth/cmd/oidc/authenticator"
 	"kubauth/cmd/oidc/upstreams"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -148,43 +150,88 @@ func (s *MemoryStore) DeleteOpenIDConnectSession(ctx context.Context, authorizeC
 
 // ------------------------------------------------------ Upstreams
 
-func (s *MemoryStore) GetUpstream(_ context.Context, key string) (upstreams.Upstream, error) {
+func (s *MemoryStore) GetUpstream(_ context.Context, name string) upstreams.Upstream {
 	s.upstreamMutex.RLock()
 	defer s.upstreamMutex.RUnlock()
-	upstream, ok := s.Upstreams[key]
+	upstream, ok := s.Upstreams[name]
 	if !ok {
-		return nil, fosite.ErrNotFound
+		return nil
 	}
-	return upstream, nil
+	return upstream
 }
 
-func (s *MemoryStore) GetUpstreams(_ context.Context) []upstreams.UpstreamLabel {
+func (s *MemoryStore) GetUpstreams(_ context.Context) []upstreams.Upstream {
 	s.upstreamMutex.RLock()
 	defer s.upstreamMutex.RUnlock()
-	upstreamLabels := make([]upstreams.UpstreamLabel, len(s.Upstreams))
-	idx := 0
-	for _, upstream := range s.Upstreams {
-		upstreamLabels[idx] = upstream.GetLabel()
-		idx++
-	}
-	return upstreamLabels
+	return slices.Collect(maps.Values(s.Upstreams))
 }
+
+//
+//func (s *MemoryStore) GetUpstreams(_ context.Context) []upstreams.UpstreamLabel {
+//	s.upstreamMutex.RLock()
+//	defer s.upstreamMutex.RUnlock()
+//	upstreamLabels := make([]upstreams.UpstreamLabel, len(s.Upstreams))
+//	idx := 0
+//	for _, upstream := range s.Upstreams {
+//		upstreamLabels[idx] = upstream.GetLabel()
+//		idx++
+//	}
+//	return upstreamLabels
+//}
+//
+//// ListUpstreamsInNamespace returns in-memory upstreams whose storage key is under the given
+//// namespace (keys are "namespace:name" per upstreams.BuildUpstreamId).
+//func (s *MemoryStore) ListUpstreamsInNamespace(_ context.Context, namespace string) []upstreams.Upstream {
+//	s.upstreamMutex.RLock()
+//	defer s.upstreamMutex.RUnlock()
+//	prefix := namespace + ":"
+//	var keys []string
+//	for k := range s.Upstreams {
+//		if strings.HasPrefix(k, prefix) {
+//			keys = append(keys, k)
+//		}
+//	}
+//	sort.Strings(keys)
+//	out := make([]upstreams.Upstream, 0, len(keys))
+//	for _, k := range keys {
+//		out = append(out, s.Upstreams[k])
+//	}
+//	return out
+//}
+//
+//// GetUpstreamByReference resolves ref as a full storage key (GetUpstream), as a resource name
+//// in the configured upstream namespace, or as the first name match within that namespace.
+//func (s *MemoryStore) GetUpstreamByReference(ctx context.Context, ref, namespace string) (upstreams.Upstream, error) {
+//	u, err := s.GetUpstream(ctx, ref)
+//	if err == nil {
+//		return u, nil
+//	}
+//	u, err = s.GetUpstream(ctx, upstreams.BuildUpstreamId(ref, namespace))
+//	if err == nil {
+//		return u, nil
+//	}
+//	for _, cand := range s.ListUpstreamsInNamespace(ctx, namespace) {
+//		if cand.GetResourceName() == ref {
+//			return cand, nil
+//		}
+//	}
+//	return nil, fosite.ErrNotFound
+//}
 
 func (s *MemoryStore) SetUpstream(ctx context.Context, upstream upstreams.Upstream) {
 	s.upstreamMutex.Lock()
 	defer s.upstreamMutex.Unlock()
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Debug("SetUpstream", "name", upstream.GetKey(), "upstream", upstream)
-	s.Upstreams[upstream.GetKey()] = upstream
-	return
+	logger.Debug("SetUpstream", "name", upstream.GetName(), "upstream", upstream)
+	s.Upstreams[upstream.GetName()] = upstream
 }
 
-func (s *MemoryStore) DeleteUpstream(ctx context.Context, key string) {
+func (s *MemoryStore) DeleteUpstream(ctx context.Context, name string) {
 	s.upstreamMutex.Lock()
 	defer s.upstreamMutex.Unlock()
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Debug("DeleteUpstream", "name", key)
-	delete(s.Upstreams, key)
+	logger.Debug("DeleteUpstream", "name", name)
+	delete(s.Upstreams, name)
 }
 
 // ------------------------------------------------------ Oidc Clients

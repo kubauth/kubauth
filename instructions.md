@@ -186,3 +186,59 @@ In login page, (resource/template/login.gohtml)  modify the footer to:
 in login and index page (In resources/templates), there is a {{ .Style }} go template variable.
 - When set to 'dark', use the current color scheme
 - When set to 'light', change the color scheme for a 'light' appearance
+
+
+------------------------------------------------------
+
+Implementation of upstream providers.
+
+- In the login page, add a list of button corresponding to some upstream OIDC providers. This list will be setup as following:
+  - If the OidcCLient.UpstreamProviders is null or empty, then the list is all existing and enabled UpstreamProviders.
+  - If the OidcCLient.UpstreamProviders is not null, then the displayed list is built from this list. Disabled upstream providers are silently discarded and 
+    unexisting one are skipped with and error in the log and an error k8s events.
+  - If the list have one (or several) active provider of type 'internal', then the login form is displayed and, login button act as previously. 
+  - As an exception, if the OidcCLient.UpstreamProviders is null or empty and there is no active upstream provided, then the login form is displayed and, login button act as previously. 
+  - All upstream providers buttons will send the user to the '/upstream/go' path served by the handleUpStreamGo() handler function, with the upstreamProvider as parameter.
+
+For the time now, write a fake handleUpStreamGo() function which will just display the selected upstream provider name in the response.
+
+------
+Small css issuer: In light mode, the upstream button text disappear when hover.
+
+------
+When an OidcClient refers an unknown upstream provider, generate an event on this OidcClient
+
+---- 
+
+Only when there is one or several upstream providers, wrap the login form in a visual frame (fieldset ?) with the internal display name as label
+
+---- 
+
+Using oidcClient public-internal, the frame appears. It should not, as there is only 'internal' in the list of the upstreamProviders
+
+----
+
+Kubauth already maintains a memory storage of object such as OidcClient and UpstreamProvider in the OIDCServer.Storage object. This storage is kept in sync by k8s watcher 
+
+So, Perform a refactoring of buildLoginUpstreamView by using this MemoryStore with function such as s.Storage.GetUpstream(), GetUpstreams(), Upstream.GetEffectiveConfig(), ...
+You can add others accessor if needed. You should be able to supress all k8s direct access.
+
+----
+
+I have rollback-ed your refactoring, because there is a miss-understanding. OidcClient and UpstreamProvider are NOT namespace aware. They are global configuration entities.
+There should NOT be any stuff such as UpstreamServer in same namespace than OidcClient.
+This should greatly simplify refactoring and allow usage of existing storage access function.
+
+
+----
+I changed my mind. UpstreamProviders must all be in a single namespace, defined by oidc.flags.upstreamNamespace.
+
+Could you modify the  upstreamProviderReconciler setup to watch and cache only this namespace
+
+----
+
+
+
+Remove namespace from upstream.go and upstreamNamespace from OIDCServer
+
+Check OIDCServer.EventRecorder utility. 

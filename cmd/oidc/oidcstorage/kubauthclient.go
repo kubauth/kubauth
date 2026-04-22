@@ -19,6 +19,7 @@ package oidcstorage
 import (
 	"fmt"
 	"kubauth/api/kubauth/v1alpha1"
+	"strings"
 	"time"
 
 	"github.com/ory/hydra/v2/fosite"
@@ -26,7 +27,6 @@ import (
 
 type KubauthClient interface {
 	fosite.ClientWithSecretRotation
-	GetName() string
 	GetDescription() string
 	GetEntryURL() string
 	GetPostLogoutURL() string
@@ -35,11 +35,13 @@ type KubauthClient interface {
 	GetSecretCount() int
 	GetK8sId() string // Used to check against duplicated OIDC client_id
 	GetStyle() string
+	GetUpstreamProviders() []string
+	GetK8sObject() *v1alpha1.OidcClient
 }
 
 type kubauthClient struct {
 	clientId      string // From metadata.name or metadata.namespace + "_" + metadata.name
-	spec          *v1alpha1.OidcClientSpec
+	k8sObject     *v1alpha1.OidcClient
 	hashedSecrets [][]byte
 	k8sId         string
 }
@@ -47,7 +49,7 @@ type kubauthClient struct {
 func NewKubauthClient(cli *v1alpha1.OidcClient, clientId string, hashedSecrets [][]byte) KubauthClient {
 	return &kubauthClient{
 		clientId:      clientId,
-		spec:          &cli.Spec,
+		k8sObject:     cli,
 		hashedSecrets: hashedSecrets,
 		k8sId:         fmt.Sprintf("%s:%s", cli.Namespace, cli.GetName()),
 	}
@@ -87,81 +89,77 @@ func (k *kubauthClient) GetSecretCount() int {
 }
 
 func (k *kubauthClient) GetRedirectURIs() []string {
-	return k.spec.RedirectURIs
+	return k.k8sObject.Spec.RedirectURIs
 }
 
 func (k *kubauthClient) GetGrantTypes() fosite.Arguments {
-	return k.spec.GrantTypes
+	return k.k8sObject.Spec.GrantTypes
 }
 
 func (k *kubauthClient) GetResponseTypes() fosite.Arguments {
-	return k.spec.ResponseTypes
+	return k.k8sObject.Spec.ResponseTypes
 }
 
 func (k *kubauthClient) GetScopes() fosite.Arguments {
-	return k.spec.Scopes
+	return k.k8sObject.Spec.Scopes
 }
 
 func (k *kubauthClient) IsPublic() bool {
-	return k.spec.Public
+	return k.k8sObject.Spec.Public
 }
 
 func (k *kubauthClient) GetAudience() fosite.Arguments {
-	for _, aud := range k.spec.Audiences {
+	for _, aud := range k.k8sObject.Spec.Audiences {
 		if aud == k.clientId {
-			return k.spec.Audiences
+			return k.k8sObject.Spec.Audiences
 		}
 	}
 	// Always allow the client's own ID as audience, since HandleAudience()
 	// defaults to granting client_id when no audience is explicitly requested.
-	return append(k.spec.Audiences, k.clientId)
-}
-
-func (k *kubauthClient) GetName() string {
-	return k.GetName()
+	return append(k.k8sObject.Spec.Audiences, k.clientId)
 }
 
 func (k *kubauthClient) GetDescription() string {
-	return k.spec.Description
+	return k.k8sObject.Spec.Description
 }
 
 func (k *kubauthClient) GetEntryURL() string {
-	return k.spec.EntryURL
+	return k.k8sObject.Spec.EntryURL
 }
 
 func (k *kubauthClient) GetPostLogoutURL() string {
-	return k.spec.PostLogoutURL
+	return k.k8sObject.Spec.PostLogoutURL
 }
 
 func (k *kubauthClient) GetDisplayName() string {
-	return k.spec.DisplayName
+	return k.k8sObject.Spec.DisplayName
 }
 
 func (k *kubauthClient) IsForceOpenIdScope() bool {
-	if k.spec.ForceOpenIdScope == nil {
+	if k.k8sObject.Spec.ForceOpenIdScope == nil {
 		return false
 	}
-	return *k.spec.ForceOpenIdScope
+	return *k.k8sObject.Spec.ForceOpenIdScope
 }
 
 func (k *kubauthClient) GetEffectiveLifespan(gt fosite.GrantType, tt fosite.TokenType, fallback time.Duration) time.Duration {
 	//fmt.Printf("############### GetEffectiveLifespan client:%s grant type:%s   tokenType:%s   fallBack:%s\n", k.clientId, gt, tt, fallback)
 	if tt == fosite.AccessToken {
-		if k.spec.AccessTokenLifespan.Duration != 0 {
-			return k.spec.AccessTokenLifespan.Duration
+		if k.k8sObject.Spec.AccessTokenLifespan.Duration != 0 {
+			return k.k8sObject.Spec.AccessTokenLifespan.Duration
 		}
 		return fallback
 	}
 	if tt == fosite.RefreshToken {
-		if k.spec.RefreshTokenLifespan.Duration != 0 {
-			return k.spec.RefreshTokenLifespan.Duration
+		if k.k8sObject.Spec.RefreshTokenLifespan.Duration != 0 {
+			return k.k8sObject.Spec.RefreshTokenLifespan.Duration
 		}
 		return fallback
 	}
 	if tt == fosite.IDToken {
-		if k.spec.IDTokenLifespan.Duration != 0 {
+		if k.k8sObject.Spec.IDTokenLifespan.Duration != 0 {
 			// fmt.Printf("GetEffectiveLifespan(id_token) => %s\n", k.spec.IDTokenLifespan.Duration)
-			return k.spec.IDTokenLifespan.Duration
+			return k.k8sObject.Spec.IDTokenLifespan.Duration
 		}
 		return fallback
 	}
@@ -169,5 +167,21 @@ func (k *kubauthClient) GetEffectiveLifespan(gt fosite.GrantType, tt fosite.Toke
 }
 
 func (k *kubauthClient) GetStyle() string {
-	return k.spec.Style
+	return k.k8sObject.Spec.Style
+}
+
+func (k *kubauthClient) GetUpstreamProviders() []string {
+	return k.k8sObject.Spec.UpstreamProviders
+}
+
+func (k *kubauthClient) parseK8sID() (namespace, name string, ok bool) {
+	parts := strings.SplitN(k.k8sId, ":", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
+func (k *kubauthClient) GetK8sObject() *v1alpha1.OidcClient {
+	return k.k8sObject
 }

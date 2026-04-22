@@ -42,6 +42,7 @@ Expand oidc container
     - --resources={{ .Values.oidc.server.resourcesFolder }}
     - --postLogoutURL={{ required "'oidc.postLogoutURL' must be defined" .Values.oidc.postLogoutURL }}
     - --ssoNamespace={{ .Values.oidc.sso.sessionNamespace | default .Release.Namespace }}
+    - --upstreamNamespace={{ .Values.oidc.upstreamNamespace | default .Release.Namespace }}
     - --stickySso={{ .Values.oidc.sso.sticky }}
     - --ssoLifetime={{ .Values.oidc.sso.lifeTime }}
     - --cleanupPeriod={{ .Values.oidc.sso.cleanupPeriod }}

@@ -1,0 +1,142 @@
+/*
+Copyright (c) 2025 Kubotal.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package oidcserver
+
+import (
+	"context"
+	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
+	"kubauth/cmd/oidc/oidcstorage"
+	"kubauth/cmd/oidc/upstreams"
+	"kubauth/internal/global"
+	"net/http"
+	"sort"
+
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+)
+
+type UpstreamButtonModel struct {
+	Name        string
+	DisplayName string
+}
+
+type LoginModel struct {
+	InvalidLogin          bool
+	Style                 string
+	Version               string
+	BuildTs               string
+	UpstreamButtons       []UpstreamButtonModel
+	ShowLoginForm         bool
+	FieldsetLabel         string
+	ShowFieldset          bool
+	ShowNoProviderMessage bool
+}
+
+func (s *OIDCServer) displayLoginResponse(ctx context.Context, w http.ResponseWriter, clientId string, invalidLogin bool) {
+	model := &LoginModel{
+		InvalidLogin: invalidLogin,
+		Style:        s.getStyle(ctx, clientId),
+		Version:      global.Version,
+		BuildTs:      global.BuildTs,
+	}
+	if clientId != "" {
+		if kubauthClient, err := s.Storage.GetKubauthClient(ctx, clientId); err == nil && kubauthClient != nil {
+			s.populateLoginModelWithUpstreams(ctx, kubauthClient, model)
+		}
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.LoginTemplate.Execute(w, model); err != nil {
+		logr.FromContextAsSlogLogger(ctx).Error("Template error", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func (s *OIDCServer) getStyle(ctx context.Context, clientId string) string {
+	if clientId == "" {
+		return s.DefaultStyle
+	}
+	client, err := s.Storage.GetKubauthClient(ctx, clientId)
+	if err != nil || client == nil {
+		logr.FromContextAsSlogLogger(ctx).Error("Failed to get KubauthClient", "error", err)
+		return s.DefaultStyle
+	}
+	return client.GetStyle()
+}
+
+func (s *OIDCServer) populateLoginModelWithUpstreams(ctx context.Context, kubauthClient oidcstorage.KubauthClient, model *LoginModel) {
+	logger := logr.FromContextAsSlogLogger(ctx)
+
+	var internal upstreams.Upstream = nil
+	upstreamButtons := make([]UpstreamButtonModel, 0, 5)
+
+	upstreamNameList := kubauthClient.GetUpstreamProviders()
+	if upstreamNameList != nil && len(upstreamNameList) > 0 {
+		// ------------------------------------------------- The upstream list is provided by the client
+		for _, upstreamName := range upstreamNameList {
+			upstream := s.Storage.GetUpstream(ctx, upstreamName)
+			if upstream == nil {
+				logger.Error("Upstream unexisting or disabled", "oidcClient", kubauthClient.GetK8sId(), "upstream", upstreamName)
+				s.EventRecorder.Eventf(kubauthClient.GetK8sObject(), corev1.EventTypeWarning, "InvalidUpstreamProvider",
+					"Referenced UpstreamProvider %q is not available (unexisting or disabled)", upstreamName)
+				continue
+			}
+			if upstream.GetProviderType() == kubauthv1alpha1.UpstreamProviderTypeInternal {
+				internal = upstream
+			} else {
+				upstreamButtons = append(upstreamButtons, UpstreamButtonModel{
+					Name:        upstream.GetName(),
+					DisplayName: upstream.GetDisplayName(),
+				})
+			}
+		}
+	} else {
+		upstreamList := s.Storage.GetUpstreams(ctx)
+		if upstreamList != nil && len(upstreamList) > 0 {
+			// Sort by name (Not display name)
+			sort.Slice(upstreamList, func(i, j int) bool {
+				return upstreamList[i].GetName() < upstreamList[j].GetName()
+			})
+			// A loop to extract internal and remove clientSpecific ones
+			for _, upstream := range upstreamList {
+				if !upstream.IsClientSpecific() {
+					if upstream.GetProviderType() == kubauthv1alpha1.UpstreamProviderTypeInternal {
+						internal = upstream
+					} else {
+						upstreamButtons = append(upstreamButtons, UpstreamButtonModel{
+							Name:        upstream.GetName(),
+							DisplayName: upstream.GetDisplayName(),
+						})
+					}
+				}
+			}
+
+		}
+	}
+	if len(upstreamButtons) > 0 {
+		model.UpstreamButtons = upstreamButtons
+	}
+	if internal != nil {
+		model.ShowLoginForm = true
+		model.FieldsetLabel = internal.GetDisplayName()
+		if len(upstreamButtons) > 0 {
+			model.ShowFieldset = true
+		}
+	}
+	if len(upstreamButtons) == 0 && internal == nil {
+		model.ShowNoProviderMessage = true
+	}
+}

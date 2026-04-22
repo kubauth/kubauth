@@ -25,36 +25,30 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 )
 
-type UpstreamLabel struct {
-	Key         string
-	DisplayName string
-}
-
 // Upstream is the representation if an upstream server in memory, after loading from an UpstreamProvider CRD
 type Upstream interface {
-	GetKey() string
-	GetLabel() UpstreamLabel
+	GetName() string
+	GetDisplayName() string
 	GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig
+	GetProviderType() kubauthv1alpha1.UpstreamProviderType
+	IsClientSpecific() bool
 }
 
 type upstream struct {
-	key          string // "name:namespace"
-	myType       kubauthv1alpha1.UpstreamProviderType
-	displayName  string
-	issuerURL    string
-	redirectURL  string
-	clientId     string
-	clientSecret string
+	name           string
+	clientSpecific bool
+	myType         kubauthv1alpha1.UpstreamProviderType
+	displayName    string
+	issuerURL      string
+	redirectURL    string
+	clientId       string
+	clientSecret   string
 	// Computed
 	provider         *oidc.Provider
 	introspectionURL string
 	endSessionURL    string
 	JwksURL          string
 	Algorithms       []string
-}
-
-func BuildUpstreamId(name string, namespace string) string {
-	return fmt.Sprintf("%s:%s", namespace, name)
 }
 
 var _ Upstream = &upstream{}
@@ -64,21 +58,23 @@ var _ Upstream = &upstream{}
 func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.UpstreamProvider, clientSecret string, caData string) (Upstream, error) {
 	if upstreamProvider.Spec.Type == kubauthv1alpha1.UpstreamProviderTypeInternal {
 		upstream := &upstream{
-			key:         BuildUpstreamId(upstreamProvider.Name, upstreamProvider.Namespace),
-			myType:      upstreamProvider.Spec.Type,
-			displayName: upstreamProvider.Spec.DisplayName,
+			name:           upstreamProvider.Name,
+			clientSpecific: upstreamProvider.Spec.ClientSpecific,
+			myType:         upstreamProvider.Spec.Type,
+			displayName:    upstreamProvider.Spec.DisplayName,
 		}
 		// Nothing more to do
 		return upstream, nil
 	}
 	upstream := &upstream{
-		key:          BuildUpstreamId(upstreamProvider.Name, upstreamProvider.Namespace),
-		myType:       upstreamProvider.Spec.Type,
-		displayName:  upstreamProvider.Spec.DisplayName,
-		issuerURL:    upstreamProvider.Spec.IssuerURL,
-		redirectURL:  upstreamProvider.Spec.RedirectURL,
-		clientId:     upstreamProvider.Spec.ClientId,
-		clientSecret: clientSecret,
+		name:           upstreamProvider.Name,
+		clientSpecific: upstreamProvider.Spec.ClientSpecific,
+		myType:         upstreamProvider.Spec.Type,
+		displayName:    upstreamProvider.Spec.DisplayName,
+		issuerURL:      upstreamProvider.Spec.IssuerURL,
+		redirectURL:    upstreamProvider.Spec.RedirectURL,
+		clientId:       upstreamProvider.Spec.ClientId,
+		clientSecret:   clientSecret,
 	}
 	// We need to set an http.Client and store it in context for the oidc library
 	httpClientConfig := &httpclient.Config{
@@ -129,15 +125,23 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 	return upstream, nil
 }
 
-func (u *upstream) GetKey() string {
-	return u.key
+func (u *upstream) GetName() string {
+	return u.name
 }
 
-func (u *upstream) GetLabel() UpstreamLabel {
-	return UpstreamLabel{
-		Key:         u.key,
-		DisplayName: u.displayName,
+func (u *upstream) GetDisplayName() string {
+	if u.displayName != "" {
+		return u.displayName
 	}
+	return u.name
+}
+
+func (u *upstream) GetProviderType() kubauthv1alpha1.UpstreamProviderType {
+	return u.myType
+}
+
+func (u *upstream) IsClientSpecific() bool {
+	return u.clientSpecific
 }
 
 func (u *upstream) GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig {
