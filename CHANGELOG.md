@@ -2,6 +2,7 @@
 # v0.2.2
 
 - feat[helm]: Added support of 'haproxy' as ingress class 
+- fix: userinfo endpoint was not working. Fixed
 
 # v0.2.1
 

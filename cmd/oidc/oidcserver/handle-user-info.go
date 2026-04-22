@@ -18,19 +18,22 @@ package oidcserver
 
 import (
 	"encoding/json"
+	"kubauth/cmd/oidc/fositepatch"
 	"net/http"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/ory/fosite"
-	"github.com/ory/fosite/handler/openid"
 )
 
 // Handle userinfo endpoint
 func (s *OIDCServer) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := logr.FromContextAsSlogLogger(ctx)
 
 	authz := r.Header.Get("Authorization")
 	if authz == "" || !strings.HasPrefix(authz, "Bearer ") {
+		logger.Error("missing bearer token on userinfo handler")
 		w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\", error_description=\"missing bearer token\"")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -39,22 +42,26 @@ func (s *OIDCServer) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	_, ar, err := s.oauth2.IntrospectToken(ctx, accessToken, fosite.AccessToken, s.newSession(nil, GetClientIdFromRequest(r)), "openid")
 	if err != nil {
+		logger.Error("invalid token or expired on userinfo handler")
 		w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\", error_description=\"token invalid or expired\"")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	sess, _ := ar.GetSession().(*openid.DefaultSession)
-	if sess == nil || sess.Claims == nil {
+	sess, ok := ar.GetSession().(*fositepatch.OIDCSession)
+	if !ok || sess == nil || sess.IDTokenClaims_ == nil {
+		logger.Error("Unable to get session claims on userinfo handler", "session", sess)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	//fmt.Printf("============= claims: %+v\n", sess.Claims)
-
-	claims := sess.Claims.Extra
+	idClaims := sess.IDTokenClaims_
+	claims := idClaims.Extra
+	if claims == nil {
+		claims = map[string]interface{}{}
+	}
 	delete(claims, "azp") // Remove, as not in user definition
-	claims["sub"] = sess.Claims.Subject
+	claims["sub"] = idClaims.Subject
 
 	//claims := map[string]interface{}{
 	//	"sub": sess.Claims.Subject,

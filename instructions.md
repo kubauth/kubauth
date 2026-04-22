@@ -154,3 +154,11 @@ You can also mention https://github.com/kubauth/kc for testing and generate hash
 
 
 Modify the README.md: there is no helm chart repository. The helm chart is provided as OCI image: quay.io/kubauth/charts/kubauth:0.1.1-snapshot
+
+
+---
+
+
+When exercising userinfo url, I got an error in log: level=ERROR msg="Unable to get session claims on userinfo handler" session=<nil>, generated in cmd/oidc/oidcserver/handle-user-info.go, line 54.
+Can you check why the session is not retrieved.
+To reproduce, you can use the 'kc' command: kc token-nui --issuerURL http://localhost:6801 --clientId public  -u sa -p as --userInfo
