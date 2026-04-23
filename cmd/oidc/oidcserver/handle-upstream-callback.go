@@ -54,37 +54,40 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 	}
 	q := r.URL.Query()
 	if errParam := q.Get("error"); errParam != "" {
-		logger.Info("upstream returned error", "error", errParam, "description", q.Get("error_description"))
+		logger.Error("upstream returned error", "error", errParam, "description", q.Get("error_description"))
 		http.Error(w, "upstream login failed", http.StatusBadRequest)
 		return
 	}
 	code := q.Get("code")
 	state := q.Get("state")
 	if code == "" || state == "" {
+		logger.Error("upstream callback missing code or state", "hasCode", code != "", "hasState", state != "")
 		http.Error(w, "missing code or state", http.StatusBadRequest)
 		return
 	}
 	wantState := s.LoginSessionManager.GetString(ctx, sessUpstreamState)
 	if wantState == "" || wantState != state {
-		logger.Info("upstream callback state mismatch")
+		logger.Error("upstream callback state mismatch")
 		http.Error(w, "invalid state", http.StatusBadRequest)
 		return
 	}
 	name := s.LoginSessionManager.GetString(ctx, sessUpstreamProvider)
 	rawQuery := s.LoginSessionManager.GetString(ctx, "authQuery")
 	if name == "" || rawQuery == "" {
-		logger.Info("upstream callback missing session context")
+		logger.Error("upstream callback missing session context")
 		http.Error(w, "session expired", http.StatusBadRequest)
 		return
 	}
 
 	u := s.Storage.GetUpstream(ctx, name)
 	if u == nil {
+		logger.Error("upstream callback: unknown upstream", "upstream", name)
 		http.Error(w, "unknown upstream", http.StatusBadRequest)
 		return
 	}
 	settings, ok := u.OAuth2AuthCodeSettings()
 	if !ok || settings == nil {
+		logger.Error("upstream callback: upstream misconfigured", "upstream", name)
 		http.Error(w, "upstream misconfigured", http.StatusBadRequest)
 		return
 	}
@@ -123,7 +126,7 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 		wantNonce := s.LoginSessionManager.GetString(ctx, sessUpstreamNonce)
 		gotNonce, _ := idClaims["nonce"].(string)
 		if wantNonce != "" && gotNonce != wantNonce {
-			logger.Info("upstream id_token nonce mismatch")
+			logger.Error("upstream id_token nonce mismatch")
 			http.Error(w, "invalid nonce", http.StatusBadRequest)
 			return
 		}

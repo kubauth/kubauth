@@ -19,12 +19,15 @@ package handlers
 import (
 	"net/http"
 	"os"
+
+	"github.com/go-logr/logr"
 )
 
 func FaviconHandler(iconPath string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, err := os.ReadFile(iconPath)
 		if err != nil {
+			logr.FromContextAsSlogLogger(r.Context()).Error("Failed to read favicon", "path", iconPath, "error", err)
 			http.Error(w, "Favicon not found", http.StatusInternalServerError)
 			return
 		}

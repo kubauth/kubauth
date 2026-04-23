@@ -48,7 +48,7 @@ func (s *OIDCServer) handleUpstreamWelcome(w http.ResponseWriter, r *http.Reques
 
 	user, ok := s.loadPendingUpstreamUser(ctx)
 	if !ok {
-		logger.Info("handleUpstreamWelcome: no pending upstream user in session")
+		logger.Error("handleUpstreamWelcome: no pending upstream user in session")
 		http.Error(w, "session expired: restart login from the client application", http.StatusBadRequest)
 		return
 	}
@@ -71,12 +71,14 @@ func (s *OIDCServer) handleUpstreamWelcome(w http.ResponseWriter, r *http.Reques
 		return
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
+			logger.Error("handleUpstreamWelcome: failed to parse form", "error", err)
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
 		remember := r.PostForm.Get("remember") == "on"
 		rawQuery := s.LoginSessionManager.GetString(ctx, "authQuery")
 		if rawQuery == "" {
+			logger.Error("handleUpstreamWelcome: no auth query in session")
 			http.Error(w, "session expired: restart login from the client application", http.StatusBadRequest)
 			return
 		}

@@ -52,13 +52,13 @@ func (s *OIDCServer) handleUpstreamGo(w http.ResponseWriter, r *http.Request) {
 	}
 	name := r.URL.Query().Get("upstreamProvider")
 	if name == "" {
-		logger.Info("handleUpstreamGo: missing upstreamProvider query parameter")
+		logger.Error("handleUpstreamGo: missing upstreamProvider query parameter")
 		http.Error(w, "missing upstreamProvider parameter", http.StatusBadRequest)
 		return
 	}
 	rawQuery := s.LoginSessionManager.GetString(ctx, "authQuery")
 	if rawQuery == "" {
-		logger.Info("handleUpstreamGo: no auth query in session")
+		logger.Error("handleUpstreamGo: no auth query in session")
 		http.Error(w, "session expired: restart login from the client application", http.StatusBadRequest)
 		return
 	}
@@ -71,7 +71,7 @@ func (s *OIDCServer) handleUpstreamGo(w http.ResponseWriter, r *http.Request) {
 	}
 	settings, ok := u.OAuth2AuthCodeSettings()
 	if !ok || settings == nil {
-		logger.Info("handleUpstreamGo: upstream does not support OIDC code flow", "upstream", name)
+		logger.Error("handleUpstreamGo: upstream does not support OIDC code flow", "upstream", name)
 		http.Error(w, "upstream does not support external OIDC login", http.StatusBadRequest)
 		return
 	}
