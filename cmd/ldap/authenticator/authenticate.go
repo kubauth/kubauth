@@ -23,8 +23,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-ldap/ldap/v3"
 	"github.com/go-logr/logr"
-	"gopkg.in/ldap.v2"
 )
 
 // NB: This code is strongly inspired from dex idp  (https://github.com/dexidp/dex)
@@ -41,9 +41,8 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 	var ldapUser *ldap.Entry
 	err := l.do(ctx, func(conn *ldap.Conn) error {
 		var err error
-		// If bindDN and bindPW are empty this will default to an anonymous bind.
 		bindDesc := fmt.Sprintf("conn.Bind(%s, %s)", l.config.BindDN, "xxxxxxxx")
-		if err = conn.Bind(l.config.BindDN, l.config.BindPW); err != nil {
+		if err = serviceBind(conn, l.config.BindDN, l.config.BindPW); err != nil {
 			return fmt.Errorf("%s failed: %v", bindDesc, err)
 		}
 		logger.Debug(fmt.Sprintf("%s => success", bindDesc))
@@ -60,7 +59,7 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 			}
 			// We need to bind again, as password check was performed on user
 			bindDesc := fmt.Sprintf("conn.Bind(%s, %s)", l.config.BindDN, "xxxxxxxx")
-			if err := conn.Bind(l.config.BindDN, l.config.BindPW); err != nil {
+			if err := serviceBind(conn, l.config.BindDN, l.config.BindPW); err != nil {
 				return fmt.Errorf("%s failed: %v", bindDesc, err)
 			}
 			logger.Debug(fmt.Sprintf("%s => success", bindDesc), "bindDesc", bindDesc)
@@ -176,6 +175,17 @@ func (l *ldapAuthenticator) lookupUser(ctx context.Context, conn *ldap.Conn, log
 	default:
 		return nil, fmt.Errorf("filter returned multiple (%d) results: %q", n, filter)
 	}
+}
+
+// serviceBind performs the service-account (search) bind. When bindPW is empty
+// we use UnauthenticatedBind because go-ldap/v3 rejects simple Bind with an
+// empty password (CVE-2017-14623 hardening). An empty bindDN+bindPW therefore
+// maps to an intentional anonymous bind.
+func serviceBind(conn *ldap.Conn, bindDN, bindPW string) error {
+	if bindPW == "" {
+		return conn.UnauthenticatedBind(bindDN)
+	}
+	return conn.Bind(bindDN, bindPW)
 }
 
 func scopeString(i int) string {

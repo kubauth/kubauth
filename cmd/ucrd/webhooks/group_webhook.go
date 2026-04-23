@@ -32,7 +32,7 @@ import (
 
 // SetupGroupWebhookWithManager registers the webhook for Group in the manager.
 func SetupGroupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&kubauthv1alpha1.Group{}).
+	return ctrl.NewWebhookManagedBy[runtime.Object](mgr, &kubauthv1alpha1.Group{}).
 		WithValidator(&GroupCustomValidator{}).
 		WithDefaulter(&GroupCustomDefaulter{}).
 		Complete()
