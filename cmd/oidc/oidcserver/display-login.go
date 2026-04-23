@@ -23,6 +23,7 @@ import (
 	"kubauth/cmd/oidc/upstreams"
 	"kubauth/internal/global"
 	"net/http"
+	"net/url"
 	"sort"
 
 	"github.com/go-logr/logr"
@@ -46,7 +47,7 @@ type LoginModel struct {
 	ShowNoProviderMessage bool
 }
 
-func (s *OIDCServer) displayLoginResponse(ctx context.Context, w http.ResponseWriter, clientId string, invalidLogin bool) {
+func (s *OIDCServer) displayLoginResponse(ctx context.Context, w http.ResponseWriter, r *http.Request, clientId string, invalidLogin bool) {
 	model := &LoginModel{
 		InvalidLogin: invalidLogin,
 		Style:        s.getStyle(ctx, clientId),
@@ -57,6 +58,12 @@ func (s *OIDCServer) displayLoginResponse(ctx context.Context, w http.ResponseWr
 		if kubauthClient, err := s.Storage.GetKubauthClient(ctx, clientId); err == nil && kubauthClient != nil {
 			s.populateLoginModelWithUpstreams(ctx, kubauthClient, model)
 		}
+	}
+	if !invalidLogin && !model.ShowLoginForm && !model.ShowNoProviderMessage && len(model.UpstreamButtons) == 1 {
+		q := url.Values{}
+		q.Set("upstreamProvider", model.UpstreamButtons[0].Name)
+		http.Redirect(w, r, "/upstream/go?"+q.Encode(), http.StatusFound)
+		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.LoginTemplate.Execute(w, model); err != nil {

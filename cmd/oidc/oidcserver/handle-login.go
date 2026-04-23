@@ -68,7 +68,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		// Otherwise, render login page
-		s.displayLoginResponse(ctx, w, clientId, false)
+		s.displayLoginResponse(ctx, w, r, clientId, false)
 		return
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
@@ -98,7 +98,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if user == nil {
-			s.displayLoginResponse(ctx, w, clientId, true)
+			s.displayLoginResponse(ctx, w, r, clientId, true)
 			return
 		}
 
