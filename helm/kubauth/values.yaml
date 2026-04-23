@@ -130,8 +130,13 @@ networkPolicies:
 oidc:
   enabled: true
 
+
   issuer: # TBD
+
+  defaultStyle: dark
+
   postLogoutURL: # TBD
+
   # https://www.scottbrady.io/oauth/why-the-resource-owner-password-credentials-grant-type-is-not-authentication-nor-suitable-for-modern-applications
   allowPasswordGrant: false   # Allow Resource Owner Password Credentials (ROPC) grant type, aka the password grant.
   enforcePKCE: false  # If set, all authorization code grand must use PKCE
@@ -187,9 +192,11 @@ oidc:
 
   # All UpstreamProvider CRs must live in this namespace (OIDC controller watches/cache only here).
   # Defaults to .Release.Namespace in the chart template.
-  upstreamNamespace:
+  upstreams:
+    namespace:
 
   sso:
+    mode: onDemand # onDemand, never, always
     sticky: true
     lifeTime: "8h"
     cleanupPeriod: "5m"
