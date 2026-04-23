@@ -40,7 +40,7 @@ podAnnotations: {}
 commonAnnotations: {}
 
 
-# Security Context for each containers
+# Security Context for each container
 containerSecurityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
@@ -135,7 +135,7 @@ oidc:
   # https://www.scottbrady.io/oauth/why-the-resource-owner-password-credentials-grant-type-is-not-authentication-nor-suitable-for-modern-applications
   allowPasswordGrant: false   # Allow Resource Owner Password Credentials (ROPC) grant type, aka the password grant.
   enforcePKCE: false  # If set, all authorization code grand must use PKCE
-  jwtAccessToken: false # If set, access token will be jwt. Otherwise opaque
+  jwtAccessToken: false # If set, access token will be jwt. Otherwise, opaque
   # For oidcClients stored in this namespace, the client_id will NOT be prefixed by the namespace
   # Default to .Release.namespace
   clientPrivilegedNamespace:
@@ -154,7 +154,7 @@ oidc:
 
   # Allow to change some logger configuration
   logger:
-    mode: json  # "Log mode (dev or text)
+    mode: json  # Log mode (text or text)
     level: info # Log level(DEBUG, INFO, WARN, ERROR)
   # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
   dumpExchanges: 0
@@ -234,7 +234,7 @@ oidc:
     bindPort: 8443
     secured: false  # Set both TLS and client auth (see https://book.kubebuilder.io/reference/metrics)
     # This will be used to validate communication with the metrics endpoint
-    # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
+    # By default, will use a self-signed certificate issuer. But, you can provide your own ClusterIssuer
     certificateClusterIssuer:
     serviceMonitor:
       enabled: false
@@ -254,11 +254,11 @@ oidc:
     port: 9443
 
     # This will be used to validate communication between the API server and this webhook server
-    # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
+    # By default, will use a self-signed certificate issuer. But, you can provide your own ClusterIssuer
     certificateClusterIssuer:
 
     # Following will allow a renaming of kubauth webhook related kubernetes resources
-    # Leave it empty to use default values will works in most cases
+    # Leave it empty to use default values will work in most cases
     # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
     serviceName:
     # -- Will default to {{ include "kubauth.baseName" . }}-oidc-webhook
@@ -301,7 +301,7 @@ audit:
 
   # Allow to change some logger configuration
   logger:
-    mode: json  # "Log mode (dev or json)
+    mode: json  # Log mode (text or json)
     level: info # Log level(DEBUG, INFO, WARN, ERROR)
   # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
   dumpExchanges: 0
@@ -359,7 +359,7 @@ merger:
 
   # Allow to change some logger configuration
   logger:
-    mode: json  # "Log mode (dev or json)
+    mode: json  # Log mode (text or json)
     level: info # Log level(DEBUG, INFO, WARN, ERROR)
   # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
   dumpExchanges: 0
@@ -483,7 +483,7 @@ ldap:
       # Attribute to match against the login. This will be translated and combined with the other filter as "(<loginAttr>=<login>)".
       loginAttr:
       # Can either be:
-      #	  "sub" - search the whole sub tree
+      #	  "sub" - search the whole subtree
       #	  "one" - only search one level
       scope:
       # The attribute providing the numerical user ID
@@ -518,7 +518,7 @@ ldap:
 
   # Allow to change some logger configuration
   logger:
-    mode: json  # "Log mode (dev or json)
+    mode: json  # Log mode (text or json)
     level: info # Log level(DEBUG, INFO, WARN, ERROR)
   # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
   dumpExchanges: 0
@@ -579,7 +579,7 @@ ucrd:
 
   # Allow to change some logger configuration
   logger:
-    mode: json  # "Log mode (dev or json)
+    mode: json  # Log mode (text or json)
     level: info # Log level(DEBUG, INFO, WARN, ERROR)
   # Dump all http server req/resp: 0:No  1:Short info message, 2:full info message, 3:Full json sump
   dumpExchanges: 0
@@ -637,7 +637,7 @@ ucrd:
     bindPort: 8444
     secured: false  # Set both TLS and client auth (see https://book.kubebuilder.io/reference/metrics)
     # This will be used to validate communication with the metrics endpoint
-    # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
+    # By default, will use a self-signed certificate issuer. But, you can provide your own ClusterIssuer
     certificateClusterIssuer:
     serviceMonitor:
       enabled: false
@@ -657,11 +657,11 @@ ucrd:
     port: 9444
 
     # This will be used to validate communication between the API server and this webhook server
-    # By default, will use a self signed certificate issuer. But, you can provide your own ClusterIssuer
+    # By default, will use a self-signed certificate issuer. But, you can provide your own ClusterIssuer
     certificateClusterIssuer:
 
     # Following will allow a renaming of kubauth webhook related kubernetes resources
-    # Leave it empty to use default values will works in most cases
+    # Leave it empty to use default values will work in most cases
     # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-webhook
     serviceName:
     # -- Will default to {{ include "kubauth.baseName" . }}-ucrd-webhook
