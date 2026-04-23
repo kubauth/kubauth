@@ -115,6 +115,9 @@ var flags struct {
 
 	// Upstream providers config
 	upstreamNamespace string
+
+	ssoMode    oidcserver.SsoMode // always, never, onDemand
+	ssoModeStr string
 }
 
 var (
@@ -172,6 +175,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&flags.stickySso, "stickySso", false, "If set ssoSession will persists on browser restart.")
 	Cmd.PersistentFlags().DurationVar(&flags.ssoLifetime, "ssoLifetime", time.Hour*8, "SSO Session absolute lifetime")
 	Cmd.PersistentFlags().DurationVar(&flags.cleanupPeriod, "cleanupPeriod", time.Minute*5, "SSO Session cleanup period")
+	Cmd.PersistentFlags().StringVar(&flags.ssoModeStr, "ssoMode", "", "Cross applications SSO: always|never|onDemand")
 
 	// Idp (Identity provider) config
 	Cmd.PersistentFlags().StringVar(&flags.idProviderHttpConfig.BaseURL, "idProviderBaseURL", fmt.Sprintf("http://localhost:%d", global.DefaultPorts.Logger.Entry), "The Identity provider base URL")
@@ -228,6 +232,18 @@ var Cmd = &cobra.Command{
 		}
 		if flags.upstreamNamespace == "" {
 			setupLog.Error(nil, "upstreamNamespace must be specified and non null")
+			os.Exit(1)
+		}
+
+		m := oidcserver.SsoMode(strings.TrimSpace(flags.ssoModeStr))
+		switch m {
+		case oidcserver.SsoAlways, oidcserver.SsoNever, oidcserver.SsoOnDemand:
+			flags.ssoMode = m
+		case "":
+			setupLog.Error(nil, "ssoMode is required (value: always|never|onDemand)")
+			os.Exit(1)
+		default:
+			setupLog.Error(nil, "invalid ssoMode. Must be always|never|onDemand", "value", flags.ssoModeStr)
 			os.Exit(1)
 		}
 
@@ -591,6 +607,7 @@ var Cmd = &cobra.Command{
 			AllowPKCEPlain:          flags.allowPKCEPlain,
 			JwtAccessToken:          flags.jwtAccessToken,
 			DefaultStyle:            flags.defaultStyle,
+			SsoMode:                 flags.ssoMode,
 		}).Setup(ctx, router)
 		if err != nil {
 			setupLog.Error(err, "unable to setup oidc server")

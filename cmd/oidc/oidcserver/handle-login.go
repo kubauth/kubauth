@@ -104,7 +104,7 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 		// Successful authentication: renew session and conditionally persist SSO principal
 		_ = s.SsoSessionManager.RenewToken(ctx)
-		if remember {
+		if s.SsoMode == SsoAlways || (s.SsoMode == SsoOnDemand && remember) {
 			s.SsoSessionManager.Put(ctx, "ssoUser", user)
 		}
 

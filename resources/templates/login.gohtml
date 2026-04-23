@@ -59,6 +59,7 @@
                     </span>
             </div>
 
+            {{- if .ShowSsoCheck }}
             <div class="form-group">
                 <label class="checkbox-container">
                     <input type="checkbox" id="remember" name="remember">
@@ -66,7 +67,7 @@
                     Activate SSO
                 </label>
             </div>
-
+            {{- end }}
             <button type="submit" class="login-button btn">Login</button>
         </form>
     {{- if .ShowFieldset}}

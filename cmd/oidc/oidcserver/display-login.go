@@ -45,6 +45,7 @@ type LoginModel struct {
 	FieldsetLabel         string
 	ShowFieldset          bool
 	ShowNoProviderMessage bool
+	ShowSsoCheck          bool
 }
 
 func (s *OIDCServer) displayLoginResponse(ctx context.Context, w http.ResponseWriter, r *http.Request, clientId string, invalidLogin bool) {
@@ -53,6 +54,7 @@ func (s *OIDCServer) displayLoginResponse(ctx context.Context, w http.ResponseWr
 		Style:        s.getStyle(ctx, clientId),
 		Version:      global.Version,
 		BuildTs:      global.BuildTs,
+		ShowSsoCheck: s.SsoMode == SsoOnDemand,
 	}
 	if clientId != "" {
 		if kubauthClient, err := s.Storage.GetKubauthClient(ctx, clientId); err == nil && kubauthClient != nil {

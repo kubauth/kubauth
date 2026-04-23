@@ -254,3 +254,9 @@ There will be the need to map the claims issued by this exchange to the claims r
 
 If there is no login form (No internal provider) and one and only one upstreamProvider, skip the login form and send the user directly to this upstreamProvider
 
+
+---
+
+
+
+

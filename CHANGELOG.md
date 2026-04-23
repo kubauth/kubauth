@@ -1,6 +1,7 @@
 
 # v0.3.0
 
+- feat: Single sign in is now configurable in one of three mode: always, never or onDemand (Previously was only onDemand) 
 - feat: Added upstreamProvider resources and handling
 - Add a 'style' attribut on OidcClient resource allowing visual layout configuration of login/logout page.
 - feat: Add an 'enabled' (default: true) flag on oidcClient resource

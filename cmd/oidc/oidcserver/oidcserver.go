@@ -46,6 +46,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type SsoMode string
+
+const SsoAlways SsoMode = "always"
+const SsoOnDemand SsoMode = "onDemand"
+const SsoNever SsoMode = "never"
+
 type OIDCServer struct {
 	Issuer              string
 	Storage             *oidcstorage.MemoryStore
@@ -57,6 +63,7 @@ type OIDCServer struct {
 	LoginSessionManager *scsV2.SessionManager
 	PostLogoutURL       string
 	DefaultStyle        string
+	SsoMode             SsoMode
 
 	KubeClient              client.Client
 	EventRecorder           record.EventRecorder
