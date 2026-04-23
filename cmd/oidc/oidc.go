@@ -593,6 +593,7 @@ var Cmd = &cobra.Command{
 			Resources:               flags.resources,
 			LoginTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "login.gohtml"))),
 			IndexTemplate:           template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "index.gohtml"))),
+			UpstreamWelcomeTemplate: template.Must(template.ParseFiles(path.Join(flags.resources, "templates", "upstream-welcome.gohtml"))),
 			SsoSessionManager:       ssoSessionManager,
 			LoginSessionManager:     loginSessionManager,
 			PostLogoutURL:           flags.postLogoutURL,

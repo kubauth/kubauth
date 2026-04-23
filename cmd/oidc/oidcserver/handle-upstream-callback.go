@@ -17,12 +17,14 @@ limitations under the License.
 package oidcserver
 
 import (
-	"kubauth/cmd/oidc/fositepatch"
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-logr/logr"
 	"golang.org/x/oauth2"
 )
+
+const sessPendingUpstreamUser = "pendingUpstreamUser"
 
 func mergeUpstreamClaimMaps(userinfo, idToken map[string]interface{}) map[string]interface{} {
 	n := 0
@@ -154,31 +156,20 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 	s.LoginSessionManager.Remove(ctx, sessUpstreamPKCE)
 	s.LoginSessionManager.Remove(ctx, sessUpstreamProvider)
 
-	r.URL.RawQuery = rawQuery
-	clientID := r.URL.Query().Get("client_id")
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
-	if err != nil {
-		logger.Error("recreate authorize request", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+	switch s.SsoMode {
+	case SsoOnDemand:
+		// Defer SSO decision to the user via the welcome page.
+		userJSON, err := json.Marshal(user)
+		if err != nil {
+			logger.Error("marshal pending upstream user", "error", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		s.LoginSessionManager.Put(ctx, sessPendingUpstreamUser, string(userJSON))
+		http.Redirect(w, r, "/upstream/welcome", http.StatusFound)
 		return
+	case SsoAlways:
+		s.SsoSessionManager.Put(ctx, "ssoUser", user)
 	}
-	ar, err := s.oauth2.NewAuthorizeRequest(ctx, req)
-	if err != nil {
-		logger.Error("NewAuthorizeRequest after upstream", "error", err)
-		s.oauth2.WriteAuthorizeError(ctx, w, ar, err)
-		return
-	}
-	fositepatch.HandleScopes(ar, logger)
-	fositepatch.HandleAudience(ar, logger)
-
-	session := s.newSession(user, clientID)
-	response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
-	if err != nil {
-		logger.Error("NewAuthorizeResponse after upstream", "error", err)
-		s.oauth2.WriteAuthorizeError(ctx, w, ar, err)
-		return
-	}
-	logger.Info("upstream OIDC login completed", "login", user.Login)
-	s.oauth2.WriteAuthorizeResponse(ctx, w, ar, response)
+	s.completeUpstreamAuthorize(ctx, w, rawQuery, user)
 }

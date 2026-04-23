@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en"{{if eq .Style "light"}} class="theme-light"{{end}}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .UserName}}Welcome {{.UserName}}{{else}}Welcome{{end}}</title>
+    <link rel="stylesheet" href="/static/shared.css">
+    <link rel="stylesheet" href="/static/login.css">
+</head>
+<body>
+<div class="login-container container">
+    <div class="banner">
+        <h1>{{if .UserName}}Welcome {{.UserName}}{{else}}Welcome{{end}}</h1>
+    </div>
+
+    <form id="welcomeForm" method="POST" action="/upstream/welcome">
+        <div class="form-group">
+            <label class="checkbox-container">
+                <input type="checkbox" id="remember" name="remember">
+                <span class="checkmark"></span>
+                Activate SSO
+            </label>
+        </div>
+
+        <button type="submit" class="login-button btn">Continue</button>
+    </form>
+</div>
+
+<footer class="footer-zone">
+    <p>Version: {{ .Version}}  Build: {{ .BuildTs}}  Style: {{ .Style }}</p>
+</footer>
+</body>
+</html>

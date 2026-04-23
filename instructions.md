@@ -258,5 +258,14 @@ If there is no login form (No internal provider) and one and only one upstreamPr
 ---
 
 
+When returning from an upstream provider, if OIDCServer.ssoMode == SsoOnDemand, display a page to the user with a title 'Welcome <userName>' and a checkbox to activate SSO.
+Use the same style as login page, still with dark and light variation.
+To find the user name, lookup in claims for appropriate values. If unable to find one, just display 'Welcome' as title.
+Add a button Continue to follow up to the remaining processing
+
+
+---
+
+Ensure there is a logger.Error(....) message on each http.Error(......., http.StatusInternalServerError) or http.Error(....., http.BadRequest)
 
 

@@ -53,17 +53,18 @@ const SsoOnDemand SsoMode = "onDemand"
 const SsoNever SsoMode = "never"
 
 type OIDCServer struct {
-	Issuer              string
-	Storage             *oidcstorage.MemoryStore
-	Resources           string
-	Authenticator       authenticator.OidcAuthenticator
-	LoginTemplate       *template.Template
-	IndexTemplate       *template.Template
-	SsoSessionManager   *scsV2.SessionManager
-	LoginSessionManager *scsV2.SessionManager
-	PostLogoutURL       string
-	DefaultStyle        string
-	SsoMode             SsoMode
+	Issuer                  string
+	Storage                 *oidcstorage.MemoryStore
+	Resources               string
+	Authenticator           authenticator.OidcAuthenticator
+	LoginTemplate           *template.Template
+	IndexTemplate           *template.Template
+	UpstreamWelcomeTemplate *template.Template
+	SsoSessionManager       *scsV2.SessionManager
+	LoginSessionManager     *scsV2.SessionManager
+	PostLogoutURL           string
+	DefaultStyle            string
+	SsoMode                 SsoMode
 
 	KubeClient              client.Client
 	EventRecorder           record.EventRecorder
@@ -129,6 +130,7 @@ func (s *OIDCServer) Setup(ctx context.Context, router *http.ServeMux) error {
 	router.Handle("/index", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleIndex))))
 	router.Handle("/upstream/go", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleUpstreamGo))))
 	router.Handle("/upstream/callback", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleUpstreamCallback))))
+	router.Handle("/upstream/welcome", s.LoginSessionManager.LoadAndSave(s.SsoSessionManager.LoadAndSave(http.HandlerFunc(s.handleUpstreamWelcome))))
 
 	// Static file server for CSS and other assets
 	staticDir := path.Join(s.Resources, "static")
