@@ -32,9 +32,9 @@ import (
 
 // SetupGroupBindingWebhookWithManager registers the webhook for GroupBinding in the manager.
 func SetupGroupBindingWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy[runtime.Object](mgr, &kubauthv1alpha1.GroupBinding{}).
-		WithValidator(&GroupBindingCustomValidator{}).
-		WithDefaulter(&GroupBindingCustomDefaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &kubauthv1alpha1.GroupBinding{}).
+		WithCustomValidator(&GroupBindingCustomValidator{}).
+		WithCustomDefaulter(&GroupBindingCustomDefaulter{}).
 		Complete()
 }
 

@@ -37,9 +37,9 @@ import (
 
 // SetupOidcClientWebhookWithManager registers the webhook for OidcClient in the manager.
 func SetupOidcClientWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy[runtime.Object](mgr, &kubautv1alpha1.OidcClient{}).
-		WithValidator(&OidcClientCustomValidator{}).
-		WithDefaulter(&OidcClientCustomDefaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &kubautv1alpha1.OidcClient{}).
+		WithCustomValidator(&OidcClientCustomValidator{}).
+		WithCustomDefaulter(&OidcClientCustomDefaulter{}).
 		Complete()
 }
 

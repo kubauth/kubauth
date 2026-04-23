@@ -32,9 +32,9 @@ import (
 
 // SetupUserWebhookWithManager registers the webhook for User in the manager.
 func SetupUserWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy[runtime.Object](mgr, &kubauthv1alpha1.User{}).
-		WithValidator(&UserCustomValidator{}).
-		WithDefaulter(&UserCustomDefaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &kubauthv1alpha1.User{}).
+		WithCustomValidator(&UserCustomValidator{}).
+		WithCustomDefaulter(&UserCustomDefaulter{}).
 		Complete()
 }
 

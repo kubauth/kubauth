@@ -269,4 +269,8 @@ Add a button Continue to follow up to the remaining processing
 Ensure there is a logger.Error(....) message on each http.Error(......., http.StatusInternalServerError) or http.Error(....., http.BadRequest)
 
 
-What standard conventional commit will you use for the kind of modification ?
+---
+
+I have a panic in the user's webhook when create a user.
+To view it: kubectl -n kubauth logs -c ucrd kubauth-5fdcc7dbfd-2z54g
+Could you fix it
