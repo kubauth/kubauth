@@ -103,6 +103,7 @@ var flags struct {
 	jwtAccessToken            bool
 	clientPrivilegedNamespace string
 	defaultStyle              string
+	internalWelcomeMessage    string
 
 	// SSO Config
 	ssoNamespace  string
@@ -169,6 +170,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&flags.jwtAccessToken, "jwtAccessToken", false, "Access token is a JWT. Otherwise is an opaque value")
 	Cmd.PersistentFlags().StringVar(&flags.clientPrivilegedNamespace, "clientPrivilegedNamespace", "", "The only OIDC client namespace, where client_id is not préfixed by namespace.")
 	Cmd.PersistentFlags().StringVar(&flags.defaultStyle, "defaultStyle", "dark", "Allow to change template style and layout.")
+	Cmd.PersistentFlags().StringVar(&flags.internalWelcomeMessage, "internalWelcomeMessage", "Local login", "User prompt for local login")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -613,6 +615,7 @@ var Cmd = &cobra.Command{
 			JwtAccessToken:          flags.jwtAccessToken,
 			DefaultStyle:            flags.defaultStyle,
 			SsoMode:                 flags.ssoMode,
+			InternalWelcomeMessage:  flags.internalWelcomeMessage,
 		}).Setup(ctx, router)
 		if err != nil {
 			setupLog.Error(err, "unable to setup oidc server")

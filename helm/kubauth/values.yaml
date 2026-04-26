@@ -200,32 +200,9 @@ oidc:
 
   # All UpstreamProvider CRs must live in this namespace (OIDC controller watches/cache only here).
   # Defaults to .Release.Namespace in the chart template.
-  upstreamProvidersNamespace:
-
-  # List of upstream OIDC providers. 'internal' is required to allow local authentication.
   upstreamProviders:
-    - name: internal
-      type: internal
-      enabled: true
-      displayName: "Sign in on this cluster"
-
-# Describe one or several other upstreams providers. See documentation for all parameters
-#    - name: upstream1
-#      type: oidc
-#      enabled: true
-#      displayName: "Sign in on Upstream 1"
-#      issuerURL: "https://oidc.mycompany.com"
-#      redirectURL: "https://oidc.mycompany.com/callback"
-#      clientSpecific: false
-#      clientId: cluster1
-#      clientSecret: secret1
-#      scopes: [ "openid", "profile", "groups"]
-#      certificateAuthority:
-#        secret:
-#          name: certs-bundle
-#          key: ca.crt
-
-
+    namespace:
+    internalWelcomeMessage: "Local login"
 
   sso:
     mode: onDemand # onDemand, never, always

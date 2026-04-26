@@ -10,9 +10,9 @@
 </head>
 <body>
 <div class="login-container container">
-    <div class="banner">
-        <h1>Kubauth Sign-in</h1>
-    </div>
+{{/*    <div class="banner">*/}}
+{{/*        <h1>Kubauth Sign-in</h1>*/}}
+{{/*    </div>*/}}
 
     {{- if .ShowNoProviderMessage }}
     <div class="no-provider">
@@ -29,13 +29,9 @@
     {{- end}}
 
     {{- if .ShowLoginForm}}
-    {{- if .ShowFieldset}}
     <fieldset class="login-form-fieldset">
         <legend class="login-form-legend">{{.FieldsetLabel}}</legend>
         <form id="loginForm" method="POST" action="/oauth2/login">
-    {{- else}}
-        <form id="loginForm" method="POST" action="/oauth2/login">
-    {{- end}}
             <div id="errorMessage" class="error-message">
                 <!-- Error messages will be displayed here -->
             </div>
@@ -70,9 +66,7 @@
             {{- end }}
             <button type="submit" class="login-button btn">Login</button>
         </form>
-    {{- if .ShowFieldset}}
     </fieldset>
-    {{- end}}
     {{- end}}
 </div>
 

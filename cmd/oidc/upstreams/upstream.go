@@ -19,9 +19,9 @@ package upstreams
 import (
 	"context"
 	"fmt"
-	"net/http"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/internal/httpclient"
+	"net/http"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -56,18 +56,26 @@ type upstream struct {
 	clientId       string
 	clientSecret   string
 	// Computed
-	provider               *oidc.Provider
-	httpClient             *http.Client
-	codeChallengeMethods   []string
-	introspectionURL       string
-	endSessionURL          string
-	JwksURL                string
-	Algorithms             []string
+	provider             *oidc.Provider
+	httpClient           *http.Client
+	codeChallengeMethods []string
+	introspectionURL     string
+	endSessionURL        string
+	JwksURL              string
+	Algorithms           []string
 }
 
 var _ Upstream = &upstream{}
 
-// NewUpstream Create a new internal Upstream Object
+func NewInternalUpstream(welcomeMessage string) Upstream {
+	return &upstream{
+		name:        "internal",
+		myType:      kubauthv1alpha1.UpstreamProviderTypeInternal,
+		displayName: welcomeMessage,
+	}
+}
+
+// NewUpstream Create a new Upstream Object
 // WARNING: This function can return an error AND a (partial) upstream object
 // caPEM is the raw PEM-encoded CA bundle for the upstream issuer (may be nil).
 func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.UpstreamProvider, clientSecret string, caPEM []byte) (Upstream, error) {

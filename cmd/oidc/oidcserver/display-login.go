@@ -43,7 +43,6 @@ type LoginModel struct {
 	UpstreamButtons       []UpstreamButtonModel
 	ShowLoginForm         bool
 	FieldsetLabel         string
-	ShowFieldset          bool
 	ShowNoProviderMessage bool
 	ShowSsoCheck          bool
 }
@@ -92,10 +91,10 @@ func (s *OIDCServer) populateLoginModelWithUpstreams(ctx context.Context, kubaut
 	var internal upstreams.Upstream = nil
 	upstreamButtons := make([]UpstreamButtonModel, 0, 5)
 
-	upstreamNameList := kubauthClient.GetUpstreamProviders()
-	if upstreamNameList != nil && len(upstreamNameList) > 0 {
+	clientUpstreamNameList := kubauthClient.GetUpstreamProviders()
+	if clientUpstreamNameList != nil && len(clientUpstreamNameList) > 0 {
 		// ------------------------------------------------- The upstream list is provided by the client
-		for _, upstreamName := range upstreamNameList {
+		for _, upstreamName := range clientUpstreamNameList {
 			upstream := s.Storage.GetUpstream(ctx, upstreamName)
 			if upstream == nil {
 				logger.Error("Upstream unexisting or disabled", "oidcClient", kubauthClient.GetK8sId(), "upstream", upstreamName)
@@ -113,14 +112,14 @@ func (s *OIDCServer) populateLoginModelWithUpstreams(ctx context.Context, kubaut
 			}
 		}
 	} else {
-		upstreamList := s.Storage.GetUpstreams(ctx)
-		if upstreamList != nil && len(upstreamList) > 0 {
+		globalUpstreamList := s.Storage.GetUpstreams(ctx)
+		if globalUpstreamList != nil && len(globalUpstreamList) > 0 {
 			// Sort by name (Not display name)
-			sort.Slice(upstreamList, func(i, j int) bool {
-				return upstreamList[i].GetName() < upstreamList[j].GetName()
+			sort.Slice(globalUpstreamList, func(i, j int) bool {
+				return globalUpstreamList[i].GetName() < globalUpstreamList[j].GetName()
 			})
 			// A loop to extract internal and remove clientSpecific ones
-			for _, upstream := range upstreamList {
+			for _, upstream := range globalUpstreamList {
 				if !upstream.IsClientSpecific() {
 					if upstream.GetProviderType() == kubauthv1alpha1.UpstreamProviderTypeInternal {
 						internal = upstream
@@ -132,7 +131,9 @@ func (s *OIDCServer) populateLoginModelWithUpstreams(ctx context.Context, kubaut
 					}
 				}
 			}
-
+		} else {
+			// No upstreams list defined for this client, and no upstreamProviders at all: Setup default internal provider
+			internal = upstreams.NewInternalUpstream(s.InternalWelcomeMessage)
 		}
 	}
 	if len(upstreamButtons) > 0 {
@@ -141,9 +142,6 @@ func (s *OIDCServer) populateLoginModelWithUpstreams(ctx context.Context, kubaut
 	if internal != nil {
 		model.ShowLoginForm = true
 		model.FieldsetLabel = internal.GetDisplayName()
-		if len(upstreamButtons) > 0 {
-			model.ShowFieldset = true
-		}
 	}
 	if len(upstreamButtons) == 0 && internal == nil {
 		model.ShowNoProviderMessage = true

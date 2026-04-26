@@ -65,6 +65,7 @@ type OIDCServer struct {
 	PostLogoutURL           string
 	DefaultStyle            string
 	SsoMode                 SsoMode
+	InternalWelcomeMessage  string
 
 	KubeClient              client.Client
 	EventRecorder           record.EventRecorder
