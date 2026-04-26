@@ -18,13 +18,10 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
@@ -33,8 +30,8 @@ import (
 // SetupUserWebhookWithManager registers the webhook for User in the manager.
 func SetupUserWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &kubauthv1alpha1.User{}).
-		WithCustomValidator(&UserCustomValidator{}).
-		WithCustomDefaulter(&UserCustomDefaulter{}).
+		WithValidator(&UserCustomValidator{}).
+		WithDefaulter(&UserCustomDefaulter{}).
 		Complete()
 }
 
@@ -51,15 +48,10 @@ type UserCustomDefaulter struct {
 	// TODO(user): Add more fields as needed for defaulting
 }
 
-var _ webhook.CustomDefaulter = &UserCustomDefaulter{}
+var _ admission.Defaulter[*kubauthv1alpha1.User] = &UserCustomDefaulter{}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind User.
-func (d *UserCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	user, ok := obj.(*kubauthv1alpha1.User)
-
-	if !ok {
-		return fmt.Errorf("expected an User object but got %T", obj)
-	}
+// Default sets defaults on the User.
+func (d *UserCustomDefaulter) Default(ctx context.Context, user *kubauthv1alpha1.User) error {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	logger.Debug("Defaulting for User", "name", user.GetName())
 
@@ -82,14 +74,10 @@ type UserCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
-var _ webhook.CustomValidator = &UserCustomValidator{}
+var _ admission.Validator[*kubauthv1alpha1.User] = &UserCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type User.
-func (v *UserCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	user, ok := obj.(*kubauthv1alpha1.User)
-	if !ok {
-		return nil, fmt.Errorf("expected a User object but got %T", obj)
-	}
+// ValidateCreate implements admission.Validator for User.
+func (v *UserCustomValidator) ValidateCreate(ctx context.Context, user *kubauthv1alpha1.User) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	logger.Debug("Validation for User upon creation", "name", user.GetName())
 
@@ -98,26 +86,19 @@ func (v *UserCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Ob
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type User.
-func (v *UserCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	user, ok := newObj.(*kubauthv1alpha1.User)
-	if !ok {
-		return nil, fmt.Errorf("expected a User object for the newObj but got %T", newObj)
-	}
+// ValidateUpdate implements admission.Validator for User.
+func (v *UserCustomValidator) ValidateUpdate(ctx context.Context, oldUser, newUser *kubauthv1alpha1.User) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Debug("Validation for User upon update", "name", user.GetName())
+	logger.Debug("Validation for User upon update", "name", newUser.GetName())
 
 	// TODO(user): fill in your validation logic upon object update.
 
+	_ = oldUser
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type User.
-func (v *UserCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	user, ok := obj.(*kubauthv1alpha1.User)
-	if !ok {
-		return nil, fmt.Errorf("expected a User object but got %T", obj)
-	}
+// ValidateDelete implements admission.Validator for User.
+func (v *UserCustomValidator) ValidateDelete(ctx context.Context, user *kubauthv1alpha1.User) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	logger.Debug("Validation for User upon deletion", "name", user.GetName())
 

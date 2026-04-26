@@ -18,13 +18,10 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
@@ -33,8 +30,8 @@ import (
 // SetupGroupWebhookWithManager registers the webhook for Group in the manager.
 func SetupGroupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &kubauthv1alpha1.Group{}).
-		WithCustomValidator(&GroupCustomValidator{}).
-		WithCustomDefaulter(&GroupCustomDefaulter{}).
+		WithValidator(&GroupCustomValidator{}).
+		WithDefaulter(&GroupCustomDefaulter{}).
 		Complete()
 }
 
@@ -51,15 +48,10 @@ type GroupCustomDefaulter struct {
 	// TODO(user): Add more fields as needed for defaulting
 }
 
-var _ webhook.CustomDefaulter = &GroupCustomDefaulter{}
+var _ admission.Defaulter[*kubauthv1alpha1.Group] = &GroupCustomDefaulter{}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Group.
-func (d *GroupCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	group, ok := obj.(*kubauthv1alpha1.Group)
-
-	if !ok {
-		return fmt.Errorf("expected an Group object but got %T", obj)
-	}
+// Default sets defaults on the Group.
+func (d *GroupCustomDefaulter) Default(ctx context.Context, group *kubauthv1alpha1.Group) error {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	logger.Debug("Defaulting for Group", "name", group.GetName())
 
@@ -82,14 +74,10 @@ type GroupCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
-var _ webhook.CustomValidator = &GroupCustomValidator{}
+var _ admission.Validator[*kubauthv1alpha1.Group] = &GroupCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Group.
-func (v *GroupCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	group, ok := obj.(*kubauthv1alpha1.Group)
-	if !ok {
-		return nil, fmt.Errorf("expected a Group object but got %T", obj)
-	}
+// ValidateCreate implements admission.Validator for Group.
+func (v *GroupCustomValidator) ValidateCreate(ctx context.Context, group *kubauthv1alpha1.Group) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	logger.Debug("Validation for Group upon creation", "name", group.GetName())
 
@@ -98,26 +86,19 @@ func (v *GroupCustomValidator) ValidateCreate(ctx context.Context, obj runtime.O
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Group.
-func (v *GroupCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	group, ok := newObj.(*kubauthv1alpha1.Group)
-	if !ok {
-		return nil, fmt.Errorf("expected a Group object for the newObj but got %T", newObj)
-	}
+// ValidateUpdate implements admission.Validator for Group.
+func (v *GroupCustomValidator) ValidateUpdate(ctx context.Context, oldGroup, newGroup *kubauthv1alpha1.Group) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Debug("Validation for Group upon update", "name", group.GetName())
+	logger.Debug("Validation for Group upon update", "name", newGroup.GetName())
 
 	// TODO(user): fill in your validation logic upon object update.
 
+	_ = oldGroup
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Group.
-func (v *GroupCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	group, ok := obj.(*kubauthv1alpha1.Group)
-	if !ok {
-		return nil, fmt.Errorf("expected a Group object but got %T", obj)
-	}
+// ValidateDelete implements admission.Validator for Group.
+func (v *GroupCustomValidator) ValidateDelete(ctx context.Context, group *kubauthv1alpha1.Group) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	logger.Debug("Validation for Group upon deletion", "name", group.GetName())
 

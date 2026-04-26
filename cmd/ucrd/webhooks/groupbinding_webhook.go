@@ -18,13 +18,10 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
@@ -33,8 +30,8 @@ import (
 // SetupGroupBindingWebhookWithManager registers the webhook for GroupBinding in the manager.
 func SetupGroupBindingWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &kubauthv1alpha1.GroupBinding{}).
-		WithCustomValidator(&GroupBindingCustomValidator{}).
-		WithCustomDefaulter(&GroupBindingCustomDefaulter{}).
+		WithValidator(&GroupBindingCustomValidator{}).
+		WithDefaulter(&GroupBindingCustomDefaulter{}).
 		Complete()
 }
 
@@ -51,17 +48,12 @@ type GroupBindingCustomDefaulter struct {
 	// TODO(user): Add more fields as needed for defaulting
 }
 
-var _ webhook.CustomDefaulter = &GroupBindingCustomDefaulter{}
+var _ admission.Defaulter[*kubauthv1alpha1.GroupBinding] = &GroupBindingCustomDefaulter{}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind GroupBinding.
-func (d *GroupBindingCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	groupbinding, ok := obj.(*kubauthv1alpha1.GroupBinding)
-
-	if !ok {
-		return fmt.Errorf("expected an GroupBinding object but got %T", obj)
-	}
+// Default sets defaults on the GroupBinding.
+func (d *GroupBindingCustomDefaulter) Default(ctx context.Context, groupBinding *kubauthv1alpha1.GroupBinding) error {
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Debug("Defaulting for GroupBinding", "name", groupbinding.GetName())
+	logger.Debug("Defaulting for GroupBinding", "name", groupBinding.GetName())
 
 	// TODO(user): fill in your defaulting logic.
 
@@ -82,44 +74,33 @@ type GroupBindingCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
-var _ webhook.CustomValidator = &GroupBindingCustomValidator{}
+var _ admission.Validator[*kubauthv1alpha1.GroupBinding] = &GroupBindingCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type GroupBinding.
-func (v *GroupBindingCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	groupbinding, ok := obj.(*kubauthv1alpha1.GroupBinding)
-	if !ok {
-		return nil, fmt.Errorf("expected a GroupBinding object but got %T", obj)
-	}
+// ValidateCreate implements admission.Validator for GroupBinding.
+func (v *GroupBindingCustomValidator) ValidateCreate(ctx context.Context, groupBinding *kubauthv1alpha1.GroupBinding) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Debug("Validation for GroupBinding upon creation", "name", groupbinding.GetName())
+	logger.Debug("Validation for GroupBinding upon creation", "name", groupBinding.GetName())
 
 	// TODO(user): fill in your validation logic upon object creation.
 
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type GroupBinding.
-func (v *GroupBindingCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	groupbinding, ok := newObj.(*kubauthv1alpha1.GroupBinding)
-	if !ok {
-		return nil, fmt.Errorf("expected a GroupBinding object for the newObj but got %T", newObj)
-	}
+// ValidateUpdate implements admission.Validator for GroupBinding.
+func (v *GroupBindingCustomValidator) ValidateUpdate(ctx context.Context, oldGB, newGB *kubauthv1alpha1.GroupBinding) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Debug("Validation for GroupBinding upon update", "name", groupbinding.GetName())
+	logger.Debug("Validation for GroupBinding upon update", "name", newGB.GetName())
 
 	// TODO(user): fill in your validation logic upon object update.
 
+	_ = oldGB
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type GroupBinding.
-func (v *GroupBindingCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	groupbinding, ok := obj.(*kubauthv1alpha1.GroupBinding)
-	if !ok {
-		return nil, fmt.Errorf("expected a GroupBinding object but got %T", obj)
-	}
+// ValidateDelete implements admission.Validator for GroupBinding.
+func (v *GroupBindingCustomValidator) ValidateDelete(ctx context.Context, groupBinding *kubauthv1alpha1.GroupBinding) (admission.Warnings, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
-	logger.Debug("Validation for GroupBinding upon deletion", "name", groupbinding.GetName())
+	logger.Debug("Validation for GroupBinding upon deletion", "name", groupBinding.GetName())
 
 	// TODO(user): fill in your validation logic upon object deletion.
 
