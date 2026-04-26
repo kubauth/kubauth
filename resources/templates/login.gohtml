@@ -30,15 +30,15 @@
 
     {{- if .ShowLoginForm}}
     {{- if .ShowFieldset}}
-    <div id="errorMessage" class="error-message">
-        <!-- Error messages will be displayed here -->
-    </div>
     <fieldset class="login-form-fieldset">
         <legend class="login-form-legend">{{.FieldsetLabel}}</legend>
         <form id="loginForm" method="POST" action="/oauth2/login">
     {{- else}}
         <form id="loginForm" method="POST" action="/oauth2/login">
     {{- end}}
+            <div id="errorMessage" class="error-message">
+                <!-- Error messages will be displayed here -->
+            </div>
             <div class="form-group">
                 <label for="login">Login</label>
                 <input type="text" id="login" name="login" required>
@@ -127,7 +127,7 @@
     })();
     {{- if .InvalidLogin}}
     if (typeof window.showLoginError === 'function') {
-        window.showLoginError('Invalid username or password.');
+        window.showLoginError('Invalid login name or password!');
     }
     {{- end}}
 </script>

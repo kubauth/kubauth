@@ -57,8 +57,8 @@ html.theme-light .btn-upstream:hover {
 }
 
 .login-form-fieldset {
-    margin: 0;
-    padding: 1rem 1rem 0.25rem;
+    /* Symmetric padding so the submit button is not flush with the fieldset border */
+    padding: 1rem;
     border: 1px solid var(--color-container-border);
     border-radius: 8px;
     background-color: var(--color-bg-body);
