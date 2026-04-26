@@ -30,6 +30,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-kubauth-kubotal-io-v1alpha1-upstreamprovider
+  failurePolicy: Fail
+  name: mupstreamprovider-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - upstreamproviders
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-kubauth-kubotal-io-v1alpha1-group
   failurePolicy: Fail
   name: mgroup-v1alpha1.kb.io
@@ -109,6 +129,26 @@ webhooks:
     - UPDATE
     resources:
     - oidcclients
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kubauth-kubotal-io-v1alpha1-upstreamprovider
+  failurePolicy: Fail
+  name: vupstreamprovider-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - kubauth.kubotal.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - upstreamproviders
   sideEffects: None
 - admissionReviewVersions:
   - v1

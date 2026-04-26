@@ -291,3 +291,16 @@ In its config. And, AFAIK, this bundle include the cluster-odp CA
 
 ---
 in all webhooks, there is some deprecated function (such as WithCustomValidator). Could you fix this.
+
+---
+
+Implement a webhook skeleton for UpstreamProviders resource, using the one from oidcclient as model.
+
+--- 
+Got an issue:  internal error occurred: failed calling webhook "mupstreamprovider-v1alpha1.kb.io": failed to call webhook: Post "https://kubauth-oidc-webhook.kubauth.svc:443/mutate-kubauth-kubotal-io-v1alpha1-upstreamprovider?timeout=10s": dial tcp 10.96.234.119:443: connect: connection refused
+
+That's logical, as helm want to create resources while webhook server is not yer running.
+
+Do you have a solution to defer the UpstreamProviders creation until webhook is ready?
+
+Don't implement for now. Just describe.

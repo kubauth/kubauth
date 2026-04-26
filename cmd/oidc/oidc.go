@@ -506,6 +506,10 @@ var Cmd = &cobra.Command{
 				setupLog.Error(err, "unable to create webhook", "webhook", "OidcClient")
 				os.Exit(1)
 			}
+			if err := oidcWebhooks.SetupUpstreamProviderWebhookWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create webhook", "webhook", "UpstreamProvider")
+				os.Exit(1)
+			}
 		}
 		// +kubebuilder:scaffold:builder
 
