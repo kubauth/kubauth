@@ -98,8 +98,16 @@ networkPolicies:
   forWebhooks: true
 
   # If set, this will be included in ingress[0].from[X].ipBlock for webhooks related netpol
-  # Set to the node CIDR. May be required for multinode KIND cluster.
-  # (KIND networkPolicies implementation seems unstable).
+  # (both oidc and ucrd webhook policies). Required on many multi-node clusters: the
+  # apiserver's connection to the admission webhook often has a *source IP on the host /
+  # node network*, not the pod IP of kube-system, so "from namespace kube-system" alone
+  # does not match and the request is dropped until timeout (client error: context deadline
+  # exceeded on the mutating/validating webhook call).
+  #
+  # Examples:
+  # - kind (docker): `docker network inspect kind` → use the bridge IPv4 subnet, often
+  #   172.18.0.0/16 (see also node Internal-IPs: `kubectl get nodes -o wide`).
+  # - cloud: control plane / node subnet used for apiserver → worker traffic.
   ipBlock:
 
 
@@ -129,7 +137,6 @@ networkPolicies:
 
 oidc:
   enabled: true
-
 
   issuer: # TBD
 
@@ -190,10 +197,35 @@ oidc:
     passthrough: true
     annotations:
 
+
   # All UpstreamProvider CRs must live in this namespace (OIDC controller watches/cache only here).
   # Defaults to .Release.Namespace in the chart template.
-  upstreams:
-    namespace:
+  upstreamProvidersNamespace:
+
+  # List of upstream OIDC providers. 'internal' is required to allow local authentication.
+  upstreamProviders:
+    - name: internal
+      type: internal
+      enabled: true
+      displayName: "Sign in on this cluster"
+
+# Describe one or several other upstreams providers. See documentation for all parameters
+#    - name: upstream1
+#      type: oidc
+#      enabled: true
+#      displayName: "Sign in on Upstream 1"
+#      issuerURL: "https://oidc.mycompany.com"
+#      redirectURL: "https://oidc.mycompany.com/callback"
+#      clientSpecific: false
+#      clientId: cluster1
+#      clientSecret: secret1
+#      scopes: [ "openid", "profile", "groups"]
+#      certificateAuthority:
+#        secret:
+#          name: certs-bundle
+#          key: ca.crt
+
+
 
   sso:
     mode: onDemand # onDemand, never, always

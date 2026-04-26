@@ -53,7 +53,7 @@ Expand oidc container
     - --enforcePKCE={{ .Values.oidc.enforcePKCE }}
     - --jwtAccessToken={{ .Values.oidc.jwtAccessToken }}
     - --clientPrivilegedNamespace={{ .Values.oidc.clientPrivilegedNamespace | default .Release.Namespace }}
-    - --upstreamNamespace={{ .Values.oidc.upstreams.namespace | default .Release.Namespace }}
+    - --upstreamNamespace={{ .Values.oidc.upstreamProvidersNamespace | default .Release.Namespace }}
     - --ssoMode={{ .Values.oidc.sso.mode }}
     - --defaultStyle={{ .Values.oidc.defaultStyle }}
     {{-  range .Values.oidc.additionalArgs }}
