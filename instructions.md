@@ -274,3 +274,17 @@ Ensure there is a logger.Error(....) message on each http.Error(......., http.St
 I have a panic in the user's webhook when create a user.
 To view it: kubectl -n kubauth logs -c ucrd kubauth-5fdcc7dbfd-2z54g
 Could you fix it
+
+---
+
+Got error on upstream oidc provider: Get "https://keycloak.ingress.kubo5.mbp/realms/default/.well-known/openid-configuration": tls: failed to verify certificate: x509: certificate signed by unknown authority
+
+this while the upstreamProvider have:
+```
+  certificateAuthority:
+    secret:
+      name: certs-bundle
+      key: ca.crt
+```
+In its config. And, AFAIK, this bundle include the cluster-odp CA
+

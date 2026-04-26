@@ -69,7 +69,8 @@ var _ Upstream = &upstream{}
 
 // NewUpstream Create a new internal Upstream Object
 // WARNING: This function can return an error AND a (partial) upstream object
-func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.UpstreamProvider, clientSecret string, caData string) (Upstream, error) {
+// caPEM is the raw PEM-encoded CA bundle for the upstream issuer (may be nil).
+func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.UpstreamProvider, clientSecret string, caPEM []byte) (Upstream, error) {
 	if upstreamProvider.Spec.Type == kubauthv1alpha1.UpstreamProviderTypeInternal {
 		upstream := &upstream{
 			name:           upstreamProvider.Name,
@@ -94,8 +95,11 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 	httpClientConfig := &httpclient.Config{
 		BaseURL:            upstreamProvider.Spec.IssuerURL,
 		InsecureSkipVerify: upstreamProvider.Spec.InsecureSkipVerify,
-		RootCaDatas:        []string{caData},
 		DumpExchanges:      upstreamProvider.Spec.DumpExchanges,
+		Label:              "upstreamProvider/" + upstreamProvider.Name,
+	}
+	if len(caPEM) > 0 {
+		httpClientConfig.RootCaBytes = [][]byte{caPEM}
 	}
 
 	httpClient, err := httpclient.New(httpClientConfig)

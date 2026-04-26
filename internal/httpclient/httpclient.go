@@ -20,9 +20,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"kubauth/internal/misc"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -42,9 +44,12 @@ type Config struct {
 	BaseURL            string    `yaml:"baseURL"`
 	RootCaPaths        []string  `yaml:"rootCaPaths"`
 	RootCaDatas        []string  `yaml:"rootCaDatas"`
+	RootCaBytes        [][]byte  `yaml:"-"` // Raw PEM bundles (preferred; avoids base64 round-trips)
 	InsecureSkipVerify bool      `yaml:"insecureSkipVerify"`
 	DumpExchanges      bool      `yaml:"dumpExchanges"`
 	HttpAuth           *HttpAuth `yaml:"httpAuth"`
+	// Label is used only for diagnostic logs (identifying which CA bundle was loaded).
+	Label string `yaml:"-"`
 }
 
 /*
@@ -84,26 +89,45 @@ func New(conf *Config) (HttpClient, error) {
 		}
 		tlsConfig = &tls.Config{RootCAs: pool, InsecureSkipVerify: conf.InsecureSkipVerify}
 		if !conf.InsecureSkipVerify {
-			caCount := 0
+			var loadedSubjects []string
 			for _, rootCaPath := range conf.RootCaPaths {
 				if rootCaPath != "" {
-					if err := appendCaFromFile(tlsConfig.RootCAs, rootCaPath); err != nil {
+					subjects, err := appendCaFromFile(tlsConfig.RootCAs, rootCaPath)
+					if err != nil {
 						return nil, err
 					}
-					caCount++
+					loadedSubjects = append(loadedSubjects, subjects...)
 				}
 			}
 			for _, rootCaData := range conf.RootCaDatas {
 				if rootCaData != "" {
-					if err := appendCaFromBase64(tlsConfig.RootCAs, rootCaData); err != nil {
+					subjects, err := appendCaFromBase64(tlsConfig.RootCAs, rootCaData)
+					if err != nil {
 						return nil, err
 					}
-					caCount++
+					loadedSubjects = append(loadedSubjects, subjects...)
 				}
 			}
-			//if caCount == 0 {
-			//	return nil, fmt.Errorf("no root CA certificate was configured")
-			//}
+			for _, rootCaPEM := range conf.RootCaBytes {
+				if len(rootCaPEM) > 0 {
+					subjects, err := appendCaFromPEM(tlsConfig.RootCAs, rootCaPEM)
+					if err != nil {
+						return nil, err
+					}
+					loadedSubjects = append(loadedSubjects, subjects...)
+				}
+			}
+			if len(loadedSubjects) > 0 {
+				slog.Default().Info("httpclient: loaded custom CA certificate(s)",
+					"label", conf.Label,
+					"baseURL", conf.BaseURL,
+					"count", len(loadedSubjects),
+					"subjects", loadedSubjects)
+			} else if conf.Label != "" {
+				slog.Default().Info("httpclient: no custom CA configured; relying on system trust store",
+					"label", conf.Label,
+					"baseURL", conf.BaseURL)
+			}
 		}
 	}
 	httpclient := &http.Client{
@@ -133,27 +157,62 @@ func (c *httpClient) GetBaseHttpDotClient() *http.Client {
 	return c.httpClient
 }
 
-func appendCaFromFile(pool *x509.CertPool, caPath string) error {
+func appendCaFromFile(pool *x509.CertPool, caPath string) ([]string, error) {
 	rootCaBytes, err := os.ReadFile(caPath)
 	if err != nil {
-		return fmt.Errorf("failed to read CA file '%s': %w", caPath, err)
+		return nil, fmt.Errorf("failed to read CA file '%s': %w", caPath, err)
 	}
-	if !pool.AppendCertsFromPEM(rootCaBytes) {
-		return fmt.Errorf("invalid root CA certificate in file %s", caPath)
+	subjects, err := appendCaFromPEM(pool, rootCaBytes)
+	if err != nil {
+		return nil, fmt.Errorf("invalid root CA certificate in file %s: %w", caPath, err)
 	}
-	return nil
+	return subjects, nil
 }
 
-func appendCaFromBase64(pool *x509.CertPool, b64 string) error {
-	data := make([]byte, base64.StdEncoding.DecodedLen(len(b64)))
-	_, err := base64.StdEncoding.Decode(data, []byte(b64))
+func appendCaFromBase64(pool *x509.CertPool, b64 string) ([]string, error) {
+	// StdEncoding.Decode writes n bytes; the destination may be larger than n when
+	// the input is padded, so we must use data[:n] rather than the full buffer.
+	dst := make([]byte, base64.StdEncoding.DecodedLen(len(b64)))
+	n, err := base64.StdEncoding.Decode(dst, []byte(b64))
 	if err != nil {
-		return fmt.Errorf("error while parsing base64 root ca data %s : %w", misc.ShortenString(b64), err)
+		return nil, fmt.Errorf("error while parsing base64 root ca data %s : %w", misc.ShortenString(b64), err)
 	}
-	if !pool.AppendCertsFromPEM(data) {
-		return fmt.Errorf("invalid root CA certificate in %s", misc.ShortenString(b64))
+	subjects, err := appendCaFromPEM(pool, dst[:n])
+	if err != nil {
+		return nil, fmt.Errorf("invalid root CA certificate in %s: %w", misc.ShortenString(b64), err)
 	}
-	return nil
+	return subjects, nil
+}
+
+// appendCaFromPEM parses a PEM bundle and adds all CERTIFICATE blocks to the pool.
+// Returns the list of parsed certificate subjects (for diagnostic logging) so that
+// operators can confirm at runtime which CAs have been trusted.
+func appendCaFromPEM(pool *x509.CertPool, pemBytes []byte) ([]string, error) {
+	if len(pemBytes) == 0 {
+		return nil, fmt.Errorf("empty PEM bundle")
+	}
+	var subjects []string
+	rest := pemBytes
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return subjects, fmt.Errorf("parse certificate: %w", err)
+		}
+		pool.AddCert(cert)
+		subjects = append(subjects, cert.Subject.String())
+	}
+	if len(subjects) == 0 {
+		return nil, fmt.Errorf("no CERTIFICATE block found in PEM data")
+	}
+	return subjects, nil
 }
 
 type debugTransport struct {

@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/cmd/oidc/oidcstorage"
@@ -121,7 +120,7 @@ func (r *UpstreamProviderReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if upstreamProvider.Spec.Type == kubauthv1alpha1.UpstreamProviderTypeInternal {
-		upstream, _ := upstreams.NewUpstream(ctx, upstreamProvider, "", "")
+		upstream, _ := upstreams.NewUpstream(ctx, upstreamProvider, "", nil)
 		r.Storage.SetUpstream(ctx, upstream)
 		r.Event(upstreamProvider, "Normal", "Created", "Created internal upstream")
 		return r.updateStatus(ctx, upstreamProvider, upstream, nil)
@@ -167,17 +166,17 @@ func (r *UpstreamProviderReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	caData := ""
+	var caPEM []byte
 	if upstreamProvider.Spec.CertificateAuthority != nil {
 		var caErr error
-		caData, caErr = r.fetchCertificateAuthority(ctx, req.Namespace, upstreamProvider.Spec.CertificateAuthority)
+		caPEM, caErr = r.fetchCertificateAuthority(ctx, req.Namespace, upstreamProvider.Spec.CertificateAuthority)
 		if caErr != nil {
 			r.Event(upstreamProvider, "Warning", "Configuration", caErr.Error())
 			return r.updateStatus(ctx, upstreamProvider, nil, caErr)
 		}
 	}
 
-	upstream, err := upstreams.NewUpstream(ctx, upstreamProvider, clientSecret, caData)
+	upstream, err := upstreams.NewUpstream(ctx, upstreamProvider, clientSecret, caPEM)
 	if err != nil {
 		r2, err2 := r.updateStatus(ctx, upstreamProvider, upstream, err)
 		if err2 != nil {
@@ -247,15 +246,15 @@ func (r *UpstreamProviderReconciler) fetchClientSecret(ctx context.Context, name
 	return string(value), nil
 }
 
-// Return the CA encoded in base64
-func (r *UpstreamProviderReconciler) fetchCertificateAuthority(ctx context.Context, namespace string, src *kubauthv1alpha1.CertificateAuthoritySource) (string, error) {
+// fetchCertificateAuthority returns the raw PEM-encoded CA bundle referenced by src.
+func (r *UpstreamProviderReconciler) fetchCertificateAuthority(ctx context.Context, namespace string, src *kubauthv1alpha1.CertificateAuthoritySource) ([]byte, error) {
 	hasCM := src.ConfigMap != nil && src.ConfigMap.Name != ""
 	hasSec := src.Secret != nil && src.Secret.Name != ""
 	if hasCM && hasSec {
-		return "", fmt.Errorf("certificateAuthority: set only one of configMap or secret")
+		return nil, fmt.Errorf("certificateAuthority: set only one of configMap or secret")
 	}
 	if !hasCM && !hasSec {
-		return "", fmt.Errorf("certificateAuthority: one of configMap or secret is required")
+		return nil, fmt.Errorf("certificateAuthority: one of configMap or secret is required")
 	}
 	if hasCM {
 		// ------------------------------- CA in configMap
@@ -267,15 +266,15 @@ func (r *UpstreamProviderReconciler) fetchCertificateAuthority(ctx context.Conte
 		err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: src.ConfigMap.Name}, &cm)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return "", fmt.Errorf("certificate authority configMap %q not found in namespace %q", src.ConfigMap.Name, namespace)
+				return nil, fmt.Errorf("certificate authority configMap %q not found in namespace %q", src.ConfigMap.Name, namespace)
 			}
-			return "", err
+			return nil, err
 		}
 		value, ok := cm.Data[key]
 		if !ok {
-			return "", fmt.Errorf("no key %q in configmap %q/%q", key, namespace, src.ConfigMap.Name)
+			return nil, fmt.Errorf("no key %q in configmap %q/%q", key, namespace, src.ConfigMap.Name)
 		}
-		return base64.StdEncoding.EncodeToString([]byte(value)), nil
+		return []byte(value), nil
 	}
 	// ----------------------------------- CA in secret
 	key := src.Secret.Key
@@ -286,13 +285,13 @@ func (r *UpstreamProviderReconciler) fetchCertificateAuthority(ctx context.Conte
 	err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: src.Secret.Name}, &secret)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return "", fmt.Errorf("certificate authority secret %q not found in namespace %q", src.Secret.Name, namespace)
+			return nil, fmt.Errorf("certificate authority secret %q not found in namespace %q", src.Secret.Name, namespace)
 		}
-		return "", err
+		return nil, err
 	}
 	value, ok := secret.Data[key]
 	if !ok {
-		return "", fmt.Errorf("no key %q in secret %q/%q", key, namespace, src.Secret.Name)
+		return nil, fmt.Errorf("no key %q in secret %q/%q", key, namespace, src.Secret.Name)
 	}
-	return base64.StdEncoding.EncodeToString(value), nil
+	return value, nil
 }
