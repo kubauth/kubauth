@@ -304,3 +304,14 @@ That's logical, as helm want to create resources while webhook server is not yer
 Do you have a solution to defer the UpstreamProviders creation until webhook is ready?
 
 Don't implement for now. Just describe.
+
+--- 
+composer2
+
+Although present in upstreamProviders CRD, scopes are not set in Upstream structure. Fix this and use scopes values in the request to the upstream provider.
+If the k8s upstreamProviders does not define scopes, use  []string{oidc.ScopeOpenID, "profile", "email"} as default.
+
+--- 
+composer2
+
+Changed my mind: Revert upstream_controller to require scope to be defined and remove defaulting in NewUpstream

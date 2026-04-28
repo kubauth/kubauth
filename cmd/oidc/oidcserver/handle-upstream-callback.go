@@ -99,6 +99,7 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 		ClientSecret: settings.ClientSecret,
 		RedirectURL:  settings.RedirectURL,
 		Endpoint:     settings.Endpoint,
+		Scopes:       settings.Scopes,
 	}
 	xctx := u.ClientContext(ctx)
 

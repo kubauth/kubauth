@@ -63,6 +63,7 @@ type upstream struct {
 	endSessionURL        string
 	JwksURL              string
 	Algorithms           []string
+	scopes               []string
 }
 
 var _ Upstream = &upstream{}
@@ -89,6 +90,9 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 		// Nothing more to do
 		return upstream, nil
 	}
+	specScopes := upstreamProvider.Spec.Scopes
+	scopesCopy := make([]string, len(specScopes))
+	copy(scopesCopy, specScopes)
 	upstream := &upstream{
 		name:           upstreamProvider.Name,
 		clientSpecific: upstreamProvider.Spec.ClientSpecific,
@@ -98,6 +102,7 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 		redirectURL:    upstreamProvider.Spec.RedirectURL,
 		clientId:       upstreamProvider.Spec.ClientId,
 		clientSecret:   clientSecret,
+		scopes:         scopesCopy,
 	}
 	// We need to set an http.Client and store it in context for the oidc library
 	httpClientConfig := &httpclient.Config{

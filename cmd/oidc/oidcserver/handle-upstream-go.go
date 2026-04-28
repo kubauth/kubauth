@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-logr/logr"
 	"golang.org/x/oauth2"
 )
@@ -99,7 +98,7 @@ func (s *OIDCServer) handleUpstreamGo(w http.ResponseWriter, r *http.Request) {
 		ClientSecret: settings.ClientSecret,
 		RedirectURL:  settings.RedirectURL,
 		Endpoint:     settings.Endpoint,
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes:       settings.Scopes,
 	}
 
 	opts := []oauth2.AuthCodeOption{

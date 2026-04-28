@@ -32,6 +32,7 @@ type OAuth2AuthCodeSettings struct {
 	RedirectURL      string
 	Endpoint         oauth2.Endpoint
 	SupportsPKCES256 bool
+	Scopes           []string
 }
 
 func (u *upstream) supportsPKCES256() bool {
@@ -53,6 +54,7 @@ func (u *upstream) OAuth2AuthCodeSettings() (*OAuth2AuthCodeSettings, bool) {
 		RedirectURL:      u.redirectURL,
 		Endpoint:         u.provider.Endpoint(),
 		SupportsPKCES256: u.supportsPKCES256(),
+		Scopes:           u.scopes,
 	}, true
 }
 
