@@ -18,6 +18,8 @@ package oidcserver
 
 import (
 	"encoding/json"
+	"fmt"
+	"kubauth/internal/misc"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -138,11 +140,15 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "userinfo failed", http.StatusBadGateway)
 		return
 	}
+	fmt.Printf("User Info Claims:%s\n", misc.Any2Yaml(uiClaims))
+	fmt.Printf("ID Claims:%s\n", misc.Any2Yaml(idClaims))
+
 	merged := mergeUpstreamClaimMaps(uiClaims, idClaims)
 	if len(merged) == 0 {
 		http.Error(w, "no claims from upstream", http.StatusBadGateway)
 		return
 	}
+	fmt.Printf("merged:%s\n", misc.Any2Yaml(merged))
 
 	user, err := mapUpstreamClaimsToUserClaims(merged)
 	if err != nil {
@@ -150,6 +156,7 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "invalid user claims", http.StatusBadGateway)
 		return
 	}
+	fmt.Printf("User claims:%s\n", misc.Any2Yaml(user.Claims))
 
 	_ = s.SsoSessionManager.RenewToken(ctx)
 

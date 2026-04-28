@@ -19,6 +19,8 @@ package misc
 import (
 	"fmt"
 	"sort"
+
+	"sigs.k8s.io/yaml"
 )
 
 func BoolPtrFalse(p *bool) bool {
@@ -38,9 +40,8 @@ func BoolPtrTrue(p *bool) bool {
 func ShortenString(str string) string {
 	if len(str) <= 30 {
 		return str
-	} else {
-		return fmt.Sprintf("%s.......%s", str[:10], str[len(str)-10:])
 	}
+	return fmt.Sprintf("%s.......%s", str[:10], str[len(str)-10:])
 }
 
 func DedupAndSort(stringSlice []string) []string {
@@ -84,4 +85,14 @@ func CountTrue(xs ...bool) int {
 		}
 	}
 	return count
+}
+
+// In case we are sure than any is marshal-able
+
+func Any2Yaml(data interface{}) string {
+	result, err := yaml.Marshal(data)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("\n-----\n%s-----", string(result))
 }
