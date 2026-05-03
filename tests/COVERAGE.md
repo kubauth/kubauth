@@ -20,17 +20,19 @@ click the menu icon at the top-left of this file in the GH UI.
 | Chainsaw e2e              | 26 + 1 stub | all green; covers full surface (auth, sessions, IdP, federation, security, CRDs) |
 | Chainsaw regression       | 0     | dir scaffolded; populate when a fixed bug deserves a watch   |
 | OIDF Conformance — plans  | 3     | `oidcc-config` ✓ PASSED; `oidcc-basic` 22/35 PASS+WARN; `oidcc-rp-logout` 1 PASSED + 4 FINISHED FAILED + 6 INTERRUPTED (see B8, B15) |
-| Go unit tests             | 48    | seed on 5 pure-logic packages; 15 packages on backlog (G1..G15) — see [Go unit tests](#go-unit-tests--inside-each-package) |
+| Go unit tests             | 92    | 8 pure-logic packages covered; 12 packages on backlog (G3, G5..G15) — see [Go unit tests](#go-unit-tests--inside-each-package) |
 
 **Open backlog**:
 
 - 3 chainsaw items (B1, B2, B3) and 8 conformance items
   (B8, B9, B10, B11, B12, B13, B14, B15) — each scoped to a specific
   kubauth feature gap.
-- 15 Go unit-test items (G1..G15) — packages without `*_test.go`
-  yet. G1..G4 are quick wins; G5..G10 share fixture infrastructure;
-  G11..G14 each need their own mocking layer. See
-  [Backlog — Go unit tests](#backlog--go-unit-tests).
+- 12 Go unit-test items (G3, G5..G15) — packages without `*_test.go`
+  yet. G3 needs a small clock-injection refactor; G5..G10 share
+  fixture infrastructure; G11..G14 each need their own mocking
+  layer. See [Backlog — Go unit tests](#backlog--go-unit-tests).
+  G1, G2, G4 closed (seed extended to expandenv, loadconfig,
+  httpclient).
 
 Closed items are recorded in [COVERAGE-HISTORY.md](COVERAGE-HISTORY.md).
 
@@ -488,11 +490,20 @@ spinning up a real OIDC server, k8s API, or LDAP backend.
 
 | Package | What's covered | Tests |
 |---|---|---|
-| `internal/misc` | `MergeMaps` (recursive), `DedupAndSort`, `AppendIfNotPresent`, `BoolPtr{True,False}`, `ShortenString`, `CountTrue` | 12 |
+| `internal/misc` | `MergeMaps` (recursive), `DedupAndSort`, `AppendIfNotPresent`, `BoolPtr{True,False}`, `ShortenString`, `CountTrue`; `ExpandEnv` (variable expansion, line numbers in errors, lone-`$` passthrough); `LoadConfig` (YAML parse, env-expansion-before-parse, strict mode, empty-file edge) | 32 |
 | `cmd/oidc/fositepatch` | `AllowedIDTokenClaimsFor` (scope→claim mapping, alwaysAllowed set, `rat` exclusion), `FilterExtraClaimsByScope` (drops unauthorised + mutates contract) | 13 |
 | `cmd/oidc/oidcserver` | `mapUpstreamClaimsToUserClaims` (Login fallback chain, claims copy isolation, error paths) | 12 |
 | `cmd/oidc/sessioncodec` | `JSONCodec.Encode/Decode` round-trip, empty-bytes path, nil-values normalisation, invalid-JSON error | 6 |
 | `cmd/merger/authenticator` | `priority` ordering of `proto.Status` (the merger's tie-break contract: `Disabled` outranks all, `PasswordChecked`/`PasswordFail` tie) | 5 |
+| `internal/httpclient` | `New` URL/scheme validation, PEM/base64/file CA loading errors, `appendCaFromPEM` edge cases; `Do` returns `UnauthorizedError` on 401, `NotFoundError` on 404, generic error on 500; sets Content-Type, BasicAuth, Bearer token headers; joins BaseURL + path | 24 |
+
+> **Pre-existing bug surfaced** — `ExpandEnv` doesn't return to the
+> nominal state after a closing `}`, so `${A}${B}` (two adjacent
+> variables) leaves the second one unexpanded. Pinned by
+> `TestExpandEnv_AdjacentVariables_PinsCurrentBuggyBehaviour` in
+> `internal/misc/expandenv_test.go`. One-line fix
+> (`state = STATE_NOMINAL` after the `}` branch) — left for a
+> follow-up PR to keep this seed strictly tests-only.
 
 ### Backlog — Go unit tests
 
@@ -508,10 +519,7 @@ Order is rough cost (cheapest first).
 
 | ID | Package | Surface | Fixture | Exercised by |
 |---|---|---|---|---|
-| G1 | `internal/misc/expandenv` | env-var expansion | pure | — |
-| G2 | `internal/misc/loadconfig` | YAML config loader | tempfile | — |
 | G3 | `internal/handlers/protector/bfa` | brute-force protection | pure (after clock injection) | chainsaw 09 |
-| G4 | `internal/httpclient` | HTTP client wrapper | httptest | — |
 | G5 | `cmd/oidc/oidcserver/handle-*.go` | 12 OIDC handlers (auth, token, userinfo, logout, callback, jwks, discovery, login, upstream-{welcome,go,callback}, ...) | httptest + fosite mocks + fake k8s | chainsaw 01-08, 18-21, 26-27 + OIDF conformance |
 | G6 | `cmd/oidc/upstreams` | OAuth federation flows | httptest mock IdP + fosite session | chainsaw 16, 23, 29 |
 | G7 | `cmd/oidc/sessionstore` | KubeSSOStore (CRD-backed `scs.Store`) | controller-runtime fake client | chainsaw 07, 08 |
@@ -524,11 +532,12 @@ Order is rough cost (cheapest first).
 | G14 | `cmd/ldap/authenticator` | LDAP backend | stub LDAP server (glauth or in-process) | chainsaw 10 |
 | G15 | `cmd/audit/cleaner` | LoginAttempt CR cleaner | fake k8s client | chainsaw 12 |
 
-**Where the next chunk of effort goes**: G1–G4 are quick wins
-(pure or near-pure, no fixture work) — bundle them in one PR.
-G5–G10 share the same fixture stack (fosite mocks + httptest +
-fake k8s); writing the helpers once unlocks all six. G11/G12/G13
-share admission.Request fixtures. G14 alone needs an LDAP stub.
+**Where the next chunk of effort goes**: G3 is the last quick-win
+(needs a one-line clock-injection refactor in `bfa.go`, then
+deterministic tests). G5–G10 share the same fixture stack (fosite
+mocks + httptest + fake k8s); writing the helpers once unlocks
+all six. G11/G12/G13 share admission.Request fixtures. G14 alone
+needs an LDAP stub.
 
 ---
 

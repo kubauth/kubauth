@@ -507,3 +507,59 @@ exercised.
 - For each, follow `/oauth2/auth` → `/oauth2/login` → 302
   `/upstream/go?upstreamProvider=<name>` and assert the right
   upstream is selected.
+
+---
+
+## G1 — Go unit tests for `internal/misc/expandenv`  ·  pure-logic
+
+**Delivered** — `internal/misc/expandenv_test.go`, 13 tests.
+
+- Empty input, no-variables passthrough, single + multiple variables.
+- Lone `$` passes through literally (documented divergence from
+  `os.ExpandEnv`).
+- `MissingVariableError` returned for undefined vars, includes the
+  variable name and line number.
+- Variable names accept `[a-zA-Z0-9_]`; invalid chars fall back to
+  literal passthrough.
+- `MissingVariableError.Error()` formatting pinned.
+
+**Surfaced bug** — adjacent variables (`${A}${B}`) leave the second
+unexpanded because the parser stays in `STATE_IN_VAR` after a closing
+`}`. Pinned by `TestExpandEnv_AdjacentVariables_PinsCurrentBuggyBehaviour`.
+One-line fix candidate (`state = STATE_NOMINAL`) deferred to keep this
+PR strictly tests-only.
+
+---
+
+## G2 — Go unit tests for `internal/misc/loadconfig`  ·  pure-logic
+
+**Delivered** — `internal/misc/loadconfig_test.go`, 7 tests.
+
+- Parses YAML into struct; returns absolute path even on read error.
+- Env-expansion runs *before* YAML parse — verified end-to-end.
+- Missing env var surfaces as a `MissingVariableError` from
+  `ExpandEnv`.
+- File-not-found path.
+- Strict YAML mode rejects unknown fields (silent-typo guard).
+- Empty file is not an error (decoder hits `io.EOF`).
+- Relative path is resolved to absolute.
+
+---
+
+## G4 — Go unit tests for `internal/httpclient`  ·  httptest
+
+**Delivered** — `internal/httpclient/httpclient_test.go`, 24 tests.
+
+- `New` URL/scheme validation (malformed, ftp://, http://, https://).
+- CA loading errors: empty PEM, garbage PEM, invalid base64,
+  base64-decoding-to-non-PEM, missing CA file. Plain `http://` skips
+  CA loading entirely.
+- `appendCaFromPEM` rejects empty input and PEM with no CERTIFICATE
+  block.
+- `Do` returns `*UnauthorizedError` on 401, `*NotFoundError` on 404
+  (with URL in message), generic `error` on 500. Connection-refused
+  surfaces as a wrapped error.
+- Headers: Content-Type propagated; Basic auth + Bearer token set
+  correctly; no `Authorization` if `HttpAuth` not configured.
+- BaseURL + path joining preserves the path verbatim.
+- Error type messages (`UnauthorizedError`, `NotFoundError`) pinned.
