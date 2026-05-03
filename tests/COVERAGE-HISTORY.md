@@ -563,3 +563,140 @@ PR strictly tests-only.
   correctly; no `Authorization` if `HttpAuth` not configured.
 - BaseURL + path joining preserves the path verbatim.
 - Error type messages (`UnauthorizedError`, `NotFoundError`) pinned.
+
+---
+
+## G16 — Go unit tests for `cmd/oidc/fositepatch/session.go`  ·  pure-logic
+
+**Delivered** — `session_test.go`, 18 tests covering the `OIDCSession`
+type implementing both `openid.Session` and `oauth2.JWTSessionContainer`:
+
+- Constructor / `Clone` deep-copy isolation; nil receiver returns nil.
+- `SetAudience` updates both ID and JWT claim containers.
+- `ExpiresAt` round-trip per token type; nil-map lazy init on
+  Get and Set; per-token-type independence.
+- `Username`/`Subject` getters/setter, nil-receiver safety.
+- `IDTokenHeaders`/`IDTokenClaims` lazy init pattern; existing
+  instance returned (not replaced).
+- `GetJWTClaims`/`GetJWTHeader` lazy init; `Headers` shared between
+  ID-token and JWT contexts.
+- Runtime interface-compliance assertion.
+
+---
+
+## G15 — Go unit tests for `cmd/audit/cleaner`  ·  fake k8s
+
+**Delivered** — `cleaner_test.go`, 5 tests covering `cleanupAudit`
+via a `controller-runtime/pkg/client/fake` client wired with the
+kubauth v1alpha1 scheme:
+
+- Deletes only LoginAttempts older than `auditParams.recordLifetime`.
+- No-op when nothing is expired; deletes everything when all are
+  expired.
+- Respects `auditParams.namespace` — leaves attempts in other
+  namespaces untouched.
+- Empty-list edge case is a no-op.
+
+The global `auditParams` is set in tests via a `withAuditParams(t,
+ns, lifetime)` helper that restores prior values on cleanup.
+
+---
+
+## G7 — Go unit tests for `cmd/oidc/sessionstore`  ·  fake k8s
+
+**Delivered** — `kubessostore_test.go`, 18 tests covering
+`KubeSsoStore` (the `scs.CtxStore` backed by the `SsoSession` CRD):
+
+- `CommitCtx` creates an SsoSession with mirrored fields (login,
+  fullName, webToken, deadline, expiry, raw-session annotation);
+  empty-login envelopes are skipped silently; existing sessions are
+  upserted (no duplicates created); invalid JSON surfaces as error.
+- `FindCtx` round-trips the raw bytes; missing tokens return
+  `found=false, err=nil`; sessions without the kubauth annotation
+  are treated as not-found.
+- `DeleteCtx` removes the SsoSession; `AllCtx` returns the
+  `spec.webToken` of every session in the namespace, skipping ones
+  with no webToken.
+- `extractUser` prefers the `ssoUser` key, falls back to the first
+  user-shaped value, supports both `Login`/`login` field-name
+  conventions, and tolerates non-user values without panic.
+- `encodeName` is deterministic, RFC1123-compliant, and produces
+  distinct names for distinct tokens.
+
+A `testCtx()` helper installs a discard slog logger via
+`logr.NewContextWithSlogLogger` because every store method calls
+`logr.FromContextAsSlogLogger(ctx)` and panics on a nil logger.
+
+---
+
+## G8 — Go unit tests for `cmd/oidc/oidcstorage` (`kubauthclient.go` only)  ·  pure-logic
+
+**Delivered** — `kubauthclient_test.go`, 19 tests covering the
+`kubauthClient` value type that wraps an `OidcClient` CR for fosite:
+
+- Constructor populates client_id and `<namespace>:<name>` k8s id;
+  `GetK8sObject` returns the same pointer (no defensive copy).
+- Hashed-secret lifecycle: nil/empty slice → nil from
+  `GetHashedSecret`/`GetRotatedHashes`; first secret is active, the
+  rest are rotated; counts match.
+- Spec accessors mirror their respective `OidcClient.Spec.*` fields
+  (RedirectURIs, GrantTypes, ResponseTypes, Scopes, Public,
+  Description, EntryURL, PostLogoutURL, DisplayName, Style,
+  UpstreamProviders).
+- `IsForceOpenIdScope` defaults to `false` on nil pointer.
+- `GetAudience` auto-includes `client_id` when not present
+  (matches fosite's `HandleAudience` default), kept exactly once
+  when already in spec.
+- `GetEffectiveLifespan` honours per-token-type spec values for
+  Access/ID tokens, falls back when zero/unset/unknown token type.
+
+`memory.go` (the in-memory fosite OAuth flow store, ~650 lines)
+remains uncovered — tracked as **G8-bis** in COVERAGE.md, share the
+fosite fixture stack with G5.
+
+---
+
+## G12 — Go unit tests for `cmd/ucrd/authenticator`  ·  fake k8s
+
+**Delivered** — `crdAuthenticator_test.go`, 11 tests covering
+`crdAuthenticator.Authenticate` against fake k8s with the same
+`userkey` field index the production code registers (without it
+`client.MatchingFields{"userkey": login}` returns nothing).
+
+- Status flow: UserNotFound, PasswordMissing, PasswordUnchecked,
+  PasswordChecked, PasswordFail, Disabled.
+- Spec mirroring: Uid, Name, Emails populated from the User CR.
+- GroupBinding handling: group names come back sorted; only
+  bindings for the current login show up; missing-Group CR is
+  tolerated (binding's group name still listed, just no claims).
+- Claims merge precedence: User claims override Group claims on
+  conflict; group-only and user-only keys both survive.
+
+---
+
+## G3 — Go unit tests for `internal/handlers/protector/bfa`  ·  pure-logic
+
+**Delivered** — `bfa_test.go`, 19 tests covering the
+`bfaProtector` against brute-force attacks. Driven via a
+constructor helper that builds a bare `*bfaProtector` with
+`freeFailure=0` and `penaltyByFailure=0` so `failure()` doesn't
+sleep — coverage hits ~99% without any code change to bfa.go
+(the user-visible "1-line clock injection" turned out to be
+unnecessary thanks to same-package access to private fields).
+
+- `delayFromFailureCount` (pure): no penalty up to `freeFailure`,
+  linear after, capped at `maxPenalty`; zero `penaltyByFailure`
+  always yields zero delay.
+- `empty` Protector: every operation is a no-op, no panic.
+- `EntryForLogin`/`EntryForToken`: not locked when no state;
+  locked when `pendingFailures > maxPendingFailure` (strict);
+  not locked at threshold; pending against `UnknownUser` blocks
+  any specific login (defends against probing attacks).
+- `ProtectLoginResult`: registers a failure on `PasswordFail` /
+  `InvalidOldPassword`, ignores every other status; repeated
+  failures accumulate.
+- `TokenNotFound`: registers under the `UnknownToken` key.
+- `clean`: removes states with `lastFailure < now - cleanDelay`,
+  keeps recent ones; mixed input handled correctly.
+- `New` constructor: returns `*empty` when deactivated,
+  `*bfaProtector` when activated; every option is applied.
