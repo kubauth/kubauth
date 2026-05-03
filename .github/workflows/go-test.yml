@@ -1,0 +1,64 @@
+---
+# Fast feedback on every push/PR: `go vet ./...` + `go test ./...`
+# with coverage. Should complete in <3 min on a warm cache.
+#
+# Triggers on changes that could affect Go behaviour: source under
+# cmd/, internal/, pkg/; go.mod, go.sum; the workflow itself; the
+# pinned toolchain in mise.toml. Doc-only changes don't pay this CI.
+
+name: go-test
+
+on:
+  push:
+    branches:
+      - main
+      - 'v*'
+  pull_request:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'mise.toml'
+      - '.github/workflows/go-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: go-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+        # Picks up `go = "..."` from mise.toml so the CI Go version
+        # tracks go.mod's `go` directive without a second source of
+        # truth. Same idea as `tools/setup-go` but pinned via mise.
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: coverage summary
+        # Print the per-package and total coverage into the job log.
+        # Gives reviewers a quick "is this PR adding or shaving
+        # coverage" signal without needing an external service.
+        run: go tool cover -func=coverage.out | tail -30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: go-coverage
+          path: coverage.out
+          retention-days: 14
