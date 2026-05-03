@@ -161,5 +161,10 @@ The e2e suite tests the kubauth code that lives next to it in the
 same repo. CI builds the kubauth image from `Dockerfile` at the repo
 root for the same SHA the PR is at; locally, the chart at
 `helm/kubauth/` and the binaries built from `cmd/` are whatever your
-branch contains. `make dev-up` builds and installs from your working
-tree.
+branch contains. `make dev-up` and every `make e2e*` target build
+and install from your working tree (mirrors what CI does:
+`docker build` + `kind load` + `helm install` with image overrides
+pointing at `local/kubauth:dev`). Each step is idempotent — the
+docker layer cache makes the build a near no-op when no Go code
+changed; helm `--reuse-values` skips the rollout when nothing
+changed.

@@ -36,44 +36,71 @@ kind-down: ## Delete the Kind cluster + registry.
 prereqs: ## Install cert-manager (+ flux if CLI present).
 	@$(SCRIPTS)/install-prereqs.sh
 
+.PHONY: image
+image: ## Build kubauth image from the working tree and load it into kind.
+	@$(SCRIPTS)/kubauth-image.sh
+
 .PHONY: install
-install: ## Install kubauth into the cluster.
+install: ## Install kubauth into the cluster (uses chart defaults; honours KUBAUTH_IMAGE_* if set).
 	@$(SCRIPTS)/kubauth-install.sh
 
+# `dev-up` is the contract documented in CONTRIBUTING.md: bring the
+# cluster up with kubauth built from your working tree (not the
+# published quay.io image). Mirrors what .github/workflows/e2e.yml does.
+#
+# Make exports these to recipe shells when set; the values are only
+# assigned during dev-up's chain (target-specific variables, below),
+# so `make install` invoked directly keeps the chart's default image
+# while `make dev-up` swaps in the freshly-built local one.
+export KUBAUTH_IMAGE_REPO
+export KUBAUTH_IMAGE_TAG
+export KUBAUTH_IMAGE_PULL_POLICY
+
 .PHONY: dev-up
-dev-up: kind-up prereqs install ## Full bring-up: kind-up + prereqs + install.
-	@echo "Cluster ready. Run 'make e2e-smoke' next."
+dev-up: KUBAUTH_IMAGE_REPO := local/kubauth
+dev-up: KUBAUTH_IMAGE_TAG := dev
+dev-up: KUBAUTH_IMAGE_PULL_POLICY := Never
+dev-up: kind-up prereqs image install ## Full bring-up: kind-up + prereqs + image (working tree) + install.
+	@echo "Cluster ready (kubauth built from working tree). Run 'make e2e-smoke' next."
 
 .PHONY: dev-down
 dev-down: kind-down ## Full teardown.
 
 # ─── Tests ────────────────────────────────────────────────────────────────
+# Every `e2e*` target depends on `dev-up`. Each step in the chain is
+# idempotent — `kind-up` skips an existing cluster, `prereqs` skips
+# cert-manager, `image` hits the docker layer cache when no Go code
+# changed (and `kind load` is a no-op when the digest already matches),
+# `install` is a `helm upgrade --reuse-values` no-op when nothing
+# changed. So a re-run on an unchanged tree adds a couple of seconds;
+# a re-run after a Go edit picks up the change automatically.
+
 .PHONY: e2e-smoke
-e2e-smoke: ## Run only the smoke test (one Chainsaw test, fastest signal).
+e2e-smoke: dev-up ## Run only the smoke test (one Chainsaw test, fastest signal).
 	@chainsaw test --config chainsaw.yaml $(TESTS)/01-smoke-login
 
 .PHONY: e2e-smoke-debug
-e2e-smoke-debug: ## Run the smoke test, keep all resources for inspection.
+e2e-smoke-debug: dev-up ## Run the smoke test, keep all resources for inspection.
 	@chainsaw test --config chainsaw.yaml --skip-delete $(TESTS)/01-smoke-login
 
 .PHONY: e2e
-e2e: ## Run the full Chainsaw e2e suite (verbose — best for CI).
+e2e: dev-up ## Run the full Chainsaw e2e suite (verbose — best for CI).
 	@chainsaw test --config chainsaw.yaml $(TESTS)
 
 .PHONY: e2e-quiet
-e2e-quiet: ## Run the full e2e suite with one line per test. Full log lands in .tmp/e2e.log.
+e2e-quiet: dev-up ## Run the full e2e suite with one line per test. Full log lands in .tmp/e2e.log.
 	@$(SCRIPTS)/run-e2e-quiet.sh $(TESTS)
 
 .PHONY: e2e-smoke-quiet
-e2e-smoke-quiet: ## Run only the smoke test, concise output. Full log in .tmp/e2e.log.
+e2e-smoke-quiet: dev-up ## Run only the smoke test, concise output. Full log in .tmp/e2e.log.
 	@$(SCRIPTS)/run-e2e-quiet.sh $(TESTS)/01-smoke-login
 
 .PHONY: e2e-debug
-e2e-debug: ## Run the full e2e suite, keep resources of failures for inspection.
+e2e-debug: dev-up ## Run the full e2e suite, keep resources of failures for inspection.
 	@chainsaw test --config chainsaw.yaml --skip-delete $(TESTS)
 
 .PHONY: e2e-regression
-e2e-regression: ## Run regression tests (one dir per fixed bug).
+e2e-regression: dev-up ## Run regression tests (one dir per fixed bug).
 	@chainsaw test --config chainsaw.yaml regression
 
 # ─── Conformance ──────────────────────────────────────────────────────────

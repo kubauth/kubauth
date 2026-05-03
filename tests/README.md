@@ -25,8 +25,8 @@ gh repo clone kubauth/kubauth
 code kubauth                     # → "Reopen in Container"
 
 # inside the container:
-make dev-up                      # Kind + cert-manager + kubauth (helm install)
-make e2e-smoke                   # smoke test (~30 s)
+make dev-up                      # Kind + cert-manager + kubauth (built from your working tree)
+make e2e-smoke                   # smoke test (~30 s — auto-rebuilds + redeploys before running)
 ```
 
 `make help` (at the repo root) lists every test-related target under the
