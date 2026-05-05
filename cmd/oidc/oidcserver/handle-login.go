@@ -20,8 +20,10 @@ import (
 	"kubauth/cmd/oidc/authenticator"
 	"kubauth/cmd/oidc/fositepatch"
 	"net/http"
+	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/ory/hydra/v2/fosite"
 )
 
 // Handle dedicated login endpoint for GET (render) and POST (authenticate)
@@ -33,33 +35,57 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		rawQuery := r.URL.RawQuery
 		clientId := r.URL.Query().Get("client_id")
-		logger.Debug("handleLogin(GET)", "clientID", clientId)
+		// OIDC Core 1.0 §3.1.2.1: `prompt` is a space-delimited
+		// list. Two values matter to us today:
+		//   - `none`: never display UI; return `login_required` if
+		//     the user isn't already authenticated.
+		//   - `login`: force re-authentication; don't auto-complete
+		//     the flow from an existing SSO session.
+		// `consent` and `select_account` are not implemented (kubauth
+		// has no consent UI and a session is one-user-per-session);
+		// silently ignored — clients that pass them still get a
+		// best-effort flow rather than an error.
+		promptValues := strings.Fields(r.URL.Query().Get("prompt"))
+		promptNone, promptLogin := false, false
+		for _, p := range promptValues {
+			switch p {
+			case "none":
+				promptNone = true
+			case "login":
+				promptLogin = true
+			}
+		}
+		logger.Debug("handleLogin(GET)", "clientID", clientId, "prompt", promptValues)
 
 		// Persist the authorization query in the session so the POST can retrieve it
 		s.LoginSessionManager.Put(ctx, "authQuery", rawQuery)
 		// For the index page.
 		s.LoginSessionManager.Put(ctx, "clientId", clientId)
 
-		// If user already authenticated (SSO), complete the OIDC flow directly
-		if v := s.SsoSessionManager.Get(ctx, "ssoUser"); v != nil {
-			u, ok := v.(map[string]interface{})
-			if ok {
-				if login, ok := u["Login"].(string); ok && login != "" {
-					claims := u["Claims"].(map[string]interface{})
-					if rawQuery != "" {
-						req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
-						if err == nil {
-							ar, err := s.oauth2.NewAuthorizeRequest(ctx, req)
+		// If user already authenticated (SSO) AND the client didn't
+		// ask for re-authentication via `prompt=login`, complete the
+		// OIDC flow directly.
+		if !promptLogin {
+			if v := s.SsoSessionManager.Get(ctx, "ssoUser"); v != nil {
+				u, ok := v.(map[string]interface{})
+				if ok {
+					if login, ok := u["Login"].(string); ok && login != "" {
+						claims := u["Claims"].(map[string]interface{})
+						if rawQuery != "" {
+							req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
 							if err == nil {
-								fositepatch.HandleScopes(ar, logger)
-								fositepatch.HandleAudience(ar, logger)
-
-								session := s.newSession(&authenticator.OidcUser{Login: login, Claims: claims}, clientId)
-								response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
+								ar, err := s.oauth2.NewAuthorizeRequest(ctx, req)
 								if err == nil {
-									logger.Info("Successfully logged in using existing SSO session", "login", login)
-									s.oauth2.WriteAuthorizeResponse(ctx, w, ar, response)
-									return
+									fositepatch.HandleScopes(ar, logger)
+									fositepatch.HandleAudience(ar, logger)
+
+									session := s.newSession(&authenticator.OidcUser{Login: login, Claims: claims}, clientId)
+									response, err := s.oauth2.NewAuthorizeResponse(ctx, ar, session)
+									if err == nil {
+										logger.Info("Successfully logged in using existing SSO session", "login", login)
+										s.oauth2.WriteAuthorizeResponse(ctx, w, ar, response)
+										return
+									}
 								}
 							}
 						}
@@ -67,6 +93,31 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+
+		// We're about to render the login page (no SSO bypass
+		// available, or `prompt=login` forced re-auth). If the
+		// client also said `prompt=none`, that's a contradiction —
+		// the spec says we MUST return `login_required` instead.
+		if promptNone {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
+			if err == nil {
+				ar, arErr := s.oauth2.NewAuthorizeRequest(ctx, req)
+				if arErr == nil {
+					logger.Info("prompt=none with no active session — returning login_required",
+						"clientID", clientId)
+					s.oauth2.WriteAuthorizeError(ctx, w, ar, fosite.ErrLoginRequired)
+					return
+				}
+				// fosite refused the rebuilt request — surface its
+				// error rather than the prompt=none one; the client
+				// should fix its request first.
+				s.oauth2.WriteAuthorizeError(ctx, w, ar, arErr)
+				return
+			}
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
 		// Otherwise, render login page
 		s.displayLoginResponse(ctx, w, r, clientId, false)
 		return

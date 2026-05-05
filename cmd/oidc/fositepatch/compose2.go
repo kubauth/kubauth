@@ -30,18 +30,25 @@ func ComposeAllEnabled(config *fosite.Config, storage fosite.Storage, key interf
 		return key, nil
 	}
 
+	// Wrap the OIDC token strategy with kubauth's scope-aware filter
+	// so id_tokens only carry Extra claims authorised by the granted
+	// scopes (OIDC §5.4). See scope_filter.go.
+	oidcTokenStrategy := NewScopeFilteringIDTokenStrategy(
+		compose.NewOpenIDConnectStrategy(keyGetter, config),
+	)
+
 	var strategy *compose.CommonStrategy
 	if jwtAccessToken {
 		strategy = &compose.CommonStrategy{
-			CoreStrategy:    compose.NewOAuth2JWTStrategy(keyGetter, compose.NewOAuth2HMACStrategy(config), config),
-			OIDCTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
-			Signer:          &jwt.DefaultSigner{GetPrivateKey: keyGetter},
+			CoreStrategy:      compose.NewOAuth2JWTStrategy(keyGetter, compose.NewOAuth2HMACStrategy(config), config),
+			OIDCTokenStrategy: oidcTokenStrategy,
+			Signer:            &jwt.DefaultSigner{GetPrivateKey: keyGetter},
 		}
 	} else {
 		strategy = &compose.CommonStrategy{
-			CoreStrategy:    compose.NewOAuth2HMACStrategy(config),
-			OIDCTokenStrategy: compose.NewOpenIDConnectStrategy(keyGetter, config),
-			Signer:          &jwt.DefaultSigner{GetPrivateKey: keyGetter},
+			CoreStrategy:      compose.NewOAuth2HMACStrategy(config),
+			OIDCTokenStrategy: oidcTokenStrategy,
+			Signer:            &jwt.DefaultSigner{GetPrivateKey: keyGetter},
 		}
 	}
 
