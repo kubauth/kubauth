@@ -1,0 +1,39 @@
+# Chainsaw global configuration.
+# Reference: https://kyverno.github.io/chainsaw/latest/reference/configuration/
+apiVersion: chainsaw.kyverno.io/v1alpha2
+kind: Configuration
+metadata:
+  name: kubauth-tests
+spec:
+  # One namespace per test, auto-created and cleaned up.
+  # Avoids cross-test pollution.
+  namespace:
+    template:
+      metadata:
+        labels:
+          chainsaw.kyverno.io/test: "true"
+
+  # Generous timeouts — kubauth bootstrap (cert generation, etc.) can take a while.
+  # cleanup needs headroom for tests that create curl pods with default
+  # terminationGracePeriod=30s (e.g. 14-rotate-jwt-key).
+  timeouts:
+    apply: 30s
+    assert: 90s
+    cleanup: 90s
+    delete: 90s
+    error: 30s
+    exec: 120s
+
+  # Run tests sequentially in v1. Switch to parallel once flakiness is bounded.
+  execution:
+    parallel: 1
+
+  # Always show full diffs on failure — debugging beats brevity here.
+  report:
+    format: JSON
+    path: .tmp
+    name: chainsaw-report.json
+
+  # Don't tear down on failure — let the dev inspect the cluster.
+  cleanup:
+    skipDelete: false

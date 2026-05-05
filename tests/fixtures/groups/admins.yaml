@@ -1,0 +1,17 @@
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: Group
+metadata:
+  name: admins
+  namespace: kubauth-users
+spec:
+  comment: "Cluster admins"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: GroupBinding
+metadata:
+  name: alice-admins
+  namespace: kubauth-users
+spec:
+  user: alice
+  group: admins

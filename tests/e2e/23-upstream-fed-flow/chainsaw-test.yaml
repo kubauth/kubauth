@@ -1,0 +1,149 @@
+---
+# CT-6: end-to-end federation flow.
+#
+# When a kubauth client has exactly one configured upstream and the user
+# has no SSO session, /oauth2/login auto-redirects to /upstream/go.
+# Combined with mock-oauth2-server's interactiveLogin=false, the entire
+# federation dance reduces to a single curl -L following five hops:
+#
+#   /oauth2/auth   -> /oauth2/login -> /upstream/go
+#                  -> mock /authorize (auto-issues code)
+#                  -> /upstream/callback (kubauth issues its own code)
+#                  -> client redirect_uri?code=<kubauth-code>
+#
+# We use --max-redirs 5 to stop curl just BEFORE the final fetch of
+# localhost:9999/callback (which has no listener) and read the kubauth
+# code from the last Location header.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: upstream-fed-flow
+spec:
+  description: |
+    Full upstream-OIDC federation: button click -> upstream auth ->
+    callback -> kubauth issues its own id_token. Validates that
+    kubauth, not the upstream, is the issuer of the user-facing token.
+
+  steps:
+    - name: enable-sso-always
+      try:
+        - script:
+            content: |
+              set -eu
+              CHART="${KUBAUTH_CHART:-../kubauth/helm/kubauth}"
+              helm upgrade kubauth "${CHART}" \
+                -n kubauth-system \
+                --reuse-values \
+                --set oidc.sso.mode=always \
+                --wait --timeout 3m >/dev/null
+              kubectl -n kubauth-system delete ssosessions.kubauth.kubotal.io \
+                --all --ignore-not-found --wait=false >/dev/null
+
+    - name: deploy-mock-oidc
+      try:
+        - apply:
+            file: ../../fixtures/mock-oidc/00-namespace.yaml
+        - apply:
+            file: ../../fixtures/mock-oidc/01-deployment.yaml
+        - script:
+            content: |
+              set -eu
+              kubectl -n mock-oidc-test rollout status deploy/mock-oidc --timeout=120s
+
+    - name: upstream-ready
+      try:
+        - apply:
+            file: upstream.yaml
+        - assert:
+            timeout: 60s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: UpstreamProvider
+              metadata: {name: fed-upstream, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: walk-the-federation-flow
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run fed-flow \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  REDIR="http://localhost:9999/callback"
+                  STATE="abcdef1234567890"
+                  CC="E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+                  CV="dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+                  QS="response_type=code&client_id=${CID}&redirect_uri=${REDIR}&scope=openid&state=${STATE}&code_challenge=${CC}&code_challenge_method=S256"
+
+                  # Walk the federation chain. --max-redirs 4 lets curl
+                  # follow auth -> login -> upstream/go -> mock /authorize
+                  # -> /upstream/callback (4 redirects) and then stop
+                  # before the 5th redirect to localhost:9999. The
+                  # redirect_url field carries the unfetched 5th Location,
+                  # which contains the kubauth code.
+                  LOC=$(curl -sk -L --max-redirs 4 \
+                    -c /tmp/cj -b /tmp/cj \
+                    -o /dev/null -w "%{redirect_url}" \
+                    "${ISS}/oauth2/auth?${QS}" || true)
+                  echo "final redirect: ${LOC}"
+                  case "$LOC" in
+                    "${REDIR}?"*) : ;;
+                    *) echo "FAIL: chain did not end at ${REDIR}: ${LOC}"; exit 1 ;;
+                  esac
+
+                  CODE=$(echo "$LOC" | sed -n "s/.*[?&]code=\\([^&]*\\).*/\\1/p")
+                  [ -n "$CODE" ] || { echo "FAIL: no code in final redirect: ${LOC}"; exit 1; }
+                  echo "got kubauth code (len=${#CODE})"
+
+                  # Step 7: POST /oauth2/token -> kubauth id_token
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=authorization_code" \
+                    --data-urlencode "code=${CODE}" \
+                    --data-urlencode "redirect_uri=${REDIR}" \
+                    --data-urlencode "code_verifier=${CV}")
+                  IDT=$(echo "$RESP" | sed -n "s/.*\"id_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  [ -n "$IDT" ] || { echo "FAIL: no id_token from kubauth; RESP=${RESP}"; exit 1; }
+
+                  # Decode payload
+                  PAYLOAD=$(echo "$IDT" | cut -d. -f2)
+                  case $(( ${#PAYLOAD} % 4 )) in
+                    2) PAYLOAD="${PAYLOAD}==" ;;
+                    3) PAYLOAD="${PAYLOAD}=" ;;
+                  esac
+                  CLAIMS=$(printf "%s" "$PAYLOAD" | tr "_-" "/+" | base64 -d 2>/dev/null || true)
+                  echo "claims: ${CLAIMS}"
+
+                  # iss must be kubauth, not the upstream
+                  echo "$CLAIMS" | jq -e ".iss == \"${ISS}\"" >/dev/null \
+                    || { echo "FAIL: iss is not kubauth"; exit 1; }
+                  # sub must be present (the upstream-mapped user identifier)
+                  echo "$CLAIMS" | jq -e ".sub | type == \"string\" and . != \"\"" >/dev/null \
+                    || { echo "FAIL: no sub in id_token"; exit 1; }
+                  echo "✓ federation flow complete: kubauth issued an id_token after upstream auth"
+                '
+
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod fed-flow --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete upstreamprovider fed-upstream --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret fed-upstream-secret --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete ssosessions.kubauth.kubotal.io \
+                --all --ignore-not-found --wait=false >/dev/null
+              CHART="${KUBAUTH_CHART:-../kubauth/helm/kubauth}"
+              helm upgrade kubauth "${CHART}" \
+                -n kubauth-system \
+                --reuse-values \
+                --set oidc.sso.mode=never \
+                --wait --timeout 3m >/dev/null || true

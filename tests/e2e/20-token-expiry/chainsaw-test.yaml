@@ -1,0 +1,112 @@
+---
+# CT-3: tokens advertise an `exp` claim. This test confirms expiry is
+# actually enforced server-side: an expired access token is rejected by
+# /oauth2/introspect; an expired refresh token cannot redeem.
+#
+# Uses a per-test OidcClient with very short lifespans so the test runs
+# in under 60 s.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: token-expiry
+spec:
+  description: |
+    Access tokens expire and are rejected at /oauth2/introspect after
+    their lifespan. Refresh tokens expire and are rejected at /oauth2/token
+    after their lifespan.
+
+  steps:
+    - name: short-lived-client-ready
+      try:
+        - apply:
+            file: short-lived-client.yaml
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: short-lived-client, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: access-token-expires
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run token-expiry \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="short-lived-client"
+                  SECRET="short-lived-secret-please-change"
+
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid profile email offline_access")
+                  AT=$(echo "$RESP" | sed -n "s/.*\"access_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  RT=$(echo "$RESP" | sed -n "s/.*\"refresh_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  [ -n "$AT" ] || { echo "FAIL: no access_token; RESP=$RESP"; exit 1; }
+                  [ -n "$RT" ] || { echo "FAIL: no refresh_token; RESP=$RESP"; exit 1; }
+                  echo "got tokens"
+
+                  # Sanity: introspect immediately, expect active=true.
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/introspect" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "token=${AT}")
+                  echo "introspect now: $RESP"
+                  echo "$RESP" | jq -e ".active == true" >/dev/null \
+                    || { echo "FAIL: fresh token should be active"; exit 1; }
+
+                  # Wait past accessTokenLifespan (5s) + a small margin.
+                  sleep 8
+
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/introspect" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "token=${AT}")
+                  echo "introspect after 8s: $RESP"
+                  echo "$RESP" | jq -e ".active == false" >/dev/null \
+                    || { echo "FAIL: expired token still active"; exit 1; }
+                  echo "✓ access token expired"
+
+                  # Refresh token should still work — RT was issued at t=0
+                  # with 15s lifespan; we are at t≈8.
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=refresh_token" \
+                    --data-urlencode "refresh_token=${RT}")
+                  AT2=$(echo "$RESP" | sed -n "s/.*\"access_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  RT2=$(echo "$RESP" | sed -n "s/.*\"refresh_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  [ -n "$AT2" ] || { echo "FAIL: refresh within lifespan failed; RESP=$RESP"; exit 1; }
+                  [ -n "$RT2" ] || { echo "FAIL: refresh did not rotate RT; RESP=$RESP"; exit 1; }
+                  echo "✓ refresh works within refreshTokenLifespan, RT rotated"
+
+                  # Wait past RT2 lifespan. RT2 issued at t≈8 with 15s
+                  # lifespan; expires at t≈23. Sleep 17s gets us to t≈25.
+                  sleep 17
+
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=refresh_token" \
+                    --data-urlencode "refresh_token=${RT2}")
+                  echo "refresh after RT2 expiry: $RESP"
+                  echo "$RESP" | jq -e ".error == \"invalid_grant\" or .error == \"invalid_token\"" >/dev/null \
+                    || { echo "FAIL: expired refresh token should be rejected"; exit 1; }
+                  echo "✓ refresh token expired and rejected"
+                '
+
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod token-expiry --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete oidcclient short-lived-client --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret short-lived-secret --ignore-not-found --wait=false

@@ -1,0 +1,76 @@
+---
+# UpstreamProvider reconciler smoke test against a real OIDC issuer.
+#
+# What it asserts:
+#   1. fixtures/mock-oidc/ deployment is up and serves OIDC discovery.
+#   2. UpstreamProvider mock-upstream reaches status.phase=READY.
+#   3. status.effectiveConfig is populated by discovery (i.e. the controller
+#      successfully fetched the upstream's openid-configuration).
+#
+# What it does NOT assert (yet):
+#   - End-to-end browser federation flow (user clicks button, gets redirected
+#     to upstream, returns with code, kubauth exchanges and issues its own
+#     id_token). That flow is browser-based and currently parked — see
+#     e2e/23-upstream-fed-flow.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: upstream-reconcile
+spec:
+  description: |
+    UpstreamProvider against a mock OIDC issuer (navikt/mock-oauth2-server)
+    reconciles to phase=READY and populates status.effectiveConfig from
+    discovery.
+
+  steps:
+    - name: deploy-mock-oidc
+      try:
+        - apply:
+            file: ../../fixtures/mock-oidc/00-namespace.yaml
+        - apply:
+            file: ../../fixtures/mock-oidc/01-deployment.yaml
+        - script:
+            content: |
+              set -eu
+              kubectl -n mock-oidc-test rollout status deploy/mock-oidc --timeout=120s
+
+    - name: upstream-ready
+      try:
+        - apply:
+            file: upstream.yaml
+        - assert:
+            timeout: 60s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: UpstreamProvider
+              metadata: {name: mock-upstream, namespace: kubauth-system}
+              status:
+                phase: READY
+
+    - name: discovery-populated
+      try:
+        - script:
+            content: |
+              set -eu
+              # Effective config must contain the standard OIDC endpoints,
+              # proving that kubauth fetched openid-configuration from the
+              # mock issuer and passed it through.
+              ENDPOINTS=$(kubectl -n kubauth-system get upstreamprovider mock-upstream \
+                -o jsonpath='{.status.effectiveConfig}')
+              echo "effectiveConfig: ${ENDPOINTS}"
+              echo "${ENDPOINTS}" | grep -q "/kubauth/authorize" \
+                || { echo "missing authorization_endpoint"; exit 1; }
+              echo "${ENDPOINTS}" | grep -q "/kubauth/token" \
+                || { echo "missing token_endpoint"; exit 1; }
+              echo "${ENDPOINTS}" | grep -q "/kubauth/jwks" \
+                || { echo "missing jwks_uri"; exit 1; }
+              echo "✓ discovery populated effectiveConfig"
+
+      finally:
+        - script:
+            content: |
+              kubectl -n kubauth-system delete upstreamprovider mock-upstream --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret mock-upstream-secret --ignore-not-found --wait=false
+              # Leave the mock-oidc deployment up — cheap, harmless, and reused
+              # by future federation tests. Use `make dev-down` to wipe.

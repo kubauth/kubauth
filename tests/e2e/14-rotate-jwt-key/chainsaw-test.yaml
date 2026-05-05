@@ -1,0 +1,149 @@
+---
+# Rotate the JWT signing key. After rotation:
+#   - new tokens are signed by the new key (new `kid`)
+#   - /jwks publishes the new key, NOT the old one (kubauth currently has a
+#     single-key model — no overlap window, see findings.md S6)
+#   - old access_tokens stop validating against /userinfo
+#
+# Heavy: rotates the production secret and restarts the kubauth pod (~30 s).
+# The cluster ends with the rotated key — `make dev-up` will keep it as-is.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: rotate-jwt-key
+spec:
+  description: |
+    Replace the kubauth-oidc-jwt-key Secret with a freshly-generated RSA key,
+    restart the deployment, and verify that the kid rotates and old tokens
+    are invalidated.
+
+  steps:
+    - name: rotate-and-verify
+      try:
+        - script:
+            content: |
+              set -eu
+
+              # Helper pod for all curl + jq + openssl work. alpine:3.20 ships
+              # only the base layer; install the tools at pod startup so
+              # subsequent `kubectl exec ... -- sh -c '<curl ... | jq ...>'`
+              # calls work.
+              kubectl run jwt-rot --namespace=$NAMESPACE \
+                --image=alpine:3.20 --restart=Never \
+                --command -- sh -c 'apk add -q --no-cache curl jq openssl >/dev/null && sleep 600' >/dev/null
+              kubectl wait --for=condition=Ready pod/jwt-rot -n $NAMESPACE --timeout=60s >/dev/null
+              # Wait until apk add has finished — Ready condition triggers
+              # as soon as the container is running, before the foreground
+              # apk add completes.
+              for _ in 1 2 3 4 5 6 7 8 9 10; do
+                if kubectl exec -n $NAMESPACE jwt-rot -- sh -c 'command -v jq && command -v curl' >/dev/null 2>&1; then
+                  break
+                fi
+                sleep 2
+              done
+
+              ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+
+              # ─── 1. Get token A under the current key, extract its kid ─────
+              GET_TOKEN='set -eu
+              ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+              RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                -u "smoke-client:smoke-client-secret-please-change" \
+                --data-urlencode "grant_type=password" \
+                --data-urlencode "username=alice" \
+                --data-urlencode "password=alice-password" \
+                --data-urlencode "scope=openid")
+              echo "$RESP"'
+              RESP_A=$(kubectl exec -n $NAMESPACE jwt-rot -- sh -c "$GET_TOKEN")
+              AT_A=$(echo "$RESP_A" | sed -n "s/.*\"access_token\":\"\([^\"]*\)\".*/\1/p")
+              ID_A=$(echo "$RESP_A" | sed -n "s/.*\"id_token\":\"\([^\"]*\)\".*/\1/p")
+              KID_A=$(echo "$ID_A" | cut -d. -f1 \
+                | tr "_-" "/+" | base64 -d 2>/dev/null \
+                | sed -n "s/.*\"kid\":\"\([^\"]*\)\".*/\1/p")
+              [ -n "$AT_A" ] || { echo "no access_token A"; exit 1; }
+              [ -n "$KID_A" ] || { echo "no kid in id_token A"; exit 1; }
+              echo "kid before rotation: $KID_A"
+
+              # /jwks must currently advertise KID_A
+              # JWKS shape: {"keys":[{"kid":"...",...},...]} — query the
+              # array, not a phantom top-level `.kid`.
+              kubectl exec -n $NAMESPACE jwt-rot -- sh -c \
+                "curl -sk ${ISS}/.well-known/jwks.json" \
+                | jq -e ".keys | map(.kid) | index(\"${KID_A}\")" >/dev/null \
+                || { echo "current kid not in /jwks"; exit 1; }
+
+              # ─── 2. Generate a new RSA-2048 key + new kid, replace Secret ─
+              # openssl is in the kubauth-tests devcontainer; but inside the
+              # cluster pod we have curl image without openssl. Generate locally
+              # then kubectl apply.
+              NEW_KID="rotated-$(date +%s)"
+              echo "new kid: $NEW_KID"
+              TMPKEY="/tmp/jwt-new.pem"
+              openssl genrsa -out "$TMPKEY" 2048 2>/dev/null
+
+              # Replace the secret atomically: delete + create (kubernetes
+              # doesn'"'"'t support in-place data swap of Opaque secrets cleanly
+              # without immutable secrets, which kubauth doesn'"'"'t use).
+              kubectl -n kubauth-system delete secret kubauth-oidc-jwt-key
+              kubectl -n kubauth-system create secret generic kubauth-oidc-jwt-key \
+                --from-file=key.pem="$TMPKEY" --from-literal=kid="$NEW_KID"
+              rm -f "$TMPKEY"
+
+              # ─── 3. Restart kubauth so it loads the new key ───────────────
+              kubectl -n kubauth-system rollout restart deploy/kubauth
+              kubectl -n kubauth-system rollout status deploy/kubauth --timeout=120s
+
+              # Pod restarted — kill our helper which lost its mounted view; recreate.
+              kubectl delete pod jwt-rot -n $NAMESPACE --ignore-not-found --wait=true
+              kubectl run jwt-rot --namespace=$NAMESPACE \
+                --image=alpine:3.20 --restart=Never \
+                --command -- sh -c 'apk add -q --no-cache curl jq openssl >/dev/null && sleep 600' >/dev/null
+              kubectl wait --for=condition=Ready pod/jwt-rot -n $NAMESPACE --timeout=60s >/dev/null
+              for _ in 1 2 3 4 5 6 7 8 9 10; do
+                if kubectl exec -n $NAMESPACE jwt-rot -- sh -c 'command -v jq && command -v curl' >/dev/null 2>&1; then
+                  break
+                fi
+                sleep 2
+              done
+
+              # ─── 4. Get token B post-rotation, assert new kid ─────────────
+              RESP_B=$(kubectl exec -n $NAMESPACE jwt-rot -- sh -c "$GET_TOKEN")
+              AT_B=$(echo "$RESP_B" | sed -n "s/.*\"access_token\":\"\([^\"]*\)\".*/\1/p")
+              ID_B=$(echo "$RESP_B" | sed -n "s/.*\"id_token\":\"\([^\"]*\)\".*/\1/p")
+              KID_B=$(echo "$ID_B" | cut -d. -f1 \
+                | tr "_-" "/+" | base64 -d 2>/dev/null \
+                | sed -n "s/.*\"kid\":\"\([^\"]*\)\".*/\1/p")
+              [ -n "$KID_B" ] || { echo "no kid post-rotation"; exit 1; }
+              echo "kid after rotation: $KID_B"
+              [ "$KID_A" != "$KID_B" ] || { echo "kid did not rotate"; exit 1; }
+              [ "$KID_B" = "$NEW_KID" ] || { echo "kid mismatch: expected $NEW_KID got $KID_B"; exit 1; }
+
+              # ─── 5. /jwks publishes new kid, not old ──────────────────────
+              JWKS=$(kubectl exec -n $NAMESPACE jwt-rot -- sh -c \
+                "curl -sk ${ISS}/.well-known/jwks.json")
+              echo "jwks: $JWKS"
+              echo "$JWKS" | jq -e ".keys | map(.kid) | index(\"${KID_B}\")" >/dev/null \
+                || { echo "new kid missing from /jwks"; exit 1; }
+              echo "$JWKS" | jq -e ".keys | map(.kid) | index(\"${KID_A}\")" >/dev/null \
+                && { echo "old kid still in /jwks (no overlap window expected)"; exit 1; } \
+                || true
+
+              # ─── 6. Old access_token rejected by /userinfo ────────────────
+              CODE_OLD=$(kubectl exec -n $NAMESPACE jwt-rot -- sh -c \
+                "curl -sk -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer ${AT_A}' ${ISS}/userinfo")
+              [ "$CODE_OLD" = "401" ] \
+                || { echo "old access_token still accepted (got $CODE_OLD), expected 401"; exit 1; }
+
+              # ─── 7. New access_token works ────────────────────────────────
+              UI=$(kubectl exec -n $NAMESPACE jwt-rot -- sh -c \
+                "curl -sk -H 'Authorization: Bearer ${AT_B}' ${ISS}/userinfo")
+              echo "userinfo new: $UI"
+              echo "$UI" | jq -e ".sub == \"alice\"" >/dev/null \
+                || { echo "new access_token failed userinfo: $UI"; exit 1; }
+
+              echo "✓ JWT key rotated: KID_A=$KID_A → KID_B=$KID_B"
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod jwt-rot --ignore-not-found --wait=false

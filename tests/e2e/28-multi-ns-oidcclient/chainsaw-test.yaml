@@ -1,0 +1,109 @@
+---
+# A5: multi-namespace OidcClient. When an OidcClient lives outside the
+# chart's `oidc.clientPrivilegedNamespace` (default kubauth-system),
+# kubauth prefixes the effective client_id with the namespace name —
+# so `myapp` in `default` becomes client_id `default-myapp`.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: multi-ns-oidcclient
+spec:
+  description: |
+    OidcClient in a non-privileged namespace gets its client_id
+    prefixed by the namespace name; ROPC with the prefixed client_id
+    works.
+
+  steps:
+    - name: oidcclient-in-default-ns
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: nsapp-secret
+                # Default ns — chart's clientPrivilegedNamespace is kubauth-system.
+                namespace: default
+              type: Opaque
+              stringData:
+                client_secret: "nsapp-secret-please-change"
+        - apply:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: nsapp
+                namespace: default
+              spec:
+                description: "Multi-ns OidcClient test"
+                displayName: nsapp
+                public: false
+                secrets:
+                  - name: nsapp-secret
+                    key: client_secret
+                    hashed: false
+                redirectURIs: ["http://localhost:9999/cb"]
+                grantTypes: [password]
+                responseTypes: [code]
+                scopes: [openid, email]
+                audiences: [kubauth-tests]
+                forceOpenIdScope: true
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: nsapp, namespace: default}
+              status:
+                phase: READY
+                # Prefix scheme from buildClientId() in oidcclient_controller.go.
+                clientId: default-nsapp
+
+    - name: prefixed-client-id-works
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run nsapp-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="default-nsapp"
+                  SECRET="nsapp-secret-please-change"
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid email")
+                  echo "response: ${RESP}"
+                  echo "$RESP" | jq -e .id_token >/dev/null \
+                    || { echo "FAIL: prefixed client_id ${CID} did not yield id_token"; exit 1; }
+                  echo "✓ ${CID} (prefixed) accepted at /oauth2/token"
+
+                  # And: the bare name (without namespace prefix) must NOT work.
+                  HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
+                    -X POST "${ISS}/oauth2/token" \
+                    -u "nsapp:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid email")
+                  case "$HTTP" in
+                    401|400) : ;;
+                    *) echo "FAIL: bare name nsapp returned ${HTTP} (expected 400/401)"; exit 1 ;;
+                  esac
+                  echo "✓ bare name nsapp (no prefix) correctly rejected"
+                '
+
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod nsapp-curl --ignore-not-found --wait=false
+              kubectl -n default delete oidcclient nsapp --ignore-not-found --wait=false
+              kubectl -n default delete secret nsapp-secret --ignore-not-found --wait=false

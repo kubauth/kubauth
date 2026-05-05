@@ -1,0 +1,108 @@
+---
+name: e2e
+
+on:
+  push:
+    branches:
+      - main
+      - 'v*'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'CHANGELOG.md'
+      - 'tests/conformance/**'
+      - '.github/workflows/e2e-lint.yml'
+      - '.markdownlint.yaml'
+      - '.yamllint.yaml'
+      - '.editorconfig'
+      - '.shellcheckrc'
+      - '.devcontainer/**'
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: github.event_name != 'schedule' || github.repository == 'kubauth/kubauth'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+          working_directory: tests
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Generate version_.go
+        working-directory: .
+        run: make version
+
+      - name: Build kubauth image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: local/kubauth:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: kind-up
+        run: make kind-up
+
+      - name: Load kubauth image into kind
+        working-directory: .
+        run: kind load docker-image local/kubauth:ci --name kubauth-e2e
+
+      - name: prereqs (cert-manager)
+        run: make prereqs
+
+      - name: install kubauth (CI image override)
+        env:
+          KUBAUTH_IMAGE_REPO: local/kubauth
+          KUBAUTH_IMAGE_TAG: ci
+          KUBAUTH_IMAGE_PULL_POLICY: Never
+        run: make install
+
+      - name: e2e suite
+        run: make e2e
+
+      - name: Dump cluster state on failure
+        if: failure()
+        run: |
+          mkdir -p .tmp/dump
+          kubectl get all -A                              > .tmp/dump/get-all.txt   || true
+          kubectl get events -A --sort-by=.lastTimestamp  > .tmp/dump/events.txt    || true
+          kubectl describe pods -n kubauth-system         > .tmp/dump/describe-pods.txt || true
+          for pod in $(kubectl -n kubauth-system get pods -o name 2>/dev/null); do
+            name="${pod##pod/}"
+            kubectl -n kubauth-system logs "$pod" --all-containers --tail=500 \
+              > ".tmp/dump/logs-${name}.txt" 2>&1 || true
+          done
+
+      - name: Upload failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-dump-${{ github.run_id }}
+          path: tests/.tmp/dump/
+          retention-days: 7
+
+      - name: dev-down
+        if: always()
+        run: make dev-down

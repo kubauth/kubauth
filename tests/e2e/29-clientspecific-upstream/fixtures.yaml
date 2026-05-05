@@ -1,0 +1,116 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cs-public-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "cs-public-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: UpstreamProvider
+metadata:
+  name: up-public
+  namespace: kubauth-system
+spec:
+  type: oidc
+  displayName: Public Upstream
+  # clientSpecific defaults to false → visible globally.
+  issuerURL: http://mock-oidc.mock-oidc-test.svc:8080/public
+  redirectURL: https://kubauth-oidc-server.kubauth-system.svc:443/upstream/callback
+  clientId: kubauth-cs-public
+  clientSecret:
+    secret:
+      name: cs-public-secret
+      key: client_secret
+  scopes: [openid, email]
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cs-private-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "cs-private-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: UpstreamProvider
+metadata:
+  name: up-private
+  namespace: kubauth-system
+spec:
+  type: oidc
+  displayName: Private Upstream
+  clientSpecific: true
+  issuerURL: http://mock-oidc.mock-oidc-test.svc:8080/private
+  redirectURL: https://kubauth-oidc-server.kubauth-system.svc:443/upstream/callback
+  clientId: kubauth-cs-private
+  clientSecret:
+    secret:
+      name: cs-private-secret
+      key: client_secret
+  scopes: [openid, email]
+---
+# Client A: no spec.upstreams → uses the global filtered list
+# (clientSpecific=true is hidden) → should see only up-public.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cs-client-a-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "cs-client-a-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: cs-client-a
+  namespace: kubauth-system
+spec:
+  description: "clientSpecific test — no upstream list"
+  displayName: cs-client-a
+  public: false
+  secrets:
+    - name: cs-client-a-secret
+      key: client_secret
+      hashed: false
+  redirectURIs: ["http://localhost:9999/cb"]
+  grantTypes: [authorization_code]
+  responseTypes: [code]
+  scopes: [openid]
+  audiences: [kubauth-tests]
+  forceOpenIdScope: true
+---
+# Client B: explicit spec.upstreams: [up-private] → must see ONLY up-private.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cs-client-b-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "cs-client-b-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: cs-client-b
+  namespace: kubauth-system
+spec:
+  description: "clientSpecific test — explicit upstream list"
+  displayName: cs-client-b
+  public: false
+  secrets:
+    - name: cs-client-b-secret
+      key: client_secret
+      hashed: false
+  redirectURIs: ["http://localhost:9999/cb"]
+  grantTypes: [authorization_code]
+  responseTypes: [code]
+  scopes: [openid]
+  audiences: [kubauth-tests]
+  forceOpenIdScope: true
+  upstreamProviders: [up-private]

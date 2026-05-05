@@ -30,3 +30,7 @@ go.work
 *.swo
 *~
 
+
+# E2E test runtime artefacts
+/tests/.tmp/
+/.tmp/

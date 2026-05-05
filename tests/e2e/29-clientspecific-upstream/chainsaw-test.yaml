@@ -1,0 +1,164 @@
+---
+# A6: clientSpecific upstream filtering.
+#
+# Two UpstreamProviders:
+#   up-public   clientSpecific: false  (visible globally)
+#   up-private  clientSpecific: true   (only visible to clients that
+#                                       list it explicitly)
+#
+# Two OidcClients:
+#   cs-client-a   no upstreamProviders list   → sees only up-public
+#                                                (auto-redirect target)
+#   cs-client-b   upstreamProviders: [up-private] → sees only up-private
+#                                                (auto-redirect target)
+#
+# kubauth's display-login.go auto-redirects to /upstream/go when
+# exactly one upstream button is computed for the client. The
+# auto-redirect's `upstreamProvider=` query parameter tells us which
+# upstream was selected, which is what we assert.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: clientspecific-upstream
+spec:
+  description: |
+    UpstreamProvider.spec.clientSpecific:true is hidden from the
+    auto-redirect computation unless an OidcClient lists it
+    explicitly via spec.upstreamProviders.
+
+  steps:
+    - name: deploy-mock-oidc
+      try:
+        - apply:
+            file: ../../fixtures/mock-oidc/00-namespace.yaml
+        - apply:
+            file: ../../fixtures/mock-oidc/01-deployment.yaml
+        - script:
+            content: |
+              set -eu
+              kubectl -n mock-oidc-test rollout status deploy/mock-oidc --timeout=120s
+
+    - name: fixtures-ready
+      try:
+        - apply:
+            file: fixtures.yaml
+        - assert:
+            timeout: 60s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: UpstreamProvider
+              metadata: {name: up-public, namespace: kubauth-system}
+              status: {phase: READY}
+        - assert:
+            timeout: 60s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: UpstreamProvider
+              metadata: {name: up-private, namespace: kubauth-system}
+              status: {phase: READY}
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: cs-client-a, namespace: kubauth-system}
+              status: {phase: READY}
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: cs-client-b, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: client-a-sees-only-public
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run cs-curl-a \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="cs-client-a"
+                  REDIR="http://localhost:9999/cb"
+                  STATE="abcdef1234567890"
+                  CC="E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+                  QS="response_type=code&client_id=${CID}&redirect_uri=${REDIR}&scope=openid&state=${STATE}&code_challenge=${CC}&code_challenge_method=S256"
+
+                  # Prime the cookie jar with the kubauth_login cookie.
+                  # First call to /oauth2/auth returns 302 → /oauth2/login;
+                  # we do not follow, just capture the cookie.
+                  curl -sk -c /tmp/cj -b /tmp/cj \
+                    -o /dev/null "${ISS}/oauth2/auth?${QS}"
+                  LOC=$(curl -sk -c /tmp/cj -b /tmp/cj \
+                    -o /dev/null -w "%{redirect_url}" \
+                    "${ISS}/oauth2/login?${QS}")
+                  echo "client-a /oauth2/login -> ${LOC}"
+                  case "$LOC" in
+                    *upstreamProvider=up-public*) : ;;
+                    *)
+                      echo "FAIL: client-a expected auto-redirect to up-public, got: ${LOC}"
+                      exit 1
+                      ;;
+                  esac
+                  if echo "$LOC" | grep -q "upstreamProvider=up-private"; then
+                    echo "FAIL: client-a auto-redirected to up-private (clientSpecific=true)"
+                    exit 1
+                  fi
+                  echo "✓ client-a auto-redirects to up-public only"
+                '
+
+    - name: client-b-sees-only-private
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run cs-curl-b \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="cs-client-b"
+                  REDIR="http://localhost:9999/cb"
+                  STATE="abcdef1234567890"
+                  CC="E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+                  QS="response_type=code&client_id=${CID}&redirect_uri=${REDIR}&scope=openid&state=${STATE}&code_challenge=${CC}&code_challenge_method=S256"
+
+                  curl -sk -c /tmp/cj -b /tmp/cj \
+                    -o /dev/null "${ISS}/oauth2/auth?${QS}"
+                  LOC=$(curl -sk -c /tmp/cj -b /tmp/cj \
+                    -o /dev/null -w "%{redirect_url}" \
+                    "${ISS}/oauth2/login?${QS}")
+                  echo "client-b /oauth2/login -> ${LOC}"
+                  case "$LOC" in
+                    *upstreamProvider=up-private*) : ;;
+                    *)
+                      echo "FAIL: client-b expected auto-redirect to up-private, got: ${LOC}"
+                      exit 1
+                      ;;
+                  esac
+                  if echo "$LOC" | grep -q "upstreamProvider=up-public"; then
+                    echo "FAIL: client-b auto-redirected to up-public (not in its allowed list)"
+                    exit 1
+                  fi
+                  echo "✓ client-b auto-redirects to up-private only"
+                '
+
+      finally:
+        - script:
+            content: |
+              for p in cs-curl-a cs-curl-b; do
+                kubectl -n $NAMESPACE delete pod "$p" --ignore-not-found --wait=false 2>/dev/null || true
+              done
+              kubectl -n kubauth-system delete oidcclient cs-client-a cs-client-b --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete upstreamprovider up-public up-private --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret cs-client-a-secret cs-client-b-secret cs-public-secret cs-private-secret --ignore-not-found --wait=false

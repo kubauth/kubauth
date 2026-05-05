@@ -1,0 +1,78 @@
+// Devcontainer for the kubauth repo — covers Go development AND the e2e suite.
+// Reference: https://containers.dev/implementors/json_reference/
+//
+// The container mounts the entire kubauth repo so cmd/, api/, helm/, and
+// tests/ are all visible. All tooling is pinned in mise.toml at the repo
+// root and installed by post-create.sh on first boot.
+{
+    "name": "Kubauth",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "workspaceFolder": "/workspaces/kubauth",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/kubauth,type=bind,consistency=cached",
+    "remoteUser": "vscode",
+    // ─── Features ──────────────────────────────────────────────────────────
+    // Docker-in-Docker: a dedicated docker daemon runs inside the container,
+    // and Kind's nodes live inside that daemon. Self-contained — no shared
+    // network namespace with the host means no surprise interactions between
+    // host docker (Rancher / OrbStack / Docker Desktop) and the kind nodes.
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {
+            "version": "latest",
+            "moby": true,
+            "dockerDashComposeVersion": "v2"
+        }
+    },
+    // DinD requires a privileged container to run nested docker.
+    "runArgs": [
+        "--privileged"
+    ],
+    // ─── Lifecycle ─────────────────────────────────────────────────────────
+    // First time the container starts: install all tools from mise.toml.
+    "postCreateCommand": "bash .devcontainer/post-create.sh",
+    // Runs on every container start (after VS Code's credsStore
+    // injection). See post-start.sh for the full rationale.
+    "postStartCommand": "bash .devcontainer/post-start.sh",
+    // ─── VS Code integration ───────────────────────────────────────────────
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-kubernetes-tools.vscode-kubernetes-tools",
+                "ms-azuretools.vscode-docker",
+                "redhat.vscode-yaml",
+                "tim-koehler.helm-intellisense",
+                "timonwong.shellcheck",
+                "foxundermoon.shell-format",
+                "ms-vscode.makefile-tools",
+                "github.vscode-github-actions",
+                "esbenp.prettier-vscode",
+                "eamodio.gitlens",
+                "editorconfig.editorconfig",
+                "golang.go"
+            ],
+            "settings": {
+                "editor.formatOnSave": true,
+                "editor.tabSize": 2,
+                "files.eol": "\n",
+                "files.insertFinalNewline": true,
+                "files.trimTrailingWhitespace": true,
+                "shellcheck.enable": true,
+                "yaml.schemas": {
+                    "https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json": "tests/**/chainsaw-test.yaml"
+                },
+                "go.toolsManagement.autoUpdate": true
+            }
+        }
+    },
+    "containerEnv": {
+        "MISE_TRUSTED_CONFIG_PATHS": "/workspaces/kubauth"
+    },
+    // Named volumes survive container rebuilds so mise tools and shell
+    // history don't disappear every time the Dockerfile or this file changes.
+    "mounts": [
+        "source=kubauth-mise-data,target=/home/vscode/.local/share/mise,type=volume",
+        "source=kubauth-shell-history,target=/commandhistory,type=volume"
+    ],
+    "forwardPorts": []
+}

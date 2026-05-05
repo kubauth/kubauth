@@ -1,0 +1,64 @@
+---
+# CT-1: every other test in this suite decodes the id_token payload with
+# `base64 -d` and trusts what it sees. None of them verifies the JWT
+# signature. This test fetches /jwks, picks the JWK matching the token's
+# `kid` header, builds a public key, and verifies the signature with PyJWT.
+#
+# The Python verifier is shipped as a ConfigMap-mounted file so we do not
+# have to wrestle with YAML/heredoc/Python indentation in a chainsaw
+# script block.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: id-token-signature
+spec:
+  description: |
+    id_token issued by kubauth must be signed with a key advertised by
+    /jwks; the signature must verify against that key.
+
+  steps:
+    - name: oidcclient-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: smoke-client, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: verify-signature
+      try:
+        - apply:
+            file: verifier-cm.yaml
+        - script:
+            content: |
+              set -eu
+              kubectl run id-token-sig \
+                --namespace=$NAMESPACE \
+                --image=python:3.12-slim \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --overrides='{
+                  "spec": {
+                    "containers": [{
+                      "name": "id-token-sig",
+                      "image": "python:3.12-slim",
+                      "command": ["sh", "-c"],
+                      "args": [
+                        "pip install --quiet --disable-pip-version-check --root-user-action=ignore pyjwt[crypto]==2.9.0 requests==2.32.3 urllib3==2.2.3 >/dev/null && python3 /verifier/verify.py"
+                      ],
+                      "volumeMounts": [{"name": "v", "mountPath": "/verifier"}],
+                      "stdin": true, "tty": false
+                    }],
+                    "volumes": [{"name": "v", "configMap": {"name": "id-token-sig-verifier"}}],
+                    "restartPolicy": "Never"
+                  }
+                }'
+
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod id-token-sig --ignore-not-found --wait=false
+              kubectl -n $NAMESPACE delete configmap id-token-sig-verifier --ignore-not-found --wait=false

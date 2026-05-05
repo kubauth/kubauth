@@ -1,0 +1,74 @@
+---
+# Mock OIDC issuer for testing the kubauth UpstreamProvider reconciler and
+# the upstream federation flow. Uses navikt/mock-oauth2-server, which exposes
+# OIDC discovery + /authorize, /token, /userinfo, /jwks per issuer path and
+# auto-issues tokens (no human prompt) when the request format is valid.
+#
+# Layout served by the image:
+#   http://mock-oidc.mock-oidc-test.svc:8080/<issuer-name>/.well-known/openid-configuration
+#   http://mock-oidc.mock-oidc-test.svc:8080/<issuer-name>/authorize
+#   http://mock-oidc.mock-oidc-test.svc:8080/<issuer-name>/token
+#   ...
+# We use the `kubauth` issuer name everywhere.
+#
+# Used by:
+#   e2e/16-upstream-reconcile (UpstreamProvider reconcile + discovery)
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-oidc
+  namespace: mock-oidc-test
+  labels:
+    app: mock-oidc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-oidc
+  template:
+    metadata:
+      labels:
+        app: mock-oidc
+    spec:
+      containers:
+        - name: mock-oidc
+          image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SERVER_PORT
+              value: "8080"
+            - name: LOG_LEVEL
+              value: INFO
+            # Skip the HTML login dialog — auto-issue tokens when /authorize
+            # is hit so chainsaw tests can walk the federation flow headlessly.
+            - name: JSON_CONFIG
+              value: '{"interactiveLogin": false}'
+          readinessProbe:
+            httpGet:
+              path: /kubauth/.well-known/openid-configuration
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /kubauth/.well-known/openid-configuration
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-oidc
+  namespace: mock-oidc-test
+spec:
+  selector:
+    app: mock-oidc
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

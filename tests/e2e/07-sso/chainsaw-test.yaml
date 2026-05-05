@@ -1,0 +1,261 @@
+---
+# RT-2: merged from former 07-sso-cross-app + 17-sso-modes. One test
+# walks the full SSO behaviour matrix in three sub-cases plus the
+# cross-app happy path:
+#
+#   1. mode=never    + remember=on  -> NO SsoSession   (remember ignored)
+#   2. mode=onDemand + remember=off -> NO SsoSession
+#   3. mode=onDemand + remember=on  -> SsoSession created
+#   4. mode=always (cross-app)      -> kubauth_sso cookie established on
+#                                       smoke-client lets sso-app-b
+#                                       authorize without a password form
+#
+# Source-of-truth for SSO bypass is the SsoSession CRD, NOT the cookie.
+# SCS renews kubauth_sso on every successful POST /oauth2/login (Renew
+# is called outside the mode check), but KubeSsoStore.CommitCtx only
+# persists an SsoSession CRD when the session contains a non-empty
+# `ssoUser` value (which only happens under the right (mode, remember)
+# combination).
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: sso
+spec:
+  description: |
+    Behaviour matrix for oidc.sso.mode * remember, plus the cross-app
+    bypass under mode=always.
+
+  steps:
+    # ─── 1. mode=never + remember=on -> no SsoSession ──────────────────
+    - name: mode-never-ignores-remember
+      try:
+        - script:
+            content: |
+              set -eu
+              CHART="${KUBAUTH_CHART:-../kubauth/helm/kubauth}"
+              helm upgrade kubauth "${CHART}" \
+                -n kubauth-system \
+                --reuse-values \
+                --set oidc.sso.mode=never \
+                --wait --timeout 3m >/dev/null
+              kubectl -n kubauth-system delete ssosessions.kubauth.kubotal.io \
+                --all --ignore-not-found --wait=false >/dev/null
+
+              kubectl run sso-never \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  QS="response_type=code&client_id=smoke-client&redirect_uri=http%3A%2F%2Flocalhost%3A9999%2Fcallback&scope=openid&state=abcdef1234567890&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256"
+                  curl -sk -L -c /tmp/cj -b /tmp/cj -o /dev/null "${ISS}/oauth2/auth?${QS}"
+                  curl -sk -c /tmp/cj -b /tmp/cj \
+                    -X POST "${ISS}/oauth2/login?${QS}" \
+                    --data-urlencode "login=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "remember=on" \
+                    -o /dev/null
+                '
+              sleep 2
+              N=$(kubectl -n kubauth-system get ssosessions.kubauth.kubotal.io \
+                    --no-headers 2>/dev/null | wc -l | tr -d ' ')
+              [ "$N" = "0" ] \
+                || { echo "FAIL: ${N} SsoSession(s) leaked under mode=never"; exit 1; }
+              echo "✓ mode=never + remember=on creates no SsoSession"
+
+    # ─── 2. mode=onDemand + remember=off -> no SsoSession ──────────────
+    - name: mode-on-demand-without-remember
+      try:
+        - script:
+            content: |
+              set -eu
+              CHART="${KUBAUTH_CHART:-../kubauth/helm/kubauth}"
+              helm upgrade kubauth "${CHART}" \
+                -n kubauth-system \
+                --reuse-values \
+                --set oidc.sso.mode=onDemand \
+                --wait --timeout 3m >/dev/null
+              kubectl -n kubauth-system delete ssosessions.kubauth.kubotal.io \
+                --all --ignore-not-found --wait=false >/dev/null
+
+              kubectl run sso-ondemand-no \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  QS="response_type=code&client_id=smoke-client&redirect_uri=http%3A%2F%2Flocalhost%3A9999%2Fcallback&scope=openid&state=abcdef1234567890&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256"
+                  curl -sk -L -c /tmp/cj -b /tmp/cj -o /dev/null "${ISS}/oauth2/auth?${QS}"
+                  curl -sk -c /tmp/cj -b /tmp/cj \
+                    -X POST "${ISS}/oauth2/login?${QS}" \
+                    --data-urlencode "login=alice" \
+                    --data-urlencode "password=alice-password" \
+                    -o /dev/null
+                '
+              sleep 2
+              N=$(kubectl -n kubauth-system get ssosessions.kubauth.kubotal.io \
+                    --no-headers 2>/dev/null | wc -l | tr -d ' ')
+              [ "$N" = "0" ] \
+                || { echo "FAIL: ${N} SsoSession(s) under onDemand+remember=off"; exit 1; }
+              echo "✓ mode=onDemand + remember=off creates no SsoSession"
+
+    # ─── 3. mode=onDemand + remember=on -> SsoSession created ──────────
+    - name: mode-on-demand-with-remember
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl -n kubauth-system delete ssosessions.kubauth.kubotal.io \
+                --all --ignore-not-found --wait=false >/dev/null
+
+              kubectl run sso-ondemand-yes \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  QS="response_type=code&client_id=smoke-client&redirect_uri=http%3A%2F%2Flocalhost%3A9999%2Fcallback&scope=openid&state=abcdef1234567890&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256"
+                  curl -sk -L -c /tmp/cj -b /tmp/cj -o /dev/null "${ISS}/oauth2/auth?${QS}"
+                  curl -sk -c /tmp/cj -b /tmp/cj \
+                    -X POST "${ISS}/oauth2/login?${QS}" \
+                    --data-urlencode "login=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "remember=on" \
+                    -o /dev/null
+                  grep -q "kubauth_sso" /tmp/cj \
+                    || { echo "FAIL: kubauth_sso cookie missing"; cat /tmp/cj; exit 1; }
+                '
+              for i in 1 2 3 4 5 6 7 8 9 10; do
+                N=$(kubectl -n kubauth-system get ssosessions.kubauth.kubotal.io \
+                      --no-headers 2>/dev/null | wc -l | tr -d ' ')
+                [ "$N" -ge 1 ] && break
+                sleep 1
+              done
+              [ "$N" -ge 1 ] \
+                || { echo "FAIL: no SsoSession created under onDemand+remember=on"; exit 1; }
+              echo "✓ mode=onDemand + remember=on creates SsoSession"
+
+    # ─── 4. mode=always cross-app bypass ───────────────────────────────
+    - name: mode-always-cross-app-bypass
+      try:
+        - script:
+            content: |
+              set -eu
+              CHART="${KUBAUTH_CHART:-../kubauth/helm/kubauth}"
+              helm upgrade kubauth "${CHART}" \
+                -n kubauth-system \
+                --reuse-values \
+                --set oidc.sso.mode=always \
+                --wait --timeout 3m >/dev/null
+              kubectl -n kubauth-system delete ssosessions.kubauth.kubotal.io \
+                --all --ignore-not-found --wait=false >/dev/null
+        - apply:
+            file: sso-app-b.yaml
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: sso-app-b, namespace: kubauth-system}
+              status: {phase: READY}
+        - script:
+            content: |
+              set -eu
+              kubectl run sso-cross-app \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID_A="smoke-client"
+                  SECRET_A="smoke-client-secret-please-change"
+                  REDIR_A="http://localhost:9999/callback"
+                  CID_B="sso-app-b"
+                  SECRET_B="sso-app-b-secret-please-change"
+                  REDIR_B="http://localhost:9999/b/callback"
+                  STATE="abcdef1234567890"
+                  CC="E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+                  CV="dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+                  QS_A="response_type=code&client_id=${CID_A}&redirect_uri=${REDIR_A}&scope=openid&state=${STATE}&code_challenge=${CC}&code_challenge_method=S256"
+                  QS_B="response_type=code&client_id=${CID_B}&redirect_uri=${REDIR_B}&scope=openid&state=${STATE}&code_challenge=${CC}&code_challenge_method=S256"
+
+                  # App A login (sets kubauth_sso + creates SsoSession)
+                  curl -sk -L -c /tmp/cj -b /tmp/cj -o /dev/null "${ISS}/oauth2/auth?${QS_A}"
+                  LOC_A=$(curl -sk -c /tmp/cj -b /tmp/cj \
+                    -X POST "${ISS}/oauth2/login?${QS_A}" \
+                    --data-urlencode "login=alice" \
+                    --data-urlencode "password=alice-password" \
+                    -o /dev/null -w "%{redirect_url}")
+                  CODE_A=$(echo "$LOC_A" | sed -n "s/.*[?&]code=\\([^&]*\\).*/\\1/p")
+                  [ -n "$CODE_A" ] || { echo "FAIL: app A no code"; exit 1; }
+                  grep -q "kubauth_sso" /tmp/cj \
+                    || { echo "FAIL: app A no kubauth_sso cookie"; exit 1; }
+
+                  # App B: /oauth2/auth -> /oauth2/login (cookie -> bypass) -> redirect_uri?code=
+                  LOC1=$(curl -sk -c /tmp/cj -b /tmp/cj \
+                    -o /dev/null -w "%{http_code} %{redirect_url}" \
+                    "${ISS}/oauth2/auth?${QS_B}")
+                  case "$LOC1" in
+                    "302 ${ISS}/oauth2/login?"*) : ;;
+                    *) echo "FAIL: app B /oauth2/auth -> ${LOC1}"; exit 1 ;;
+                  esac
+                  LOGIN_URL=$(echo "$LOC1" | cut -d" " -f2-)
+                  RESP_B=$(curl -sk -c /tmp/cj -b /tmp/cj \
+                    -o /tmp/body -w "%{http_code} %{redirect_url}" \
+                    "${LOGIN_URL}")
+                  case "$RESP_B" in
+                    "302 ${REDIR_B}"*|"303 ${REDIR_B}"*) : ;;
+                    *) echo "FAIL: app B /oauth2/login -> ${RESP_B}"; head -c 400 /tmp/body; exit 1 ;;
+                  esac
+                  if grep -qi "<form\|password" /tmp/body 2>/dev/null; then
+                    echo "FAIL: app B served login form despite SSO cookie"; exit 1
+                  fi
+
+                  CODE_B=$(echo "$RESP_B" | sed -n "s/.*[?&]code=\\([^&]*\\).*/\\1/p")
+                  [ -n "$CODE_B" ] || { echo "FAIL: app B no code"; exit 1; }
+
+                  # Redeem app B code, verify sub=alice
+                  TOK=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID_B}:${SECRET_B}" \
+                    --data-urlencode "grant_type=authorization_code" \
+                    --data-urlencode "code=${CODE_B}" \
+                    --data-urlencode "redirect_uri=${REDIR_B}" \
+                    --data-urlencode "code_verifier=${CV}")
+                  IDT=$(echo "$TOK" | sed -n "s/.*\"id_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  [ -n "$IDT" ] || { echo "FAIL: no id_token for app B"; exit 1; }
+                  PAYLOAD=$(echo "$IDT" | cut -d. -f2)
+                  case $(( ${#PAYLOAD} % 4 )) in
+                    2) PAYLOAD="${PAYLOAD}==" ;;
+                    3) PAYLOAD="${PAYLOAD}=" ;;
+                  esac
+                  CLAIMS=$(printf "%s" "$PAYLOAD" | tr "_-" "/+" | base64 -d 2>/dev/null || true)
+                  echo "$CLAIMS" | jq -e ".sub == \"alice\"" >/dev/null \
+                    || { echo "FAIL: app B sub != alice"; exit 1; }
+                  echo "✓ mode=always: app A login -> app B SSO bypass without password"
+                '
+
+      finally:
+        - script:
+            content: |
+              for p in sso-never sso-ondemand-no sso-ondemand-yes sso-cross-app; do
+                kubectl -n $NAMESPACE delete pod "$p" --ignore-not-found --wait=false 2>/dev/null || true
+              done
+              kubectl -n kubauth-system delete oidcclient sso-app-b --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret sso-app-b-secret --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete ssosessions.kubauth.kubotal.io \
+                --all --ignore-not-found --wait=false >/dev/null
+              CHART="${KUBAUTH_CHART:-../kubauth/helm/kubauth}"
+              helm upgrade kubauth "${CHART}" \
+                -n kubauth-system \
+                --reuse-values \
+                --set oidc.sso.mode=never \
+                --wait --timeout 3m >/dev/null || true

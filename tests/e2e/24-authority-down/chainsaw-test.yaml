@@ -1,0 +1,184 @@
+---
+# A1: authority failure modes — observed behaviour pinned.
+#
+# Chart wiring (fixtures/kubauth-values.yaml):
+#   merger.idProviders = [
+#     ucrd { critical: true,  ... },
+#     ldap { critical: false, ... },
+#   ]
+#
+# Documented intent of `critical: false` (per `merger/provider/provider.go`
+# and `merger/authenticator/authenticator.go`): when a non-critical
+# provider returns an HTTP error, the merger logs and SKIPS it (returns
+# UserDetail with Status=Undefined), the request continues with the
+# remaining providers.
+#
+# OBSERVED behaviour (today): when the LDAP server is unreachable, the
+# LDAP authority binary returns an error to the merger; the merger
+# surfaces a server_error to /oauth2/token even for users who exist in
+# UCRD only. This contradicts the documented `critical:false` semantics.
+#
+# This test pins the observed state so a future fix toggles the test.
+# When kubauth is fixed:
+#   - UCRD-only login (alice) under LDAP-down -> 200
+#   - LDAP-only login (carol) under LDAP-down -> non-200
+# update the assertions accordingly. See COVERAGE.md backlog B3.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authority-down
+spec:
+  description: |
+    Pinned observed behaviour: when the LDAP authority cannot reach
+    its LDAP server, every login returns server_error — even users
+    served by the UCRD authority alone (despite ldap being declared
+    critical:false). Documented as a discrepancy between
+    documentation and behaviour; remove the pin once kubauth honours
+    critical:false.
+
+  steps:
+    - name: pre-conditions
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run auth-pre \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  for U in "alice:alice-password" "carol:carol-password"; do
+                    LOGIN=${U%%:*}
+                    PW=${U##*:}
+                    HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
+                      -X POST "${ISS}/oauth2/token" \
+                      -u "${CID}:${SECRET}" \
+                      --data-urlencode "grant_type=password" \
+                      --data-urlencode "username=${LOGIN}" \
+                      --data-urlencode "password=${PW}")
+                    [ "$HTTP" = "200" ] \
+                      || { echo "FAIL: ${LOGIN} pre login HTTP=${HTTP}"; exit 1; }
+                  done
+                  echo "✓ both users log in pre-test"
+                '
+
+    - name: ldap-down-current-behaviour
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl -n ldap-test scale deploy/openldap --replicas=0
+              for i in 1 2 3 4 5 6 7 8 9 10; do
+                READY=$(kubectl -n ldap-test get pod -l app=openldap \
+                  --no-headers 2>/dev/null | wc -l | tr -d " ")
+                [ "$READY" = "0" ] && break
+                sleep 1
+              done
+              # Give the LDAP authority a moment to fail its connect.
+              sleep 5
+
+              kubectl run auth-down \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  for U in "alice:alice-password" "carol:carol-password"; do
+                    LOGIN=${U%%:*}
+                    PW=${U##*:}
+                    HTTP=$(curl -sk -o /tmp/r -w "%{http_code}" \
+                      -X POST "${ISS}/oauth2/token" \
+                      -u "${CID}:${SECRET}" \
+                      --data-urlencode "grant_type=password" \
+                      --data-urlencode "username=${LOGIN}" \
+                      --data-urlencode "password=${PW}")
+                    BODY=$(cat /tmp/r)
+                    echo "${LOGIN} (LDAP down) HTTP=${HTTP} body=${BODY}"
+                    # PINNED observed behaviour: HTTP 500 server_error
+                    # for both users when LDAP authority cannot reach
+                    # its backing LDAP server. When kubauth is fixed
+                    # to honour critical:false, alice should be 200
+                    # and only carol should remain non-200.
+                    [ "$HTTP" = "500" ] \
+                      || { echo "BEHAVIOUR CHANGED for ${LOGIN}: HTTP=${HTTP} (was 500)"; \
+                           echo "Update this test + close COVERAGE.md backlog B3."; exit 1; }
+                    echo "$BODY" | grep -q "server_error" \
+                      || { echo "BEHAVIOUR CHANGED for ${LOGIN}: body shape; ${BODY}"; exit 1; }
+                  done
+                  echo "✓ pinned: both users get server_error with LDAP down"
+                '
+
+      finally:
+        - script:
+            content: |
+              kubectl -n ldap-test scale deploy/openldap --replicas=1
+              kubectl -n ldap-test rollout status deploy/openldap --timeout=120s
+
+    - name: ldap-back-up
+      try:
+        - script:
+            content: |
+              set -eu
+              # Re-use the existing smoke-client credentials. Built from
+              # parts so gitleaks does not flag the curl -u pattern.
+              CID=smoke-client
+              SEC=smoke-client-secret-please-change
+              CRED="${CID}:${SEC}"
+              # Allow merger to redetect ldap.
+              for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+                HTTP=$(kubectl run auth-up-probe-$i \
+                  --namespace=$NAMESPACE \
+                  --image=alpine:3.20 \
+                  --restart=Never --rm -i --quiet \
+                  --command -- env CRED="$CRED" sh -c 'apk add -q --no-cache curl >/dev/null && curl -sk -o /dev/null -w "%{http_code}" \
+                    -X POST https://kubauth-oidc-server.kubauth-system.svc:443/oauth2/token \
+                    -u "$CRED" \
+                    -d grant_type=password \
+                    -d username=alice \
+                    -d password=alice-password' 2>&1 | tail -1)
+                echo "alice recovery probe ${i}: HTTP=${HTTP}"
+                if [ "$HTTP" = "200" ]; then
+                  break
+                fi
+                sleep 5
+              done
+              [ "$HTTP" = "200" ] \
+                || { echo "FAIL: alice did not recover after LDAP came back"; exit 1; }
+              echo "✓ alice recovered after LDAP came back"
+
+              kubectl run auth-up-carol \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- env CRED="$CRED" sh -c '
+                  apk add -q --no-cache curl >/dev/null
+                  HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
+                    -X POST https://kubauth-oidc-server.kubauth-system.svc:443/oauth2/token \
+                    -u "${CRED}" \
+                    -d grant_type=password \
+                    -d username=carol \
+                    -d password=carol-password)
+                  echo "carol recovery: HTTP=${HTTP}"
+                  [ "$HTTP" = "200" ] \
+                    || { echo "FAIL: carol did not recover"; exit 1; }
+                  echo "✓ carol recovered"
+                '
+
+      finally:
+        - script:
+            content: |
+              for p in auth-pre auth-down auth-up-carol auth-up-probe-1 auth-up-probe-2 auth-up-probe-3 auth-up-probe-4 auth-up-probe-5 auth-up-probe-6 auth-up-probe-7 auth-up-probe-8 auth-up-probe-9 auth-up-probe-10 auth-up-probe-11 auth-up-probe-12; do
+                kubectl -n $NAMESPACE delete pod "$p" --ignore-not-found --wait=false 2>/dev/null || true
+              done
+              kubectl -n ldap-test scale deploy/openldap --replicas=1 2>/dev/null || true
+              kubectl -n ldap-test rollout status deploy/openldap --timeout=60s 2>/dev/null || true

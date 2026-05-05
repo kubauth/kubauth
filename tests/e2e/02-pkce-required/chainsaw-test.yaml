@@ -1,0 +1,93 @@
+---
+# Negative test: a public OIDC client must include `code_challenge` (PKCE).
+# kubauth has `oidc.enforcePKCE: true`; without code_challenge, the server
+# redirects to the redirect_uri with `error=invalid_request` and a message
+# mentioning code_challenge. Both observable from the redirect_url.
+#
+# All operations live in a single step so chainsaw's per-step `finally`
+# cleans up only after the assertions complete (per-step `finally` runs
+# when the step ends, not at test end).
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pkce-required
+spec:
+  description: |
+    Public client tries Authorization Code without code_challenge.
+    Server must redirect to redirect_uri with error=invalid_request mentioning
+    code_challenge. No `code` is emitted.
+
+  steps:
+    - name: pkce-must-be-required
+      try:
+        - apply:
+            file: oidcclient.yaml
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: pkce-required-test
+                namespace: kubauth-system
+              status:
+                phase: READY
+                clientId: pkce-required-test
+        - script:
+            content: |
+              set -eu
+              kubectl run pkce-neg-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  STATE="abcdef1234567890"
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="pkce-required-test"
+                  REDIR="http://localhost:9999/callback"
+                  # No code_challenge in QS — that is the whole point.
+                  QS="response_type=code&client_id=${CID}&redirect_uri=${REDIR}&scope=openid&state=${STATE}"
+
+                  # Prime the session cookie.
+                  curl -sk -L -c /tmp/cj -b /tmp/cj -o /dev/null "${ISS}/oauth2/auth?${QS}"
+
+                  # Submit credentials. Without code_challenge the server must
+                  # bounce back to redirect_uri with error=invalid_request.
+                  REDIRECT=$(curl -sk -c /tmp/cj -b /tmp/cj \
+                    -X POST "${ISS}/oauth2/login?${QS}" \
+                    --data-urlencode "login=alice" \
+                    --data-urlencode "password=alice-password" \
+                    -o /dev/null -w "%{redirect_url}")
+                  echo "auth redirect: ${REDIRECT}"
+
+                  case "$REDIRECT" in
+                    "$REDIR"*) ;;
+                    *) echo "expected redirect to $REDIR, got: $REDIRECT"; exit 2 ;;
+                  esac
+                  ERROR=$(echo "$REDIRECT" | sed -n "s/.*[?&]error=\\([^&]*\\).*/\\1/p")
+                  CODE=$(echo "$REDIRECT" | sed -n "s/.*[?&]code=\\([^&]*\\).*/\\1/p")
+                  DESC=$(echo "$REDIRECT" | sed -n "s/.*[?&]error_description=\\([^&]*\\).*/\\1/p")
+                  echo "error=$ERROR | code=$CODE"
+
+                  [ -z "$CODE" ]              || { echo "leak: server emitted a code despite missing PKCE"; exit 1; }
+                  [ "$ERROR" = "invalid_request" ] || { echo "wrong error: expected invalid_request, got: $ERROR"; exit 1; }
+                  case "$DESC" in
+                    *code_challenge*|*code+challenge*|*code%5Fchallenge*|*PKCE*|*pkce*) : ;;
+                    *) echo "error_description does not mention code_challenge: $DESC"; exit 1 ;;
+                  esac
+                  echo "PKCE-missing flow correctly rejected"
+                '
+      # Cleanup runs after assertions complete (success or failure).
+      # The OidcClient lives in kubauth-system, outside the chainsaw test
+      # namespace, so it must be removed explicitly.
+      finally:
+        - script:
+            content: |
+              kubectl -n kubauth-system delete oidcclient pkce-required-test \
+                --ignore-not-found --wait=false
+              kubectl -n $NAMESPACE delete pod pkce-neg-curl \
+                --ignore-not-found --wait=false

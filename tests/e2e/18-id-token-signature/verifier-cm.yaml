@@ -1,0 +1,87 @@
+---
+# Python verifier mounted into the test pod. Kept as a ConfigMap so that
+# YAML-block-scalar / shell-heredoc / Python-indentation interactions do
+# not get in the way.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: id-token-sig-verifier
+data:
+  verify.py: |
+    import json
+    import sys
+    import requests
+    import urllib3
+    import jwt
+    from jwt.algorithms import RSAAlgorithm
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    ISS = "https://kubauth-oidc-server.kubauth-system.svc:443"
+    CID = "smoke-client"
+    SECRET = "smoke-client-secret-please-change"
+
+    # 1. Get an id_token via ROPC.
+    r = requests.post(
+        f"{ISS}/oauth2/token",
+        auth=(CID, SECRET),
+        data={
+            "grant_type": "password",
+            "username": "alice",
+            "password": "alice-password",
+            "scope": "openid profile email",
+        },
+        verify=False,
+        timeout=10,
+    )
+    r.raise_for_status()
+    id_token = r.json()["id_token"]
+    print(f"got id_token, len={len(id_token)}")
+
+    # 2. Discover jwks_uri from the well-known doc.
+    r = requests.get(
+        f"{ISS}/.well-known/openid-configuration",
+        verify=False,
+        timeout=10,
+    )
+    r.raise_for_status()
+    jwks_uri = r.json()["jwks_uri"]
+    print(f"jwks_uri={jwks_uri}")
+
+    # 3. Fetch JWKs (verify=False because the kubauth issuer uses a
+    #    self-signed cert in the test cluster).
+    r = requests.get(jwks_uri, verify=False, timeout=10)
+    r.raise_for_status()
+    jwks = r.json()
+
+    # 4. Find the JWK matching the token's kid; reject "alg=none".
+    hdr = jwt.get_unverified_header(id_token)
+    kid = hdr.get("kid")
+    alg = hdr.get("alg")
+    print(f"header: alg={alg} kid={kid}")
+    if alg in (None, "none"):
+        print("FAIL: token has no signing algorithm (alg=none or missing)")
+        sys.exit(1)
+
+    matching = [k for k in jwks["keys"] if k.get("kid") == kid]
+    if not matching:
+        kids = [k.get("kid") for k in jwks["keys"]]
+        print(f"FAIL: no JWK matches kid={kid}; jwks has {kids}")
+        sys.exit(1)
+    jwk = matching[0]
+
+    # 5. Build a public key from the JWK and verify the signature.
+    pub = RSAAlgorithm.from_jwk(json.dumps(jwk))
+    decoded = jwt.decode(
+        id_token,
+        pub,
+        algorithms=[alg],
+        audience=CID,
+        options={"verify_aud": True, "verify_exp": True},
+    )
+    print(f"decoded ok; sub={decoded['sub']} aud={decoded['aud']}")
+
+    if decoded["sub"] != "alice":
+        print(f"FAIL: sub != alice (got {decoded['sub']})")
+        sys.exit(1)
+    print("OK: id_token signature verifies against /jwks")

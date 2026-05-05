@@ -1,0 +1,129 @@
+---
+# A4: scope filtering. An OidcClient declares the scopes it is allowed
+# to request. A token request asking for a scope outside that set must
+# either be rejected (Fosite default: invalid_scope) or filtered. We
+# pin whichever behaviour kubauth ships today so a regression toggles
+# the test.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: scope-filtering
+spec:
+  description: |
+    OidcClient.spec.scopes is the universe of allowed scopes. A request
+    asking for a scope outside that set is rejected with invalid_scope
+    or filtered down.
+
+  steps:
+    - name: scope-restricted-client-ready
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: scope-restricted-secret
+                namespace: kubauth-system
+              type: Opaque
+              stringData:
+                client_secret: "scope-restricted-secret-please-change"
+        - apply:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: scope-restricted
+                namespace: kubauth-system
+              spec:
+                description: "Test client whose allowed scopes exclude groups"
+                displayName: scope-restricted
+                public: false
+                secrets:
+                  - name: scope-restricted-secret
+                    key: client_secret
+                    hashed: false
+                redirectURIs: ["http://localhost:9999/cb"]
+                grantTypes: [password]
+                responseTypes: [code]
+                # Notably no `groups` here.
+                scopes: [openid, email]
+                audiences: [kubauth-tests]
+                forceOpenIdScope: true
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: scope-restricted, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: out-of-list-scope-rejected-or-filtered
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run scope-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="scope-restricted"
+                  SECRET="scope-restricted-secret-please-change"
+
+                  # Request an allowed-only scope mix → must succeed.
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid email")
+                  echo "allowed: ${RESP}"
+                  echo "$RESP" | jq -e .access_token >/dev/null \
+                    || { echo "FAIL: allowed-only request rejected"; exit 1; }
+                  echo "✓ allowed scopes (openid email) accepted"
+
+                  # Request including the disallowed `groups` scope.
+                  # Fosite default behaviour: 400 invalid_scope. If
+                  # kubauth filters instead, the response will be 200
+                  # with a granted scope set NOT containing groups.
+                  HTTP=$(curl -sk -o /tmp/r -w "%{http_code}" \
+                    -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid email groups")
+                  RESP=$(cat /tmp/r)
+                  echo "out-of-list: HTTP=${HTTP} ${RESP}"
+
+                  case "$HTTP" in
+                    400)
+                      echo "$RESP" | grep -q "invalid_scope" \
+                        || { echo "FAIL: 400 but not invalid_scope: ${RESP}"; exit 1; }
+                      echo "✓ disallowed scope rejected with 400 invalid_scope"
+                      ;;
+                    200)
+                      # Must NOT have granted the disallowed scope.
+                      if echo "$RESP" | grep -q "\"scope\":\"[^\"]*groups"; then
+                        echo "FAIL: 200 with groups granted despite OidcClient.scopes excluding it"
+                        exit 1
+                      fi
+                      echo "✓ disallowed scope filtered out (response scope without groups)"
+                      ;;
+                    *)
+                      echo "FAIL: unexpected HTTP ${HTTP}"
+                      exit 1
+                      ;;
+                  esac
+                '
+
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod scope-curl --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete oidcclient scope-restricted --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret scope-restricted-secret --ignore-not-found --wait=false

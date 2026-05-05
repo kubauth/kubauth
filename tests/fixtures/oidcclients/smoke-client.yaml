@@ -1,0 +1,51 @@
+---
+# Smoke test OIDC client.
+#
+# Confidential client (has a secret). The secret's value is "smoke-client-secret-please-change",
+# stored bcrypt-hashed in the Secret below — kubauth re-hashes anything we provide unless
+# `hashed: true` is set, but since the bcrypt cost is 12, hashing once and reusing is faster.
+#
+# Used by: e2e/01-smoke-login
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smoke-client-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "smoke-client-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: smoke-client
+  namespace: kubauth-system
+spec:
+  description: Smoke test — confidential client
+  displayName: Smoke
+  public: false
+  secrets:
+    - name: smoke-client-secret
+      key: client_secret
+      hashed: false
+  redirectURIs:
+    - "http://localhost:9999/callback"
+  grantTypes:
+    - authorization_code
+    - refresh_token
+    - password   # ROPC, only used by the smoke test to skip the browser
+  responseTypes:
+    - code
+  scopes:
+    - openid
+    - profile
+    - email
+    - groups
+    - offline_access
+  audiences:
+    - kubauth-tests
+  forceOpenIdScope: true
+  accessTokenLifespan: 5m
+  refreshTokenLifespan: 30m
+  idTokenLifespan: 5m

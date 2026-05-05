@@ -1,0 +1,92 @@
+---
+# When two authorities know the same login, the merger composes the response
+# per the per-field "Authority" flags in kubauth-values.yaml.
+#
+# Test setup:
+#   - LDAP carol           : email=carol@example.test,      uid=2001, group=engineers
+#   - UCRD carol (per-test): email=carol-ucrd@example.test, uid=5001, no group
+#
+# kubauth-values.yaml:
+#   ucrd: critical=true, claimAuthority=true, emailAuthority=true, nameAuthority=true, groupAuthority=true
+#   ldap: critical=false, claimAuthority=false, nameAuthority=true, emailAuthority=true, groupAuthority=true
+#         + groupPattern "ldap-%s"
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: merger-claim-priority
+spec:
+  description: |
+    Carol is in both UCRD and LDAP. ROPC with the UCRD password yields a
+    token whose claims are the documented merge of the two sources.
+
+  steps:
+    - name: priority-merged-correctly
+      try:
+        - apply:
+            file: user.yaml
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: User
+              metadata: {name: carol, namespace: kubauth-users}
+              spec: {uid: 5001}
+        - script:
+            content: |
+              set -eu
+              kubectl run merger-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "smoke-client:smoke-client-secret-please-change" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=carol" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid profile email groups")
+                  echo "${RESP}"
+                  ID=$(echo "$RESP" | sed -n "s/.*\"id_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  [ -n "$ID" ] || { echo "no id_token: $RESP"; exit 1; }
+
+                  PAYLOAD=$(echo "$ID" | cut -d. -f2)
+                  REM=$(( ${#PAYLOAD} % 4 ))
+                  case "$REM" in
+                    2) PAYLOAD="${PAYLOAD}==" ;;
+                    3) PAYLOAD="${PAYLOAD}=" ;;
+                  esac
+                  CLAIMS=$(printf "%s" "$PAYLOAD" | tr "_-" "/+" | base64 -d 2>/dev/null || true)
+                  echo "claims: ${CLAIMS}"
+
+                  # UCRD validated the credential (its password matched), so authority=ucrd.
+                  echo "$CLAIMS" | jq -e ".authority == \"ucrd\"" >/dev/null             || { echo "authority != ucrd"; exit 1; }
+                  echo "$CLAIMS" | jq -e ".sub == \"carol\"" >/dev/null                  || { echo "sub != carol"; exit 1; }
+                  # email = primary (claimAuthority on UCRD wins).
+                  echo "$CLAIMS" | jq -e ".email == \"carol-ucrd@example.test\"" >/dev/null \
+                    || { echo "expected email=carol-ucrd@... (UCRD wins)"; exit 1; }
+                  # emails[] = union (both authorities contributed).
+                  echo "$CLAIMS" | jq -e ".emails | index(\"carol-ucrd@example.test\")" >/dev/null \
+                    || { echo "expected UCRD email in emails[]"; exit 1; }
+                  echo "$CLAIMS" | jq -e ".emails | index(\"carol@example.test\")" >/dev/null \
+                    || { echo "expected LDAP email also in emails[]"; exit 1; }
+                  # name = UCRD (UCRD nameAuthority=true, comes first).
+                  echo "$CLAIMS" | jq -e ".name == \"Carol from UCRD\"" >/dev/null \
+                    || { echo "name != Carol from UCRD"; exit 1; }
+                  # uid = UCRD (5001), not LDAP (2001).
+                  echo "$CLAIMS" | jq -e ".uid == 5001" >/dev/null \
+                    || { echo "uid != 5001 (UCRD)"; exit 1; }
+                  # groups: UCRD has none for carol → only LDAP'"'"'s, prefixed by groupPattern.
+                  echo "$CLAIMS" | jq -e ".groups == [\"ldap-engineers\"]" >/dev/null \
+                    || { echo "groups != [ldap-engineers]"; exit 1; }
+                  echo "✓ merger composed claims per documented priority"
+                '
+      finally:
+        - script:
+            content: |
+              kubectl -n kubauth-users delete user carol --ignore-not-found --wait=false
+              kubectl -n $NAMESPACE delete pod merger-curl --ignore-not-found --wait=false

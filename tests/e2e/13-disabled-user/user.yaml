@@ -1,0 +1,18 @@
+---
+# Per-test User fixture: a real user with disabled=true.
+# Password hash matches "alice-password" (we reuse the well-known hash from
+# alice.yaml, since the goal of the test is to prove disabled=true rejects
+# even a correct credential).
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: User
+metadata:
+  name: disabled-user-test
+  namespace: kubauth-users
+spec:
+  name: Disabled Test User
+  emails:
+    - disabled-test@example.test
+  passwordHash: "$2a$12$5nbfe7pS/7piy65qQIoKq.6GRo1jj/hUA2fBoN.COLVKL9R.K1MD."
+  uid: 9001
+  disabled: true
+  comment: "Used by 13-disabled-user — must NEVER authenticate."

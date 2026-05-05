@@ -1,0 +1,76 @@
+---
+# `User.spec.disabled: true` blocks every authentication attempt for that user,
+# regardless of credential correctness.
+#
+# Audit must still record the attempt with status=disabled — operators need
+# visibility on attempted use of locked accounts.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: disabled-user
+spec:
+  description: |
+    Apply a User with disabled=true. ROPC with the *correct* password must
+    return invalid_grant (same error as bad password — anti-enumeration), and
+    the audit chain must record the attempt with spec.status=disabled.
+
+  steps:
+    - name: disabled-user-rejected
+      try:
+        - apply:
+            file: user.yaml
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: User
+              metadata: {name: disabled-user-test, namespace: kubauth-users}
+              spec: {disabled: true}
+        - script:
+            content: |
+              set -eu
+              kubectl run disabled-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "smoke-client:smoke-client-secret-please-change" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=disabled-user-test" \
+                    --data-urlencode "password=alice-password")
+                  echo "${RESP}"
+                  echo "$RESP" | jq -e ".error == \"invalid_grant\"" >/dev/null \
+                    || { echo "expected invalid_grant for disabled user, got: $RESP"; exit 1; }
+                  # Anti-enumeration: error_description must NOT mention the word "disabled"
+                  case "$RESP" in
+                    *disabled*) echo "leak: error message exposes disabled state: $RESP"; exit 1 ;;
+                  esac
+                '
+
+              # audit asynchronously persists LAs — give it a moment.
+              sleep 3
+
+              LAS=$(kubectl -n kubauth-audit get la --no-headers \
+                -o custom-columns=LOGIN:.spec.user.login,STATUS:.spec.status \
+                | awk '$1 == "disabled-user-test" {print $1 "|" $2}')
+              echo "matching LAs:"
+              echo "${LAS}"
+              echo "${LAS}" | grep -q "^disabled-user-test|disabled$" \
+                || { echo "no LoginAttempt with status=disabled for disabled-user-test"; exit 1; }
+              echo "✓ disabled user rejected and audited"
+      finally:
+        - script:
+            content: |
+              kubectl -n kubauth-users delete user disabled-user-test \
+                --ignore-not-found --wait=false
+              kubectl -n kubauth-audit get la -o name \
+                | grep "/disabled-user-test-" \
+                | xargs -r kubectl -n kubauth-audit delete --ignore-not-found
+              kubectl -n $NAMESPACE delete pod disabled-curl \
+                --ignore-not-found --wait=false

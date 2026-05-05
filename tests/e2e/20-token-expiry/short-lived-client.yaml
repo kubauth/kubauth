@@ -1,0 +1,42 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: short-lived-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "short-lived-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: short-lived-client
+  namespace: kubauth-system
+spec:
+  description: Token expiry test — very short lifespans
+  displayName: Short-lived
+  public: false
+  secrets:
+    - name: short-lived-secret
+      key: client_secret
+      hashed: false
+  redirectURIs:
+    - "http://localhost:9999/callback"
+  grantTypes:
+    - authorization_code
+    - refresh_token
+    - password
+  responseTypes:
+    - code
+  scopes:
+    - openid
+    - profile
+    - email
+    - offline_access
+  audiences:
+    - kubauth-tests
+  forceOpenIdScope: true
+  accessTokenLifespan: 5s
+  refreshTokenLifespan: 15s
+  idTokenLifespan: 5s

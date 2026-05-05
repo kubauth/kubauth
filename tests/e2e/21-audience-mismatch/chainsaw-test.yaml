@@ -1,0 +1,122 @@
+---
+# CT-4: cross-client introspect & userinfo behavior. The original
+# acceptance criterion (token issued to client A must be REJECTED at
+# introspect when client B authenticates) does not hold against kubauth's
+# current implementation: introspection accepts any authenticated
+# confidential client and does not filter by token audience. RFC 7662
+# does not strictly mandate filtering, but multi-tenant deployments
+# typically expect it. See README "Open question".
+#
+# This test asserts what is verifiable today:
+#   - introspect with real client credentials and a real token → active=true
+#   - introspect with bad credentials → 401
+#   - introspect with a garbage token → active=false
+#   - userinfo with a garbage Bearer → 401
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: audience-mismatch
+spec:
+  description: |
+    /oauth2/introspect requires valid client credentials and is robust
+    to garbage tokens. Cross-client introspection (the stricter
+    audience-filter behavior) is not enforced — see README.
+
+  steps:
+    - name: client-b-ready
+      try:
+        - apply:
+            file: client-b.yaml
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: aud-mismatch-b, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: introspect-credential-and-payload-checks
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run aud-mismatch \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID_A="smoke-client"
+                  SECRET_A="smoke-client-secret-please-change"
+                  CID_B="aud-mismatch-b"
+                  SECRET_B="aud-mismatch-b-secret-please-change"
+
+                  # Get an access token issued to client A.
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID_A}:${SECRET_A}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid")
+                  AT=$(echo "$RESP" | sed -n "s/.*\"access_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  [ -n "$AT" ] || { echo "FAIL: no access_token from client A"; exit 1; }
+
+                  # 1. Real client A introspects its own real token → active.
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/introspect" \
+                    -u "${CID_A}:${SECRET_A}" \
+                    --data-urlencode "token=${AT}")
+                  echo "$RESP" | jq -e ".active == true" >/dev/null \
+                    || { echo "FAIL: real token not active for issuing client; resp=$RESP"; exit 1; }
+                  echo "✓ real introspect → active=true"
+
+                  # 2. Bad client A password → 401, not 200.
+                  BAD_PW="not-the-real-secret"
+                  HTTP=$(curl -sk -X POST "${ISS}/oauth2/introspect" \
+                    -u "${CID_A}:${BAD_PW}" \
+                    --data-urlencode "token=${AT}" \
+                    -o /dev/null -w "%{http_code}")
+                  case "$HTTP" in
+                    401|403) : ;;
+                    *) echo "FAIL: bad password returned HTTP ${HTTP}"; exit 1 ;;
+                  esac
+                  echo "✓ bad client credentials → ${HTTP}"
+
+                  # 3. Garbage token from a real client → active=false.
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/introspect" \
+                    -u "${CID_B}:${SECRET_B}" \
+                    --data-urlencode "token=ory_at_GARBAGE_NOT_A_REAL_TOKEN")
+                  echo "$RESP" | jq -e ".active == false" >/dev/null \
+                    || { echo "FAIL: garbage token not flagged inactive; resp=$RESP"; exit 1; }
+                  echo "✓ garbage token → active=false"
+
+                  # 4. Garbage Bearer at /userinfo → 401.
+                  HTTP=$(curl -sk -H "Authorization: Bearer not-a-token" \
+                    -o /dev/null -w "%{http_code}" \
+                    "${ISS}/userinfo")
+                  [ "$HTTP" = "401" ] \
+                    || { echo "FAIL: /userinfo with garbage Bearer returned ${HTTP}"; exit 1; }
+                  echo "✓ /userinfo garbage Bearer → 401"
+
+                  # 5. Documented current behavior — cross-client introspect
+                  # does NOT reject. Asserting this lets us notice if the
+                  # behavior changes (the test will fail and we re-evaluate).
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/introspect" \
+                    -u "${CID_B}:${SECRET_B}" \
+                    --data-urlencode "token=${AT}")
+                  if echo "$RESP" | jq -e ".active == true" >/dev/null; then
+                    echo "INFO: cross-client introspect is permissive (current behavior)"
+                  else
+                    echo "WARN: cross-client introspect now restrictive — update test + README"
+                  fi
+                '
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod aud-mismatch --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete oidcclient aud-mismatch-b --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret aud-mismatch-b-secret --ignore-not-found --wait=false

@@ -1,0 +1,114 @@
+---
+# A2: GroupBinding flow.
+# A new Group + GroupBinding mapping alice → qa-team must surface in
+# alice's id_token claims (groups[]); deleting the binding must remove
+# qa-team from the next ROPC's claims.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: groupbinding
+spec:
+  description: |
+    GroupBinding adds and removes groups from a user's id_token claims.
+
+  steps:
+    - name: bind-alice-to-qa-team
+      try:
+        - apply:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: Group
+              metadata:
+                name: qa-team
+                namespace: kubauth-users
+              spec:
+                comment: "QA team — created by 25-groupbinding"
+        - apply:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: GroupBinding
+              metadata:
+                name: alice-qa-team
+                namespace: kubauth-users
+              spec:
+                user: alice
+                group: qa-team
+        - script:
+            content: |
+              set -eu
+              # Reconcile is fast but not synchronous; allow ~5 s.
+              sleep 3
+              kubectl run gb-curl-1 \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid profile email groups")
+                  ID=$(echo "$RESP" | sed -n "s/.*\"id_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  [ -n "$ID" ] || { echo "FAIL: no id_token"; exit 1; }
+                  PAYLOAD=$(echo "$ID" | cut -d. -f2)
+                  case $(( ${#PAYLOAD} % 4 )) in
+                    2) PAYLOAD="${PAYLOAD}==" ;;
+                    3) PAYLOAD="${PAYLOAD}=" ;;
+                  esac
+                  CLAIMS=$(printf "%s" "$PAYLOAD" | tr "_-" "/+" | base64 -d 2>/dev/null || true)
+                  echo "claims: ${CLAIMS}"
+                  echo "$CLAIMS" | jq -e ".groups | index(\"qa-team\")" >/dev/null \
+                    || { echo "FAIL: qa-team missing from groups[] after binding"; exit 1; }
+                  echo "✓ qa-team present in groups[] after binding"
+                '
+
+    - name: unbind-removes-claim
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl -n kubauth-users delete groupbinding alice-qa-team
+              sleep 3
+              kubectl run gb-curl-2 \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid profile email groups")
+                  ID=$(echo "$RESP" | sed -n "s/.*\"id_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  PAYLOAD=$(echo "$ID" | cut -d. -f2)
+                  case $(( ${#PAYLOAD} % 4 )) in
+                    2) PAYLOAD="${PAYLOAD}==" ;;
+                    3) PAYLOAD="${PAYLOAD}=" ;;
+                  esac
+                  CLAIMS=$(printf "%s" "$PAYLOAD" | tr "_-" "/+" | base64 -d 2>/dev/null || true)
+                  echo "claims: ${CLAIMS}"
+                  if echo "$CLAIMS" | jq -e ".groups | index(\"qa-team\")" >/dev/null; then
+                    echo "FAIL: qa-team still in groups[] after unbinding"; exit 1
+                  fi
+                  echo "✓ qa-team gone from groups[] after unbinding"
+                '
+
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod gb-curl-1 gb-curl-2 --ignore-not-found --wait=false 2>/dev/null || true
+              kubectl -n kubauth-users delete groupbinding alice-qa-team --ignore-not-found --wait=false
+              kubectl -n kubauth-users delete group qa-team --ignore-not-found --wait=false

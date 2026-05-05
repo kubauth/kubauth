@@ -1,0 +1,70 @@
+# Pre-commit hooks. Source of truth for everything that must pass before a commit.
+#
+# Setup (in the devcontainer, runs automatically via post-create.sh):
+#   pre-commit install
+#
+# Run manually:
+#   pre-commit run --all-files
+#
+# Reference: https://pre-commit.com
+---
+# Skip slow hooks in CI by default; the GH workflow re-runs them on the diff.
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
+repos:
+  # ─── Whitespace / EOL / merge conflicts / large files ────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-symlinks
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        # Helm chart templates use Go template syntax that breaks YAML parsers.
+        # In-tree layout: fixtures live at tests/fixtures/, the kubauth chart
+        # at helm/kubauth/templates/.
+        exclude: '^(tests/fixtures/.*helm-template|.*/templates/).*'
+
+  # ─── Bash hygiene ────────────────────────────────────────────────────────
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
+        args: [--external-sources, --severity=style]
+
+  # ─── YAML lint ───────────────────────────────────────────────────────────
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.36.1
+    hooks:
+      - id: yamllint
+        args: [-c, .yamllint.yaml]
+
+  # ─── Markdown lint ───────────────────────────────────────────────────────
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.42.0
+    hooks:
+      - id: markdownlint-fix
+        args: [--config, .markdownlint.yaml]
+
+  # ─── Secret detection (critical for an OIDC-related repo) ────────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        args: [--config, .gitleaks.toml]
+
+  # ─── Conventional commits — enforced on commit-msg ───────────────────────
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.6.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, test, chore, refactor, perf, ci, build, revert]

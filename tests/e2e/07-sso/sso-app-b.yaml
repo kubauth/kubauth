@@ -1,0 +1,41 @@
+---
+# Second confidential client used by 07-sso-cross-app to verify that a
+# kubauth_sso cookie established on smoke-client (app A) is honoured by
+# /oauth2/login for sso-app-b (app B), bypassing the password form.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sso-app-b-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "sso-app-b-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: sso-app-b
+  namespace: kubauth-system
+spec:
+  description: SSO cross-app test — confidential client B
+  displayName: SSO App B
+  public: false
+  secrets:
+    - name: sso-app-b-secret
+      key: client_secret
+      hashed: false
+  redirectURIs:
+    - "http://localhost:9999/b/callback"
+  grantTypes:
+    - authorization_code
+  responseTypes:
+    - code
+  scopes:
+    - openid
+    - profile
+    - email
+  audiences:
+    - kubauth-tests
+  forceOpenIdScope: true
+  accessTokenLifespan: 5m
+  idTokenLifespan: 5m

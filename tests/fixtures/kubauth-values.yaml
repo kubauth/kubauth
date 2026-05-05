@@ -1,0 +1,117 @@
+# Helm values for the kubauth chart, tailored to the test cluster.
+#
+# Goals:
+#   - minimal surface (no LDAP, no ingress, no metrics in v1)
+#   - intra-cluster issuer URL so smoke tests can hit the OIDC server directly
+#   - self-signed cert-manager issuer
+#
+# When this file grows, split into kubauth-values-{base,ldap,upstream}.yaml
+# and merge with `helm install -f a.yaml -f b.yaml`.
+
+replicaCount: 1
+
+networkPolicies:
+  enabled: false
+
+oidc:
+  ingress:
+    enabled: false
+
+  # Issuer must match exactly what clients expect in the id_token.iss claim.
+  # For tests we point everyone at the in-cluster service.
+  issuer: https://kubauth-oidc-server.kubauth-system.svc:443
+
+  # POST /logout redirect destination after a successful logout.
+  postLogoutURL: https://kubauth-oidc-server.kubauth-system.svc:443/index
+
+  # ROPC (password grant) is needed by the smoke test to skip the browser flow.
+  # Disable in any plan that targets conformance for confidential code-only flows.
+  allowPasswordGrant: true
+
+  # Enforce PKCE on public clients — best practice for any 2025+ deployment.
+  enforcePKCE: true
+  allowPKCEPlain: false
+
+  sso:
+    mode: never
+
+  server:
+    certificateIssuer: kubauth-tests-selfsigned
+    issuerKind: ClusterIssuer
+
+ucrd:
+  enabled: true
+  createNamespace: false
+  server:
+    certificateIssuer: kubauth-tests-selfsigned
+    issuerKind: ClusterIssuer
+
+merger:
+  enabled: true
+  server:
+    # Brute-force lockout enabled at the merger (front-end of authorities).
+    # Tested by e2e/09-lockout-bfa.
+    bfaProtection: true
+    certificateIssuer: kubauth-tests-selfsigned
+    issuerKind: ClusterIssuer
+  idProviders:
+    - name: ucrd
+      httpConfig:
+        baseURL: http://localhost:6802
+      credentialAuthority: true
+      groupAuthority: true
+      groupPattern: "%s"
+      claimAuthority: true
+      claimPattern: "%s"
+      nameAuthority: true
+      emailAuthority: true
+      critical: true
+    # LDAP comes second so ucrd wins on overlapping logins (alice → ucrd; carol → ldap).
+    # Tested by e2e/10-ldap-authority and e2e/11-merger-claim-priority.
+    - name: ldap
+      httpConfig:
+        baseURL: http://localhost:6803
+      credentialAuthority: true
+      groupAuthority: true
+      groupPattern: "ldap-%s"   # disambiguate ldap groups vs UCRD ones
+      claimAuthority: false     # let UCRD own claims when both reply
+      nameAuthority: true
+      emailAuthority: true
+      critical: false
+
+audit:
+  enabled: true
+  server:
+    certificateIssuer: kubauth-tests-selfsigned
+    issuerKind: ClusterIssuer
+  idProvider:
+    baseURL: http://localhost:6804
+
+# LDAP authority enabled, pointing at the OpenLDAP fixture (fixtures/ldap/).
+ldap:
+  enabled: true
+  ldap:
+    host: openldap.ldap-test.svc
+    port: 1389
+    insecureNoSSL: true
+    timeoutSec: 10
+    bindDN: cn=admin,dc=kubauth-tests,dc=local
+    bindPW: ldapadmin                                 # test cluster only
+    userSearch:
+      baseDN: ou=Users,dc=kubauth-tests,dc=local
+      filter: "(objectClass=inetOrgPerson)"
+      loginAttr: uid
+      scope: sub
+      cnAttr: cn
+      emailAttr: mail
+      numericalIdAttr: uidNumber
+    groupSearch:
+      baseDN: ou=Groups,dc=kubauth-tests,dc=local
+      filter: "(objectClass=posixGroup)"
+      linkGroupAttr: memberUid
+      linkUserAttr: uid
+      nameAttr: cn
+      scope: sub
+  server:
+    certificateIssuer: kubauth-tests-selfsigned
+    issuerKind: ClusterIssuer
