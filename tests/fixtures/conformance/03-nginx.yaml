@@ -1,0 +1,59 @@
+---
+# TLS-terminating front for the conformance suite. The upstream nginx
+# image already ships a self-signed cert for localhost.emobix.co.uk
+# and proxies to the server container at port 8080. Browser hits this
+# via `kubectl port-forward` (see README).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conformance-nginx
+  namespace: conformance
+  labels:
+    app: conformance-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: conformance-nginx
+  template:
+    metadata:
+      labels:
+        app: conformance-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: registry.gitlab.com/openid/conformance-suite/nginx:release-v5.1.43
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8443
+              name: https
+          # The upstream nginx config does `proxy_pass http://server:8080`
+          # by name. We satisfy that by naming the server Service
+          # `server` (scoped in the conformance namespace).
+          readinessProbe:
+            tcpSocket: {port: 8443}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conformance-nginx
+  namespace: conformance
+spec:
+  # Fixed ClusterIP so the conformance-server pod can resolve
+  # `localhost.emobix.co.uk` to it via hostAliases (see 02-server.yaml).
+  # Without this, the suite's WebRunner can't follow OP redirects back
+  # to its own callback URL after kubauth issues the auth code.
+  # Picked from kind's default service CIDR 10.96.0.0/16, well outside
+  # the auto-allocated range that the apiserver actually uses.
+  clusterIP: 10.96.255.10
+  selector:
+    app: conformance-nginx
+  ports:
+    - name: https
+      port: 8443
+      targetPort: 8443

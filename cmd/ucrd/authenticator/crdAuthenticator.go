@@ -59,7 +59,7 @@ func (c *crdAuthenticator) Authenticate(ctx context.Context, request *proto.Iden
 	groupBindingList := kubauthv1alpha1.GroupBindingList{}
 	err := c.k8sClient.List(ctx, &groupBindingList, client.MatchingFields{"userkey": request.Login}, client.InNamespace(c.userNamespace))
 	if err != nil {
-		return nil, fmt.Errorf("failed to list groupBindings for user %s: %w", request.Login)
+		return nil, fmt.Errorf("failed to list groupBindings for user %s: %w", request.Login, err)
 	}
 	// Sort groupBindings by group name, to have a predictable claims merge
 	sort.Slice(groupBindingList.Items, func(i, j int) bool {

@@ -1,0 +1,157 @@
+---
+# CT-5 (re-scoped): the OidcClient validation webhook is currently a
+# skeleton (returns nil, nil for ValidateCreate and ValidateUpdate).
+# Validation actually lives in the reconciler, which sets
+# status.phase = ERROR and a status.message when the spec is unusable.
+# This test exercises the validation that DOES fire today.
+#
+# It also asserts the defaulting webhook (which IS implemented):
+# accessTokenLifespan / refreshTokenLifespan / idTokenLifespan default
+# to 1h when omitted.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: oidcclient-validation
+spec:
+  description: |
+    OidcClient spec is validated by the reconciler (not by a webhook
+    today): public=false without secrets fails; public=true with
+    secrets fails; missing lifespans get defaulted to 1h by the
+    defaulting webhook.
+
+  steps:
+    # ── defaulting webhook: missing lifespans get 1h ─────────────────
+    - name: lifespan-defaults-applied
+      try:
+        - apply:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: validation-defaults
+                namespace: kubauth-system
+              spec:
+                public: true
+                redirectURIs:
+                  - "http://localhost:9999/cb"
+                grantTypes: [authorization_code]
+                responseTypes: [code]
+                scopes: [openid]
+                forceOpenIdScope: true
+        # accessTokenLifespan should be 1h after the defaulter runs.
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: validation-defaults
+                namespace: kubauth-system
+              spec:
+                accessTokenLifespan: 1h0m0s
+                refreshTokenLifespan: 1h0m0s
+                idTokenLifespan: 1h0m0s
+
+      finally:
+        - script:
+            content: |
+              kubectl -n kubauth-system delete oidcclient validation-defaults --ignore-not-found --wait=false
+
+    # ── reconciler-level validation: public=false but no secrets ─────
+    - name: confidential-without-secret-rejected
+      try:
+        - apply:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: validation-no-secret
+                namespace: kubauth-system
+              spec:
+                public: false
+                redirectURIs:
+                  - "http://localhost:9999/cb"
+                grantTypes: [authorization_code]
+                responseTypes: [code]
+                scopes: [openid]
+                forceOpenIdScope: true
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: validation-no-secret
+                namespace: kubauth-system
+              status:
+                phase: ERROR
+        - script:
+            content: |
+              set -eu
+              MSG=$(kubectl -n kubauth-system get oidcclient validation-no-secret \
+                -o jsonpath='{.status.message}')
+              echo "status.message: $MSG"
+              echo "$MSG" | grep -qi "secret" \
+                || { echo "FAIL: expected secret-related message; got: $MSG"; exit 1; }
+
+      finally:
+        - script:
+            content: |
+              kubectl -n kubauth-system delete oidcclient validation-no-secret --ignore-not-found --wait=false
+
+    # ── reconciler-level validation: public=true with secrets ────────
+    - name: public-with-secret-rejected
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: validation-orphan-secret
+                namespace: kubauth-system
+              type: Opaque
+              stringData:
+                client_secret: "should-not-be-used"
+        - apply:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: validation-public-secret
+                namespace: kubauth-system
+              spec:
+                public: true
+                secrets:
+                  - name: validation-orphan-secret
+                    key: client_secret
+                    hashed: false
+                redirectURIs:
+                  - "http://localhost:9999/cb"
+                grantTypes: [authorization_code]
+                responseTypes: [code]
+                scopes: [openid]
+                forceOpenIdScope: true
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: validation-public-secret
+                namespace: kubauth-system
+              status:
+                phase: ERROR
+        - script:
+            content: |
+              set -eu
+              MSG=$(kubectl -n kubauth-system get oidcclient validation-public-secret \
+                -o jsonpath='{.status.message}')
+              echo "status.message: $MSG"
+              echo "$MSG" | grep -qi "public" \
+                || { echo "FAIL: expected message mentioning 'public'; got: $MSG"; exit 1; }
+
+      finally:
+        - script:
+            content: |
+              kubectl -n kubauth-system delete oidcclient validation-public-secret --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret validation-orphan-secret --ignore-not-found --wait=false

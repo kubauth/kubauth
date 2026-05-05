@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fed-upstream-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "fed-upstream-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: UpstreamProvider
+metadata:
+  name: fed-upstream
+  namespace: kubauth-system
+spec:
+  type: oidc
+  displayName: Fed Mock OIDC
+  issuerURL: http://mock-oidc.mock-oidc-test.svc:8080/kubauth
+  redirectURL: https://kubauth-oidc-server.kubauth-system.svc:443/upstream/callback
+  clientId: kubauth-fed-test
+  clientSecret:
+    secret:
+      name: fed-upstream-secret
+      key: client_secret
+  scopes:
+    - openid
+    - email
+    - profile

@@ -1,0 +1,35 @@
+---
+# Client secret accepted by the mock OIDC issuer. mock-oauth2-server does not
+# enforce client_secret in its default mode, but we still wire one through to
+# exercise the kubauth controller's secret-fetching path.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mock-upstream-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "mock-upstream-secret-please-change"
+---
+# Points at the mock-oauth2-server deployed in fixtures/mock-oidc/.
+# The issuer URL ends with /kubauth because mock-oauth2-server treats the path
+# segment as the OIDC issuer identifier.
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: UpstreamProvider
+metadata:
+  name: mock-upstream
+  namespace: kubauth-system
+spec:
+  type: oidc
+  displayName: Mock OIDC
+  issuerURL: http://mock-oidc.mock-oidc-test.svc:8080/kubauth
+  redirectURL: https://kubauth-oidc-server.kubauth-system.svc:443/upstream/callback
+  clientId: kubauth-tests-upstream
+  clientSecret:
+    secret:
+      name: mock-upstream-secret
+      key: client_secret
+  scopes:
+    - openid
+    - email
+    - profile

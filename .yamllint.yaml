@@ -1,0 +1,30 @@
+---
+# yamllint config — strict-but-pragmatic.
+# Reference: https://yamllint.readthedocs.io/en/stable/configuration.html
+
+extends: default
+
+rules:
+  # Helm-rendered manifests can have very long lines — opt out for those.
+  line-length:
+    max: 140
+    level: warning
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false   # 'on:' in GitHub Actions is a key, not a value
+  # Comments don't need leading space if they start with '#!' or contain code.
+  comments:
+    min-spaces-from-content: 1
+  # `---` document start is recommended but not required when there's a single doc.
+  document-start: disable
+
+ignore: |
+  .tmp/
+  .cache/
+  out/
+  dist/
+  # Helm chart templates use Go template syntax ({{ .Values… }}) which is
+  # not valid YAML. The chart values.yaml at helm/kubauth/values.yaml is
+  # plain YAML and remains linted.
+  helm/**/templates/
+  tests/.tmp/

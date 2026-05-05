@@ -1,0 +1,43 @@
+---
+# LDIF seed for the test OpenLDAP server.
+# bitnami/openldap autoimports any .ldif file in $LDAP_CUSTOM_LDIF_DIR (/ldifs).
+# Single file → no multi-file ordering surprises.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openldap-ldif
+  namespace: ldap-test
+data:
+  10-seed.ldif: |
+    dn: dc=kubauth-tests,dc=local
+    objectClass: top
+    objectClass: dcObject
+    objectClass: organization
+    o: kubauth-tests
+    dc: kubauth-tests
+
+    dn: ou=Users,dc=kubauth-tests,dc=local
+    objectClass: organizationalUnit
+    ou: Users
+
+    dn: ou=Groups,dc=kubauth-tests,dc=local
+    objectClass: organizationalUnit
+    ou: Groups
+
+    dn: uid=carol,ou=Users,dc=kubauth-tests,dc=local
+    objectClass: inetOrgPerson
+    objectClass: posixAccount
+    cn: Carol LDAP
+    sn: LDAP
+    uid: carol
+    uidNumber: 2001
+    gidNumber: 2001
+    homeDirectory: /home/carol
+    mail: carol@example.test
+    userPassword: carol-password
+
+    dn: cn=engineers,ou=Groups,dc=kubauth-tests,dc=local
+    objectClass: posixGroup
+    cn: engineers
+    gidNumber: 3001
+    memberUid: carol

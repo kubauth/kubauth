@@ -1,0 +1,17 @@
+---
+# Test user — used by every smoke / e2e flow.
+# Password is "alice-password" (bcrypt-hashed below).
+# Generate a new hash:
+#   htpasswd -bnBC 12 "" alice-password | tr -d ':\n'
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: User
+metadata:
+  name: alice
+  namespace: kubauth-users
+spec:
+  name: Alice Smith
+  emails:
+    - alice@example.test
+  passwordHash: "$2a$12$5nbfe7pS/7piy65qQIoKq.6GRo1jj/hUA2fBoN.COLVKL9R.K1MD."
+  uid: 1001
+  comment: "Test user — alice / alice-password"

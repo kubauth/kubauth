@@ -1,0 +1,70 @@
+---
+# OpenLDAP test server. Single replica, no persistence — every restart
+# reseeds from the LDIF ConfigMap.
+#
+# Uses the bitnami "legacy" public mirror (the maintained
+# `bitnami/openldap` was pulled behind auth in late 2025).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openldap
+  namespace: ldap-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openldap
+  template:
+    metadata:
+      labels:
+        app: openldap
+    spec:
+      containers:
+        - name: openldap
+          image: bitnamilegacy/openldap:2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: ldap
+              containerPort: 1389
+            - name: ldaps
+              containerPort: 1636
+          env:
+            - name: LDAP_ROOT
+              value: dc=kubauth-tests,dc=local
+            - name: LDAP_ADMIN_USERNAME
+              value: admin
+            - name: LDAP_ADMIN_PASSWORD
+              value: ldapadmin                     # test only
+            - name: LDAP_CUSTOM_LDIF_DIR
+              value: /ldifs
+            # Let bitnami create the base dc=kubauth-tests,dc=local entry.
+            # Without it our OU entries have no parent → silent skip.
+          volumeMounts:
+            - name: ldif
+              mountPath: /ldifs
+              readOnly: true
+          readinessProbe:
+            tcpSocket: {port: 1389}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: 1389}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: ldif
+          configMap:
+            name: openldap-ldif
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap
+  namespace: ldap-test
+spec:
+  selector:
+    app: openldap
+  ports:
+    - name: ldap
+      port: 1389
+      targetPort: 1389

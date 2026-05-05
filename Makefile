@@ -223,6 +223,86 @@ chart-kubauth-users: chart-kubauth-users-yaml crds ## Build and push oidc users 
 
 
 charts: chart-kubauth chart-kubauth-users	## Build all charts
+
+##@ E2E Testing
+# Proxies into tests/Makefile so contributors can run every test target
+# from the repo root. Heavy lifting (Kind, cert-manager, chainsaw, helm
+# install, conformance suite) lives in tests/. Keep this list in sync
+# with the public targets in tests/Makefile — `make help` (root) should
+# expose the same surface as `make help` (tests/).
+
+# ─── Cluster lifecycle ────────────────────────────────────────────────────
+.PHONY: kind-up
+kind-up: ## Boot the local Kind cluster + registry
+	$(MAKE) -C tests kind-up
+
+.PHONY: kind-down
+kind-down: ## Tear down the Kind cluster + registry
+	$(MAKE) -C tests kind-down
+
+.PHONY: dev-up
+dev-up: ## Full bring-up: kind-up + cert-manager + helm install kubauth
+	$(MAKE) -C tests dev-up
+
+.PHONY: dev-down
+dev-down: ## Full teardown
+	$(MAKE) -C tests dev-down
+
+# ─── Chainsaw e2e ─────────────────────────────────────────────────────────
+.PHONY: e2e-smoke
+e2e-smoke: ## Run only the smoke e2e test (~30s)
+	$(MAKE) -C tests e2e-smoke
+
+.PHONY: e2e-smoke-debug
+e2e-smoke-debug: ## Run the smoke test, keep all resources for inspection
+	$(MAKE) -C tests e2e-smoke-debug
+
+.PHONY: e2e
+e2e: ## Run the full chainsaw e2e suite (requires dev-up first)
+	$(MAKE) -C tests e2e
+
+.PHONY: e2e-debug
+e2e-debug: ## Run the full e2e suite, keep resources of failures for inspection
+	$(MAKE) -C tests e2e-debug
+
+.PHONY: e2e-regression
+e2e-regression: ## Run regression tests (one dir per fixed bug)
+	$(MAKE) -C tests e2e-regression
+
+# ─── OIDF Conformance ─────────────────────────────────────────────────────
+.PHONY: conformance-up
+conformance-up: ## Deploy the OpenID Conformance Suite into the kind cluster
+	$(MAKE) -C tests conformance-up
+
+.PHONY: conformance-down
+conformance-down: ## Tear down the OpenID Conformance Suite from the cluster
+	$(MAKE) -C tests conformance-down
+
+.PHONY: conformance-portforward
+conformance-portforward: ## Port-forward the suite UI to https://localhost.emobix.co.uk:8443
+	$(MAKE) -C tests conformance-portforward
+
+.PHONY: conformance-config
+conformance-config: ## Run oidcc-config-certification-test-plan via the REST API
+	$(MAKE) -C tests conformance-config
+
+.PHONY: conformance-basic
+conformance-basic: ## Run oidcc-basic-certification-test-plan (toggles enforcePKCE off)
+	$(MAKE) -C tests conformance-basic
+
+.PHONY: conformance-rp-logout
+conformance-rp-logout: ## Run oidcc-rp-initiated-logout-certification-test-plan
+	$(MAKE) -C tests conformance-rp-logout
+
+.PHONY: conformance-all
+conformance-all: ## Run every wired conformance plan in sequence
+	$(MAKE) -C tests conformance-all
+
+# ─── Test-suite lint ──────────────────────────────────────────────────────
+.PHONY: tests-lint
+tests-lint: ## Lint the test suite (shellcheck on scripts/, yamllint on fixtures/ + e2e/)
+	$(MAKE) -C tests lint
+
 ##@ Dependencies
 
 ## Location to install dependencies to

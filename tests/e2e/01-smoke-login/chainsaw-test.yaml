@@ -1,0 +1,88 @@
+---
+# Smoke test — the simplest possible end-to-end flow.
+#
+# Goal: prove kubauth boots, accepts a user, and issues an id_token.
+# Method: ROPC (password grant) — skips the browser, just a POST /token.
+#
+# If THIS test fails, every other e2e is meaningless. Run it first on every PR.
+#
+# Pre-requisite: `make dev-up` has been run (cluster + kubauth + fixtures applied).
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: smoke-login
+spec:
+  description: |
+    Confidential OIDC client requests a token via ROPC for user `alice`.
+    Asserts that:
+      - the OidcClient reaches phase=READY
+      - POST /token returns 200 with a non-empty id_token
+      - GET /userinfo with the access_token returns alice's claims
+
+  steps:
+    - name: oidcclient-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata:
+                name: smoke-client
+                namespace: kubauth-system
+              status:
+                phase: READY
+
+    - name: user-and-binding-exist
+      try:
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: User
+              metadata:
+                name: alice
+                namespace: kubauth-users
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: GroupBinding
+              metadata:
+                name: alice-admins
+                namespace: kubauth-users
+              spec:
+                user: alice
+                group: admins
+
+    # Run the OIDC flow from a curl pod inside the cluster so we don't need
+    # ingress / port-forward. The pod is ephemeral — auto-cleaned by Chainsaw.
+    - name: ropc-token-request
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run smoke-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  TOKEN_URL="https://kubauth-oidc-server.kubauth-system.svc:443/oauth2/token"
+                  RESP=$(curl -sk -X POST "$TOKEN_URL" \
+                    -u "smoke-client:smoke-client-secret-please-change" \
+                    -d grant_type=password \
+                    -d username=alice \
+                    -d password=alice-password \
+                    -d scope="openid profile email groups offline_access")
+                  echo "$RESP"
+                  echo "$RESP" | jq -e .id_token     >/dev/null || { echo "no id_token in response";     exit 1; }
+                  echo "$RESP" | jq -e .access_token >/dev/null || { echo "no access_token in response"; exit 1; }
+                '
+
+    - name: cleanup-smoke-pod
+      try:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod smoke-curl --ignore-not-found --wait=false

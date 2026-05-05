@@ -1,0 +1,132 @@
+---
+# Authorization Code flow with PKCE S256 — full headless walk-through.
+#
+# Why this test exists:
+#   ROPC (smoke) only proves /token works in isolation. The real OIDC
+#   flow that production clients (kubelogin, oauth2-proxy, AppAuth, …)
+#   use is Authorization Code + PKCE. Without this test, we have zero
+#   coverage of the front channel (/oauth2/auth, /oauth2/login).
+#
+# Steps simulated:
+#   1. GET  /oauth2/auth?... (with code_challenge_method=S256)
+#         → 302 to /oauth2/login (sets kubauth_login cookie)
+#   2. POST /oauth2/login   with login=alice, password=alice-password
+#         → 303 to redirect_uri?code=<code>&state=<state>
+#   3. POST /oauth2/token   with code + code_verifier
+#         → 200 { id_token, access_token, refresh_token }
+#
+# Pre-requisite: `make dev-up` (the smoke-client fixture must exist).
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pkce-s256
+spec:
+  description: |
+    Walk Alice through Authorization Code + PKCE S256 end to end and
+    assert the resulting id_token carries the expected claims (sub,
+    aud, iss, groups).
+  steps:
+    - name: oidcclient-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: smoke-client, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: code-flow-with-pkce
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run pkce-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  STATE="abcdef1234567890"
+                  # Stable PKCE pair (RFC 7636 §C example):
+                  #   verifier  = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+                  #   challenge = base64url(sha256(verifier)) without padding
+                  VERIFIER="dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+                  CHALLENGE="E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  REDIR="http://localhost:9999/callback"
+                  # Request `groups` explicitly — the kubauth id_token only
+                  # ships group membership when the corresponding scope is
+                  # granted (OIDC Core 1.0 §5.4). Without this, the assertion
+                  # further down would fail because the filter (in
+                  # cmd/oidc/fositepatch/scope_filter.go) drops `groups`
+                  # from id_tokens issued against `scope=openid` only.
+                  # NOTE: no apostrophes inside this comment — we are still
+                  # inside a `sh -c '...'` single-quoted string.
+                  QS="response_type=code&client_id=${CID}&redirect_uri=${REDIR}&scope=openid+groups&state=${STATE}&code_challenge=${CHALLENGE}&code_challenge_method=S256"
+
+                  # Step 1: prime the session cookie via /oauth2/auth → /oauth2/login.
+                  curl -sk -L -c /tmp/cj -b /tmp/cj -o /dev/null "${ISS}/oauth2/auth?${QS}"
+
+                  # Step 2: submit credentials, capture redirect_url containing the code.
+                  REDIRECT=$(curl -sk -c /tmp/cj -b /tmp/cj \
+                    -X POST "${ISS}/oauth2/login?${QS}" \
+                    --data-urlencode "login=alice" \
+                    --data-urlencode "password=alice-password" \
+                    -o /dev/null -w "%{redirect_url}")
+                  echo "auth redirect: ${REDIRECT}"
+                  case "$REDIRECT" in
+                    "$REDIR"*) ;;
+                    *) echo "expected redirect to $REDIR, got: $REDIRECT"; exit 2 ;;
+                  esac
+                  CODE=$(echo "$REDIRECT" | sed -n "s/.*[?&]code=\\([^&]*\\).*/\\1/p")
+                  RECV_STATE=$(echo "$REDIRECT" | sed -n "s/.*[?&]state=\\([^&]*\\).*/\\1/p")
+                  [ -n "$CODE" ]  || { echo "no code in redirect"; exit 1; }
+                  [ "$RECV_STATE" = "$STATE" ] || { echo "state mismatch: $RECV_STATE vs $STATE"; exit 1; }
+
+                  # Step 3: exchange the code with the PKCE verifier.
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=authorization_code" \
+                    --data-urlencode "code=${CODE}" \
+                    --data-urlencode "redirect_uri=${REDIR}" \
+                    --data-urlencode "code_verifier=${VERIFIER}")
+                  echo "token response: ${RESP}"
+
+                  # Assertions on the JSON response
+                  echo "$RESP" | jq -e .id_token >/dev/null      || { echo "missing id_token";      exit 1; }
+                  echo "$RESP" | jq -e .access_token >/dev/null  || { echo "missing access_token";  exit 1; }
+                  echo "$RESP" | jq -e ".token_type == \"bearer\"" >/dev/null || { echo "wrong token_type"; exit 1; }
+
+                  # Decode the id_token payload (no signature check here — see conformance suite)
+                  ID_TOKEN=$(echo "$RESP" | sed -n "s/.*\"id_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  PAYLOAD=$(echo "$ID_TOKEN" | cut -d. -f2)
+                  # base64url → base64 + add = padding to multiple of 4
+                  REM=$(( ${#PAYLOAD} % 4 ))
+                  case "$REM" in
+                    2) PAYLOAD="${PAYLOAD}==" ;;
+                    3) PAYLOAD="${PAYLOAD}=" ;;
+                  esac
+                  CLAIMS=$(printf "%s" "$PAYLOAD" | tr "_-" "/+" | base64 -d 2>/dev/null || true)
+                  echo "id_token claims: ${CLAIMS}"
+
+                  echo "$CLAIMS" | jq -e ".sub == \"alice\"" >/dev/null               || { echo "sub != alice";      exit 1; }
+                  echo "$CLAIMS" | jq -e ".aud == [\"smoke-client\"]" >/dev/null  || { echo "aud != smoke-client"; exit 1; }
+                  echo "$CLAIMS" | jq -e ".iss == \"${ISS}\"" >/dev/null              || { echo "iss != ${ISS}";    exit 1; }
+                  echo "$CLAIMS" | jq -e ".groups == [\"admins\"]" >/dev/null     || { echo "groups != admins"; exit 1; }
+                  echo "$CLAIMS" | jq -e ".authority == \"ucrd\"" >/dev/null          || { echo "authority != ucrd"; exit 1; }
+                  echo "$CLAIMS" | jq -e .at_hash >/dev/null                     || { echo "missing at_hash";   exit 1; }
+                  echo "PKCE S256 flow OK"
+                '
+
+    - name: cleanup-pkce-pod
+      try:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod pkce-curl --ignore-not-found --wait=false

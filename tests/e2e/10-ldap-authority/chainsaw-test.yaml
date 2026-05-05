@@ -1,0 +1,90 @@
+---
+# LDAP authority works end-to-end:
+#   user lives only in OpenLDAP (carol),
+#   ROPC succeeds,
+#   id_token claims authority=ldap and the merger applied groupPattern=ldap-%s.
+#
+# Pre-requisite: `make dev-up` deploys the OpenLDAP fixture (fixtures/ldap/)
+# and helm-installs kubauth with `ldap.enabled: true`.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: ldap-authority
+spec:
+  description: |
+    ROPC for carol (LDAP-only user) returns a token whose id_token claims:
+      authority: ldap
+      sub: carol
+      email: carol@example.test
+      groups: [ldap-engineers]   (merger groupPattern "ldap-%s" applied)
+
+  steps:
+    - name: openldap-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata: {name: openldap, namespace: ldap-test}
+              status:
+                readyReplicas: 1
+
+    - name: oidcclient-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: smoke-client, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: ropc-via-ldap
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run ldap-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "smoke-client:smoke-client-secret-please-change" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=carol" \
+                    --data-urlencode "password=carol-password" \
+                    --data-urlencode "scope=openid profile email groups")
+                  echo "${RESP}"
+                  echo "$RESP" | jq -e .id_token >/dev/null \
+                    || { echo "no id_token: $RESP"; exit 1; }
+
+                  ID=$(echo "$RESP" | sed -n "s/.*\"id_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  PAYLOAD=$(echo "$ID" | cut -d. -f2)
+                  REM=$(( ${#PAYLOAD} % 4 ))
+                  case "$REM" in
+                    2) PAYLOAD="${PAYLOAD}==" ;;
+                    3) PAYLOAD="${PAYLOAD}=" ;;
+                  esac
+                  CLAIMS=$(printf "%s" "$PAYLOAD" | tr "_-" "/+" | base64 -d 2>/dev/null || true)
+                  echo "id_token claims: ${CLAIMS}"
+
+                  echo "$CLAIMS" | jq -e ".authority == \"ldap\"" >/dev/null        || { echo "authority != ldap"; exit 1; }
+                  echo "$CLAIMS" | jq -e ".sub == \"carol\"" >/dev/null             || { echo "sub != carol";    exit 1; }
+                  echo "$CLAIMS" | jq -e ".email == \"carol@example.test\"" >/dev/null || { echo "missing email";  exit 1; }
+                  # merger.groupPattern = "ldap-%s" → LDAP group "engineers" → claim "ldap-engineers"
+                  echo "$CLAIMS" | jq -e ".groups == [\"ldap-engineers\"]" >/dev/null \
+                    || { echo "groups != [ldap-engineers]: $CLAIMS"; exit 1; }
+                  echo "✓ LDAP authority issuance OK"
+                '
+
+    - name: cleanup
+      try:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod ldap-curl --ignore-not-found --wait=false

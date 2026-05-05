@@ -1,0 +1,19 @@
+{
+  "alias": "kubauth-oidcc-config",
+  "description": "kubauth — OIDC discovery & metadata conformance (plan: oidcc-config-certification)",
+
+  "server": {
+    "_comment": "Cluster-internal DNS — both kubauth and the conformance suite live in the same kind cluster.",
+    "discoveryUrl": "https://kubauth-oidc-server.kubauth-system.svc:443/.well-known/openid-configuration"
+  },
+
+  "client": {
+    "client_id": "smoke-client",
+    "client_secret": "smoke-client-secret-please-change"
+  },
+
+  "client2": {
+    "client_id": "smoke-client",
+    "client_secret": "smoke-client-secret-please-change"
+  }
+}

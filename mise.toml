@@ -1,0 +1,42 @@
+# mise — tool version manager (https://mise.jdx.dev).
+# Single source of truth for every binary used by this repo.
+#
+# Bootstrap (one-time, on the host or in the devcontainer):
+#   curl https://mise.run | sh
+#   mise trust         # accept this file
+#   mise install       # installs the versions below into ~/.local/share/mise
+#   eval "$(mise activate bash)"   # or zsh
+#
+# Then `which kubectl helm kind chainsaw ...` resolves to the pinned versions.
+
+[tools]
+# ─── Go toolchain ───────────────────────────────────────────────────────
+# Must track go.mod's `go` directive — bump both together.
+go       = "1.26.2"
+
+# ─── Kubernetes ─────────────────────────────────────────────────────────
+kubectl  = "1.34.0"   # matches the Kind node image pinned in scripts/lib/env.sh
+kind     = "0.31.0"
+helm     = "3.20.2"   # staying on v3 — kubauth chart is v3-style; revisit when chart migrates
+
+# ─── Test harness ───────────────────────────────────────────────────────
+# Chainsaw ships GitHub releases; mise's `ubi` backend picks the right arch.
+"ubi:kyverno/chainsaw" = "0.2.14"
+
+# ─── Lint / hygiene ─────────────────────────────────────────────────────
+shellcheck = "0.11.0"
+yamllint   = "1.36.1"
+
+# ─── Dev workflow ───────────────────────────────────────────────────────
+gh         = "2.92.0"
+pre-commit = "4.6.0"
+
+[env]
+# Make tool output deterministic in CI logs.
+NO_COLOR = ""
+# Isolated kubeconfig — never touch the user's ~/.kube/config.
+KUBECONFIG = "{{config_root}}/.tmp/kubeconfig"
+
+[settings]
+# `ubi` backend (universal binary installer) is needed for chainsaw.
+experimental = true

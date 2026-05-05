@@ -1,0 +1,37 @@
+---
+# Fast feedback on every push/PR. Should complete in <2 min.
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # pre-commit on full history for first run
+
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      - name: Run pre-commit
+        env:
+          # Skip the conventional-commit hook in PR runs (it lints commit-msg,
+          # not files; pull_request workflow has no commit-msg context).
+          SKIP: conventional-pre-commit
+        run: pre-commit run --show-diff-on-failure --color=always --all-files

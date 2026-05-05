@@ -1,0 +1,99 @@
+---
+# Brute-force lockout (BFA — `internal/handlers/protector/bfa.go`).
+# kubauth's BFA model is delay-based: each successive failure adds a penalty
+# (capped at max_penalty), not a hard lockout. Correct credentials still work
+# eventually — the goal is to slow down credential-stuffing attackers, not to
+# DoS legitimate users.
+#
+# Test cluster has `merger.server.bfaProtection: true` (kubauth-values.yaml).
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: lockout-bfa
+spec:
+  description: |
+    Six failed login attempts in a row should make subsequent attempts visibly
+    slower than the first (penalty engaged), and a correct password must still
+    succeed afterwards (no permanent lockout — that is by design).
+
+  steps:
+    - name: oidcclient-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: smoke-client, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: bfa-grows-penalty
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run bfa-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  # Use a real user — BFA on unknown users uses a shared bucket
+                  # with capped penalty (anti-enumeration), penalty growth there
+                  # is too small to assert reliably.
+                  USER="alice"
+
+                  # 10 wrong attempts, sum first 3 vs last 3 to absorb 1-second jitter.
+                  T_EARLY=0
+                  T_LATE=0
+                  for i in 1 2 3 4 5 6 7 8 9 10; do
+                    T0=$(date +%s)
+                    CODE=$(curl -sk -o /dev/null -w "%{http_code}" \
+                      -X POST "${ISS}/oauth2/token" \
+                      -u "${CID}:${SECRET}" \
+                      --data-urlencode "grant_type=password" \
+                      --data-urlencode "username=${USER}" \
+                      --data-urlencode "password=wrong")
+                    T1=$(date +%s)
+                    DT=$((T1 - T0))
+                    echo "wrong attempt $i: HTTP=$CODE elapsed=${DT}s"
+                    [ "$CODE" = "400" ] || { echo "expected 400 for bad creds, got $CODE"; exit 1; }
+                    case "$i" in
+                      1|2|3)    T_EARLY=$((T_EARLY + DT)) ;;
+                      8|9|10)   T_LATE=$((T_LATE + DT)) ;;
+                    esac
+                  done
+
+                  # Penalty must be engaged: sum(last 3) strictly bigger than sum(first 3).
+                  # We require >= +2s difference across the 6 sampled attempts to absorb
+                  # date-second rounding jitter at 0–1 s timings.
+                  [ "$T_LATE" -ge "$((T_EARLY + 2))" ] \
+                    || { echo "BFA not engaged: early3=${T_EARLY}s late3=${T_LATE}s (expected late3 >= early3+2)"; exit 1; }
+                  echo "✓ BFA penalty growing (early3=${T_EARLY}s late3=${T_LATE}s)"
+
+                  # Correct creds must still succeed (no permanent lockout).
+                  # Note: alice has a penalty queued from the failures above, so
+                  # this attempt is delayed by a handful of seconds. That is the
+                  # design — what we assert is that it succeeds, not that it is fast.
+                  RESP=$(curl -sk --max-time 60 -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=openid")
+                  echo "$RESP" | jq -e .id_token >/dev/null \
+                    || { echo "correct creds for alice failed under BFA: $RESP"; exit 1; }
+                  echo "✓ correct creds still work (no permanent lockout)"
+                '
+
+    - name: cleanup
+      try:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod bfa-curl --ignore-not-found --wait=false

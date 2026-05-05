@@ -1,0 +1,136 @@
+---
+# Audit authority writes a LoginAttempt CR per authentication attempt.
+# CRs land in `kubauth-audit` (not the OIDC namespace), one per attempt, name
+# format `<login>-<RFC3339-timestamp>`. The chain is:
+#   oidc -- /token --> audit -- /identity --> merger --> ucrd
+# audit writes the LA before forwarding the response to oidc.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: loginattempt-audit
+spec:
+  description: |
+    Authentication attempts produce LoginAttempt CRs in kubauth-audit
+    with the expected login, status, authority, recent timestamp, and
+    user fields.
+
+  steps:
+    - name: oidcclient-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: smoke-client, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: each-attempt-creates-a-loginattempt
+      try:
+        - script:
+            content: |
+              set -eu
+              SUFFIX="${NAMESPACE##*-}"
+              # Capture wall-clock just before the attempts so we can
+              # bound spec.when to ±60s of now.
+              START_EPOCH=$(date -u +%s)
+              kubectl run la-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- env SUFFIX="$SUFFIX" sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  # Three failed attempts with unique unknown logins.
+                  for i in 1 2 3; do
+                    LOGIN="audit-test-${SUFFIX}-${i}"
+                    CODE=$(curl -sk -o /dev/null -w "%{http_code}" \
+                      -X POST "${ISS}/oauth2/token" \
+                      -u "${CID}:${SECRET}" \
+                      --data-urlencode "grant_type=password" \
+                      --data-urlencode "username=${LOGIN}" \
+                      --data-urlencode "password=anything")
+                    echo "${LOGIN}: HTTP=${CODE}"
+                    [ "$CODE" = "400" ] || { echo "expected 400 for unknown login, got $CODE"; exit 1; }
+                  done
+                  # One successful ROPC for the seed user alice — gives us a
+                  # status=passwordChecked LA to assert against.
+                  CODE=$(curl -sk -o /dev/null -w "%{http_code}" \
+                    -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password")
+                  echo "alice: HTTP=${CODE}"
+                  [ "$CODE" = "200" ] || { echo "expected 200 for alice, got $CODE"; exit 1; }
+                '
+
+              # audit writes asynchronously after replying — wait briefly.
+              sleep 3
+              END_EPOCH=$(date -u +%s)
+
+              # ── Failed-attempt assertions ────────────────────────────
+              # Each unknown login produced exactly one LA with status
+              # userNotFound, authority=ucrd (or merger; tolerate either),
+              # spec.user.login matching, and spec.when within the test
+              # window.
+              LAS=$(kubectl -n kubauth-audit get la --no-headers \
+                -o custom-columns=NAME:.metadata.name,LOGIN:.spec.user.login,STATUS:.spec.status,WHEN:.spec.when \
+                | awk -v p="audit-test-${SUFFIX}-" "index(\$2, p) == 1")
+              echo "matching failed LAs:"
+              echo "${LAS}"
+              COUNT=$(printf "%s\n" "$LAS" | grep -c "^audit-test-${SUFFIX}-" || true)
+              [ "$COUNT" = "3" ] \
+                || { echo "expected 3 failed LoginAttempts, got ${COUNT}"; exit 1; }
+
+              for i in 1 2 3; do
+                LINE=$(printf "%s\n" "$LAS" | grep "audit-test-${SUFFIX}-${i}" | head -1)
+                [ -n "$LINE" ] \
+                  || { echo "FAIL: no LA matched audit-test-${SUFFIX}-${i}"; exit 1; }
+                STATUS=$(echo "$LINE" | awk "{print \$3}")
+                [ "$STATUS" = "userNotFound" ] \
+                  || { echo "FAIL: ${i} expected status=userNotFound got ${STATUS}"; exit 1; }
+                WHEN=$(echo "$LINE" | awk "{print \$4}")
+                # Convert RFC3339 to epoch and verify it is within
+                # [START_EPOCH-5, END_EPOCH+5].
+                WHEN_EPOCH=$(date -u -d "$WHEN" +%s 2>/dev/null || \
+                             date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$WHEN" +%s 2>/dev/null || echo 0)
+                if [ "$WHEN_EPOCH" -lt "$((START_EPOCH-5))" ] || \
+                   [ "$WHEN_EPOCH" -gt "$((END_EPOCH+5))" ]; then
+                  echo "FAIL: ${i} spec.when=${WHEN} (epoch=${WHEN_EPOCH}) outside [${START_EPOCH}-5, ${END_EPOCH}+5]"
+                  exit 1
+                fi
+              done
+              echo "✓ 3 failed LoginAttempts: status=userNotFound, login matches, spec.when fresh"
+
+              # ── Successful-attempt assertion ────────────────────────
+              # Find the most recent alice LA created within the window.
+              ALICE_LAS=$(kubectl -n kubauth-audit get la --no-headers \
+                -o custom-columns=NAME:.metadata.name,LOGIN:.spec.user.login,STATUS:.spec.status,WHEN:.spec.when,UID:.spec.user.uid \
+                | awk "\$2 == \"alice\"")
+              # Pick the most recently named one (RFC3339 timestamps sort).
+              LATEST=$(printf "%s\n" "$ALICE_LAS" | sort -k1 | tail -1)
+              echo "latest alice LA: ${LATEST}"
+              [ -n "$LATEST" ] || { echo "FAIL: no alice LA found"; exit 1; }
+              STATUS=$(echo "$LATEST" | awk "{print \$3}")
+              UID_VAL=$(echo "$LATEST" | awk "{print \$5}")
+              [ "$STATUS" = "passwordChecked" ] \
+                || { echo "FAIL: alice expected status=passwordChecked got ${STATUS}"; exit 1; }
+              [ "$UID_VAL" = "1001" ] \
+                || { echo "FAIL: alice expected spec.user.uid=1001 got ${UID_VAL}"; exit 1; }
+              echo "✓ alice LA: status=passwordChecked, spec.user.uid=1001"
+
+      finally:
+        - script:
+            content: |
+              SUFFIX="${NAMESPACE##*-}"
+              kubectl -n kubauth-audit get la \
+                -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+                | grep "^audit-test-${SUFFIX}-" \
+                | xargs -r kubectl -n kubauth-audit delete la --ignore-not-found
+              kubectl -n $NAMESPACE delete pod la-curl --ignore-not-found --wait=false

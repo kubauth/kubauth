@@ -1,0 +1,36 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aud-mismatch-b-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "aud-mismatch-b-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: aud-mismatch-b
+  namespace: kubauth-system
+spec:
+  description: Audience mismatch test — second confidential client
+  displayName: Aud Mismatch B
+  public: false
+  secrets:
+    - name: aud-mismatch-b-secret
+      key: client_secret
+      hashed: false
+  redirectURIs:
+    - "http://localhost:9999/b/callback"
+  grantTypes:
+    - authorization_code
+    - password
+  responseTypes:
+    - code
+  scopes:
+    - openid
+    - email
+  audiences:
+    - kubauth-tests
+  forceOpenIdScope: true

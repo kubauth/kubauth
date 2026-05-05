@@ -1,0 +1,100 @@
+---
+# A3: forceOpenIdScope. When set to true on an OidcClient, kubauth
+# grants the openid scope even when the request omits it — and as a
+# result an id_token is issued. With forceOpenIdScope=false (the
+# default behaviour for a client that does not opt in), a request
+# without openid does NOT receive an id_token.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: force-openid-scope
+spec:
+  description: |
+    OidcClient.spec.forceOpenIdScope: true grants openid implicitly so
+    every request yields an id_token even when the client omits the
+    openid scope.
+
+  steps:
+    - name: clients-ready
+      try:
+        - apply:
+            file: clients.yaml
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: force-openid-yes, namespace: kubauth-system}
+              status: {phase: READY}
+        - assert:
+            timeout: 30s
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: force-openid-no, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: forced-yes-issues-id-token-without-openid-scope
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run force-yes-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="force-openid-yes"
+                  SECRET="force-yes-secret-please-change"
+                  # Note: scope=profile only — no openid in the request.
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=profile")
+                  echo "force-yes response: ${RESP}"
+                  echo "$RESP" | jq -e .id_token >/dev/null \
+                    || { echo "FAIL: force-yes did not issue id_token despite forceOpenIdScope=true"; exit 1; }
+                  echo "✓ force-yes issued id_token without explicit openid scope"
+                '
+
+    - name: forced-no-no-id-token-without-openid-scope
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run force-no-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never --rm -i --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="force-openid-no"
+                  SECRET="force-no-secret-please-change"
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=password" \
+                    --data-urlencode "username=alice" \
+                    --data-urlencode "password=alice-password" \
+                    --data-urlencode "scope=profile")
+                  echo "force-no response: ${RESP}"
+                  if echo "$RESP" | jq -e .id_token >/dev/null; then
+                    echo "FAIL: force-no issued id_token even though openid was not requested and forceOpenIdScope=false"
+                    exit 1
+                  fi
+                  echo "✓ force-no did not issue id_token without explicit openid scope"
+                '
+
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod force-yes-curl force-no-curl --ignore-not-found --wait=false 2>/dev/null || true
+              kubectl -n kubauth-system delete oidcclient force-openid-yes force-openid-no --ignore-not-found --wait=false
+              kubectl -n kubauth-system delete secret force-yes-secret force-no-secret --ignore-not-found --wait=false

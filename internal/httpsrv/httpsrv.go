@@ -140,7 +140,7 @@ func (hs *httpServer) Start(ctx context.Context) error {
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("httpServer %s: Error on srv.Serve(): %w", hs.name, err)
 	}
-	logger.Info("httpServer %s shutdown", hs.name)
+	logger.Info("httpServer shutdown", "name", hs.name)
 	<-idleConsClosed
 	return nil
 

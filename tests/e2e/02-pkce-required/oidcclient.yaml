@@ -1,0 +1,32 @@
+---
+# Public OIDC client used to assert that PKCE is mandatory.
+# Applied/cleaned up by 02-pkce-required. Do NOT add to fixtures/oidcclients/
+# (per-test resource, not part of the dev cluster baseline).
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: pkce-required-test
+  namespace: kubauth-system
+spec:
+  description: |
+    Public client. Per OAuth 2.1 + RFC 7636, public clients MUST use PKCE.
+    Used by e2e/02-pkce-required to verify the server rejects auth
+    requests missing code_challenge.
+  displayName: pkce-required-test
+  public: true
+  redirectURIs:
+    - "http://localhost:9999/callback"
+  grantTypes:
+    - authorization_code
+    - refresh_token
+  responseTypes:
+    - code
+  scopes:
+    - openid
+    - profile
+    - email
+    - offline_access
+  forceOpenIdScope: true
+  accessTokenLifespan: 5m
+  refreshTokenLifespan: 30m
+  idTokenLifespan: 5m

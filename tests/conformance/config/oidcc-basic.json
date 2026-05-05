@@ -1,0 +1,46 @@
+{
+  "alias": "kubauth-oidcc-basic",
+  "description": "kubauth — OIDC basic authorization code conformance (plan: oidcc-basic-certification)",
+
+  "server": {
+    "_comment": "Cluster-internal DNS — both kubauth and the conformance suite live in the same kind cluster.",
+    "discoveryUrl": "https://kubauth-oidc-server.kubauth-system.svc:443/.well-known/openid-configuration"
+  },
+
+  "client": {
+    "client_id": "conformance-client",
+    "client_secret": "conformance-client-secret-please-change",
+    "scope": "openid profile email"
+  },
+
+  "client2": {
+    "client_id": "conformance-client",
+    "client_secret": "conformance-client-secret-please-change",
+    "scope": "openid profile email"
+  },
+
+  "client_secret_post": {
+    "client_id": "conformance-client",
+    "client_secret": "conformance-client-secret-please-change"
+  },
+
+  "browser": [
+    {
+      "_comment": "Outer match = URL the suite tells its embedded HtmlUnit driver to visit (kubauth's /authorize). Inner task match = URL where the driver lands after kubauth's 302 to its login form; commands run there.",
+      "match": "https://kubauth-oidc-server.kubauth-system.svc*/oauth2/auth*",
+      "tasks": [
+        {
+          "task": "Submit kubauth login form",
+          "match": "https://kubauth-oidc-server.kubauth-system.svc*/oauth2/login*",
+          "_comment": "optional=true so prompt=none-not-logged-in can pass: kubauth short-circuits the login page and returns login_required straight to the suite's callback. HtmlUnit otherwise reports `WebRunner unexpected url for task` and INTERRUPTs the test.",
+          "optional": true,
+          "commands": [
+            ["text", "id", "login", "alice"],
+            ["text", "id", "password", "alice-password"],
+            ["click", "css", "button[type=submit]"]
+          ]
+        }
+      ]
+    }
+  ]
+}

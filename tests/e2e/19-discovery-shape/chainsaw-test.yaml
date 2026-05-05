@@ -1,0 +1,100 @@
+---
+# CT-2: GET /.well-known/openid-configuration. Assert that all the
+# endpoints, scopes, response types and signing algorithms expected by
+# OIDC RPs are advertised. A regression here breaks every external
+# relying party.
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: discovery-shape
+spec:
+  description: |
+    /.well-known/openid-configuration must advertise the standard set of
+    endpoints, the issuer that matches the chart configuration, and at
+    least one signing algorithm.
+
+  steps:
+    - name: discovery-doc-shape
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run discovery-shape \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+
+                  RESP=$(curl -sk -o /tmp/d.json -w "%{http_code}" \
+                    "${ISS}/.well-known/openid-configuration")
+                  [ "$RESP" = "200" ] \
+                    || { echo "FAIL: HTTP ${RESP} from /.well-known/openid-configuration"; exit 1; }
+
+                  D=$(cat /tmp/d.json)
+
+                  # Required top-level claims (OIDC Discovery 1.0 §3 + common practice).
+                  for key in \
+                      issuer \
+                      authorization_endpoint \
+                      token_endpoint \
+                      jwks_uri \
+                      userinfo_endpoint \
+                      introspection_endpoint \
+                      end_session_endpoint \
+                      response_types_supported \
+                      grant_types_supported \
+                      id_token_signing_alg_values_supported \
+                      scopes_supported \
+                      code_challenge_methods_supported \
+                      claims_supported; do
+                    echo "$D" | jq -e "has(\"${key}\")" >/dev/null \
+                      || { echo "FAIL: ${key} missing from discovery doc"; exit 1; }
+                  done
+
+                  # Issuer must match the chart-configured value.
+                  echo "$D" | jq -e ".issuer == \"${ISS}\"" >/dev/null \
+                    || { echo "FAIL: issuer != ${ISS}"; cat /tmp/d.json; exit 1; }
+
+                  # PKCE S256 must be advertised — public clients depend on it.
+                  echo "$D" | jq -e ".code_challenge_methods_supported | index(\"S256\")" >/dev/null \
+                    || { echo "FAIL: S256 not advertised in code_challenge_methods_supported"; exit 1; }
+
+                  # At least one strong signing algorithm.
+                  echo "$D" | jq -e ".id_token_signing_alg_values_supported | (index(\"RS256\") or index(\"ES256\") or index(\"PS256\"))" >/dev/null \
+                    || { echo "FAIL: no strong signing alg advertised (expect RS256/ES256/PS256)"; exit 1; }
+
+                  # authorization_code must be a supported grant.
+                  echo "$D" | jq -e ".grant_types_supported | index(\"authorization_code\")" >/dev/null \
+                    || { echo "FAIL: authorization_code grant not advertised"; exit 1; }
+
+                  # openid scope must be advertised.
+                  echo "$D" | jq -e ".scopes_supported | index(\"openid\")" >/dev/null \
+                    || { echo "FAIL: openid scope not advertised"; exit 1; }
+
+                  # authorization_endpoint must point inside the same issuer.
+                  AURL=$(echo "$D" | sed -n "s/.*\"authorization_endpoint\":\"\\([^\"]*\\)\".*/\\1/p")
+                  case "$AURL" in
+                    "${ISS}/"*) : ;;
+                    *) echo "FAIL: authorization_endpoint=${AURL} not under issuer"; exit 1 ;;
+                  esac
+
+                  # And it must be reachable (any non-5xx is fine — without
+                  # OIDC query params we expect 4xx; with valid params, 302).
+                  HTTP=$(curl -sk -o /dev/null -w "%{http_code}" "${AURL}")
+                  case "$HTTP" in
+                    2*|3*|4*) : ;;
+                    *) echo "FAIL: ${AURL} returned ${HTTP} (expect non-5xx)"; exit 1 ;;
+                  esac
+
+                  echo "OK: discovery doc shape complete"
+                '
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod discovery-shape --ignore-not-found --wait=false

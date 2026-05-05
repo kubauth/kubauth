@@ -1,0 +1,114 @@
+---
+# Resource-server endpoints (RT-1: merged from former 05-userinfo and
+# 06-introspection — same shape, single test, single token issue).
+#
+#   /userinfo               (Bearer-protected)        — OIDC §5.3
+#   /oauth2/introspect      (Basic-client-auth POST)  — RFC 7662
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: resource-server
+spec:
+  description: |
+    /userinfo and /oauth2/introspect each return the right claims for a
+    valid token, and reject malformed inputs with 401 / active=false.
+
+  steps:
+    - name: oidcclient-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: kubauth.kubotal.io/v1alpha1
+              kind: OidcClient
+              metadata: {name: smoke-client, namespace: kubauth-system}
+              status: {phase: READY}
+
+    - name: userinfo-and-introspect
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl run resource-curl \
+                --namespace=$NAMESPACE \
+                --image=alpine:3.20 \
+                --restart=Never \
+                --rm -i \
+                --quiet \
+                --command -- sh -c '
+                  set -eu
+                  apk add -q --no-cache curl jq >/dev/null
+                  ISS="https://kubauth-oidc-server.kubauth-system.svc:443"
+                  CID="smoke-client"
+                  SECRET="smoke-client-secret-please-change"
+                  REDIR="http://localhost:9999/callback"
+                  STATE="abcdef1234567890"
+                  CC="E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+                  CV="dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+                  QS="response_type=code&client_id=${CID}&redirect_uri=${REDIR}&scope=openid+profile+email+groups&state=${STATE}&code_challenge=${CC}&code_challenge_method=S256"
+
+                  # ── Acquire one access_token via Auth Code + PKCE ──
+                  curl -sk -L -c /tmp/cj -b /tmp/cj -o /dev/null "${ISS}/oauth2/auth?${QS}"
+                  LOC=$(curl -sk -c /tmp/cj -b /tmp/cj \
+                    -X POST "${ISS}/oauth2/login?${QS}" \
+                    --data-urlencode "login=alice" \
+                    --data-urlencode "password=alice-password" \
+                    -o /dev/null -w "%{redirect_url}")
+                  CODE=$(echo "$LOC" | sed -n "s/.*[?&]code=\\([^&]*\\).*/\\1/p")
+                  [ -n "$CODE" ] || { echo "FAIL: no code from /oauth2/login"; exit 1; }
+                  RESP=$(curl -sk -X POST "${ISS}/oauth2/token" \
+                    -u "${CID}:${SECRET}" \
+                    --data-urlencode "grant_type=authorization_code" \
+                    --data-urlencode "code=${CODE}" \
+                    --data-urlencode "redirect_uri=${REDIR}" \
+                    --data-urlencode "code_verifier=${CV}")
+                  AT=$(echo "$RESP" | sed -n "s/.*\"access_token\":\"\\([^\"]*\\)\".*/\\1/p")
+                  [ -n "$AT" ] || { echo "FAIL: no access_token; resp=${RESP}"; exit 1; }
+
+                  # ── /userinfo ────────────────────────────────────────
+                  UI=$(curl -sk -H "Authorization: Bearer ${AT}" "${ISS}/userinfo")
+                  echo "userinfo: ${UI}"
+                  echo "$UI" | jq -e ".sub == \"alice\"" >/dev/null              || { echo "FAIL: userinfo missing sub=alice"; exit 1; }
+                  echo "$UI" | jq -e ".email == \"alice@example.test\"" >/dev/null || { echo "FAIL: userinfo missing email"; exit 1; }
+                  echo "$UI" | jq -e ".groups == [\"admins\"]" >/dev/null   || { echo "FAIL: userinfo missing groups=[admins]"; exit 1; }
+                  echo "$UI" | jq -e ".name == \"Alice Smith\"" >/dev/null      || { echo "FAIL: userinfo missing name"; exit 1; }
+
+                  HTTP=$(curl -sk -o /dev/null -w "%{http_code}" "${ISS}/userinfo")
+                  [ "$HTTP" = "401" ] || { echo "FAIL: /userinfo without Bearer expected 401, got ${HTTP}"; exit 1; }
+
+                  GARBAGE_BEARER="this-is-not-a-real-bearer"
+                  HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
+                    -H "Authorization: Bearer ${GARBAGE_BEARER}" "${ISS}/userinfo")
+                  [ "$HTTP" = "401" ] || { echo "FAIL: /userinfo with bogus Bearer expected 401, got ${HTTP}"; exit 1; }
+                  echo "✓ /userinfo: 1 positive + 2 negatives"
+
+                  # ── /oauth2/introspect ───────────────────────────────
+                  ACT=$(curl -sk -u "${CID}:${SECRET}" \
+                    -X POST "${ISS}/oauth2/introspect" \
+                    --data-urlencode "token=${AT}")
+                  echo "introspect active: ${ACT}"
+                  echo "$ACT" | jq -e ".active == true" >/dev/null            || { echo "FAIL: introspect expected active=true"; exit 1; }
+                  echo "$ACT" | jq -e ".sub == \"alice\"" >/dev/null          || { echo "FAIL: introspect missing sub=alice"; exit 1; }
+                  echo "$ACT" | jq -e ".client_id == \"${CID}\"" >/dev/null   || { echo "FAIL: introspect missing client_id"; exit 1; }
+                  echo "$ACT" | jq -e ".username == \"alice\"" >/dev/null     || { echo "FAIL: introspect missing username=alice"; exit 1; }
+
+                  INA=$(curl -sk -u "${CID}:${SECRET}" \
+                    -X POST "${ISS}/oauth2/introspect" \
+                    --data-urlencode "token=this-is-not-a-token")
+                  echo "introspect inactive: ${INA}"
+                  echo "$INA" | jq -e ".active == false" >/dev/null           || { echo "FAIL: introspect expected active=false"; exit 1; }
+                  if echo "$INA" | jq -e .sub >/dev/null; then
+                    echo "FAIL: introspect leaked sub for bogus token"; exit 1
+                  fi
+
+                  HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
+                    -X POST "${ISS}/oauth2/introspect" \
+                    --data-urlencode "token=${AT}")
+                  [ "$HTTP" = "401" ] || { echo "FAIL: introspect without client auth expected 401, got ${HTTP}"; exit 1; }
+                  echo "✓ /oauth2/introspect: 1 positive + 2 negatives"
+                '
+
+      finally:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete pod resource-curl --ignore-not-found --wait=false
