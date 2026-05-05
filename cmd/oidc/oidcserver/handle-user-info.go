@@ -32,13 +32,18 @@ func (s *OIDCServer) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	logger := logr.FromContextAsSlogLogger(ctx)
 
 	authz := r.Header.Get("Authorization")
-	if authz == "" || !strings.HasPrefix(authz, "Bearer ") {
+	// RFC 7235 §2.1: the auth scheme name is case-insensitive. The
+	// OpenID Conformance Suite (and some HTTP clients) sends a
+	// lowercase `bearer` prefix; reject only when the prefix is missing
+	// entirely, not when its case differs.
+	const bearerPrefix = "Bearer "
+	if len(authz) <= len(bearerPrefix) || !strings.EqualFold(authz[:len(bearerPrefix)], bearerPrefix) {
 		logger.Error("missing bearer token on userinfo handler")
 		w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\", error_description=\"missing bearer token\"")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	accessToken := strings.TrimPrefix(authz, "Bearer ")
+	accessToken := authz[len(bearerPrefix):]
 
 	_, ar, err := s.oauth2.IntrospectToken(ctx, accessToken, fosite.AccessToken, s.newSession(nil, GetClientIdFromRequest(r)), "openid")
 	if err != nil {
@@ -56,37 +61,24 @@ func (s *OIDCServer) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	idClaims := sess.IDTokenClaims_
-	claims := idClaims.Extra
-	if claims == nil {
-		claims = map[string]interface{}{}
-	}
-	delete(claims, "azp") // Remove, as not in user definition
-	claims["sub"] = idClaims.Subject
 
-	//claims := map[string]interface{}{
-	//	"sub": sess.Claims.Subject,
-	//}
-	//
-	//granted := map[string]struct{}{}
-	//for _, sc := range ar.GetGrantedScopes() {
-	//	granted[sc] = struct{}{}
-	//}
-	//
-	//if _, ok := granted["email"]; ok {
-	//	if v, ok2 := sess.Claims.Extra["email"]; ok2 {
-	//		claims["email"] = v
-	//	}
-	//}
-	//if _, ok := granted["profile"]; ok {
-	//	if v, ok2 := sess.Claims.Extra["name"]; ok2 {
-	//		claims["name"] = v
-	//	}
-	//}
-	//if _, ok := granted["groups"]; ok {
-	//	if v, ok2 := sess.Claims.Extra["groups"]; ok2 {
-	//		claims["groups"] = v
-	//	}
-	//}
+	// OIDC §5.4: a userinfo response may include claims only when
+	// the corresponding scope was granted. Filter the session's
+	// Extra map by the access token's granted scopes — see
+	// fositepatch.AllowedIDTokenClaimsFor for the scope→claim
+	// mapping kubauth uses (mirrors the id_token filter installed
+	// in fositepatch.NewScopeFilteringIDTokenStrategy).
+	allowed := fositepatch.AllowedIDTokenClaimsFor(ar.GetGrantedScopes())
+	claims := make(map[string]interface{}, len(idClaims.Extra)+1)
+	for k, v := range idClaims.Extra {
+		if _, ok := allowed[k]; ok {
+			claims[k] = v
+		}
+	}
+	delete(claims, "azp") // userinfo doesn't carry the authorized-party claim
+	// `sub` is mandatory in every userinfo response (OIDC §5.3.2);
+	// it lives on the top-level IDTokenClaims, not in Extra.
+	claims["sub"] = idClaims.Subject
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(claims)
