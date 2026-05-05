@@ -1,0 +1,146 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conformance-server
+  namespace: conformance
+  labels:
+    app: conformance-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: conformance-server
+  template:
+    metadata:
+      labels:
+        app: conformance-server
+    spec:
+      # K8s injects SERVER_SERVICE_HOST / SERVER_PORT / etc. into every
+      # pod for each Service in the same namespace. The Service named
+      # `server` therefore sets SERVER_PORT=tcp://10.x.x.x:8080, which
+      # Spring Boot reads as `server.port` and chokes on. Disable the
+      # whole legacy injection — the suite uses cluster DNS, not env.
+      enableServiceLinks: false
+      # The suite's WebRunner (HtmlUnit-backed automated browser used to
+      # walk the OP through the auth flow) follows the OP's 302 redirect
+      # back to BASE_URL = https://localhost.emobix.co.uk:8443, which is
+      # the suite's own callback URL. From inside this pod that hostname
+      # resolves to 127.0.0.1 (no listener) — the WebRunner errors out
+      # with "Connection refused". Map it to the conformance-nginx
+      # Service ClusterIP (pinned in 03-nginx.yaml) so the WebRunner
+      # reaches the suite via the same TLS endpoint as a real browser.
+      hostAliases:
+        - ip: 10.96.255.10        # conformance-nginx Service ClusterIP
+          hostnames:
+            - localhost.emobix.co.uk
+      # The suite calls kubauth's HTTPS issuer URL during plan execution
+      # (e.g. /.well-known/openid-configuration). kubauth's cert is
+      # signed by a self-signed cert-manager issuer, so the suite's JVM
+      # will reject the chain unless we extend its truststore. The
+      # init-container builds a writable cacerts that includes the
+      # kubauth CA copied into a secret of this namespace by
+      # `make conformance-up`.
+      initContainers:
+        - name: build-truststore
+          # Includes both `keytool` and `openssl` so we can route
+          # around cert-manager's empty-DN trust certificates.
+          image: eclipse-temurin:17-jre
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -eux
+              # cert-manager's self-signed ClusterIssuer issues CA certs
+              # with an empty Subject DN. Java's keytool rejects such
+              # certs with "Input not an X.509 certificate". Build a
+              # PKCS12 truststore directly via openssl, which Java 9+
+              # accepts as a -Djavax.net.ssl.trustStore.
+              apt-get update -qq && apt-get install -y -qq openssl >/dev/null
+              openssl pkcs12 -export -nokeys \
+                -in /ca-in/ca.crt \
+                -name kubauth-ca \
+                -caname kubauth-ca \
+                -passout pass:changeit \
+                -out /shared/truststore.p12
+              echo "Built PKCS12 truststore at /shared/truststore.p12"
+          volumeMounts:
+            - name: kubauth-ca
+              mountPath: /ca-in
+              readOnly: true
+            - name: shared-truststore
+              mountPath: /shared
+      containers:
+        - name: server
+          image: registry.gitlab.com/openid/conformance-suite:release-v5.1.43
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: shared-truststore
+              mountPath: /shared
+              readOnly: true
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: -Djavax.net.ssl.trustStore=/shared/truststore.p12 -Djavax.net.ssl.trustStoreType=PKCS12 -Djavax.net.ssl.trustStorePassword=changeit
+            - name: BASE_URL
+              # The suite advertises this as its own base for OIDC
+              # redirect URIs. The browser reaches it via a
+              # `kubectl port-forward` on the host (see README).
+              # `localhost.emobix.co.uk` resolves to 127.0.0.1 — the
+              # standard hostname trick the upstream image expects so
+              # its bundled TLS cert SAN matches.
+              value: https://localhost.emobix.co.uk:8443
+            - name: MONGODB_HOST
+              value: mongo
+            - name: SPRING_PROFILES_ACTIVE
+              # `dev` skips the upstream Google/GitLab login dialog
+              # for the suite's own UI.
+              value: dev
+            # Placeholder OIDC creds for the suite's UI auth (unused
+            # in dev profile but the env keys must exist).
+            - name: OIDC_GOOGLE_CLIENTID
+              value: google-client
+            - name: OIDC_GOOGLE_SECRET
+              value: google-secret
+            - name: OIDC_GITLAB_CLIENTID
+              value: gitlab-client
+            - name: OIDC_GITLAB_SECRET
+              value: gitlab-secret
+          # The suite enforces https on all incoming requests (BASE_URL
+          # is https). HTTP-level readiness probes therefore get
+          # rejected with a "non-https request" error. Use a TCP probe.
+          readinessProbe:
+            tcpSocket: {port: 8080}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests: {cpu: 200m, memory: 1Gi}
+            limits: {cpu: "2", memory: 3Gi}
+      volumes:
+        - name: kubauth-ca
+          secret:
+            secretName: kubauth-ca-trust
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: shared-truststore
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # Service name MUST be `server` — the upstream nginx image's
+  # `nginx.conf` proxies to `http://server:8080` by name, hardcoded.
+  # Within the conformance namespace this is short and unambiguous.
+  name: server
+  namespace: conformance
+spec:
+  selector:
+    app: conformance-server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
