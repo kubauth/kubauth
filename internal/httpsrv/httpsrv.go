@@ -128,10 +128,14 @@ func (hs *httpServer) Start(ctx context.Context) error {
 		<-ctx.Done()
 		logger.Info("shutting down server")
 
-		// TODO: use a context with reasonable timeout
-		if err := srv.Shutdown(context.Background()); err != nil {
+		// Apply a 30-second timeout to graceful shutdown
+		shutdownCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
 			// Error from closing listeners, or context timeout
 			logger.Error("error shutting down the HTTP server", slog.Any("error", err))
+		} else {
+			logger.Info("HTTP server shut down gracefully within timeout")
 		}
 		close(idleConsClosed)
 	}()
