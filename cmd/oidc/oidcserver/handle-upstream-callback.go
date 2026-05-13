@@ -117,6 +117,8 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// The base claim set (idClaims) is the OIDC claims set from the upstream provider.
+
 	ts := cfg.TokenSource(xctx, tok)
 	var idClaims map[string]interface{}
 	if rawID, ok := tok.Extra("id_token").(string); ok && rawID != "" {
@@ -134,30 +136,33 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-
-	uiClaims, err := u.FetchUserInfoClaims(xctx, ts)
-	if err != nil {
-		logger.Error("upstream userinfo failed", "error", err)
-		http.Error(w, "userinfo failed", http.StatusBadGateway)
-		return
+	// If `useUserInfo: true`, then userInfo is requested and the result is merged on top of the base claim
+	if u.IsUseUserInfo() {
+		uiClaims, err := u.FetchUserInfoClaims(xctx, ts)
+		if err != nil {
+			logger.Error("upstream userinfo failed", "error", err)
+			http.Error(w, "userinfo failed", http.StatusBadGateway)
+			return
+		}
+		fmt.Printf("User Info Claims:%s\n", misc.Any2Yaml(uiClaims))
+		idClaims = misc.MergeMaps(idClaims, uiClaims)
 	}
-	fmt.Printf("User Info Claims:%s\n", misc.Any2Yaml(uiClaims))
 	fmt.Printf("ID Claims:%s\n", misc.Any2Yaml(idClaims))
 
-	merged := mergeUpstreamClaimMaps(uiClaims, idClaims)
-	if len(merged) == 0 {
-		http.Error(w, "no claims from upstream", http.StatusBadGateway)
-		return
-	}
-	fmt.Printf("merged:%s\n", misc.Any2Yaml(merged))
+	// Then, the set of `claimRenamings` is applied.
+	idClaims = u.PerformRenaming(idClaims)
 
-	user, err := mapUpstreamClaimsToUserClaims(merged)
+	fmt.Printf("After renaming:%s\n", misc.Any2Yaml(idClaims))
+
+	idClaims = u.CleanupClaims(idClaims)
+
+	user, err := mapUpstreamClaimsToUserClaims(idClaims)
 	if err != nil {
 		logger.Error("upstream claims mapping failed", "error", err)
 		http.Error(w, "invalid user claims", http.StatusBadGateway)
 		return
 	}
-	fmt.Printf("User claims:%s\n", misc.Any2Yaml(user.Claims))
+	fmt.Printf("User login:'%s'  fullName:'%s' claims:%s\n", user.Login, user.FullName, misc.Any2Yaml(user.Claims))
 
 	_ = s.SsoSessionManager.RenewToken(ctx)
 

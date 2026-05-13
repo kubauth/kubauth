@@ -44,6 +44,13 @@ type Upstream interface {
 	ParseAndVerifyIDToken(ctx context.Context, rawIDToken string) (map[string]interface{}, error)
 	// FetchUserInfoClaims returns UserInfo claims when supported; nil map if there is no userinfo endpoint.
 	FetchUserInfoClaims(ctx context.Context, tokenSource oauth2.TokenSource) (map[string]interface{}, error)
+	// IsUseUserInfo we want to user userInfo endpoint
+	IsUseUserInfo() bool
+	// PerformRenaming rename claims
+	PerformRenaming(claims map[string]interface{}) map[string]interface{}
+	// CleanupClaims remove 'technical' claims (https://openid.net/specs/openid-connect-core-1_0.html#IDToken)
+	// and the one from the ClaimRemovals list
+	CleanupClaims(claims map[string]interface{}) map[string]interface{}
 }
 
 type upstream struct {
@@ -55,6 +62,7 @@ type upstream struct {
 	redirectURL    string
 	clientId       string
 	clientSecret   string
+	useUserInfo    bool
 	// Computed
 	provider             *oidc.Provider
 	httpClient           *http.Client
@@ -64,6 +72,16 @@ type upstream struct {
 	JwksURL              string
 	Algorithms           []string
 	scopes               []string
+}
+
+func (u *upstream) CleanupClaims(claims map[string]interface{}) map[string]interface{} {
+	//TODO implement me
+	return claims
+}
+
+func (u *upstream) PerformRenaming(claims map[string]interface{}) map[string]interface{} {
+	//TODO implement me
+	return claims
 }
 
 var _ Upstream = &upstream{}
@@ -101,6 +119,7 @@ func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.Upstream
 		issuerURL:      upstreamProvider.Spec.IssuerURL,
 		redirectURL:    upstreamProvider.Spec.RedirectURL,
 		clientId:       upstreamProvider.Spec.ClientId,
+		useUserInfo:    upstreamProvider.Spec.UseUserInfo,
 		clientSecret:   clientSecret,
 		scopes:         scopesCopy,
 	}
@@ -176,6 +195,10 @@ func (u *upstream) GetProviderType() kubauthv1alpha1.UpstreamProviderType {
 
 func (u *upstream) IsClientSpecific() bool {
 	return u.clientSpecific
+}
+
+func (u *upstream) IsUseUserInfo() bool {
+	return u.useUserInfo
 }
 
 func (u *upstream) GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig {

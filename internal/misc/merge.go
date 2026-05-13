@@ -17,18 +17,12 @@ limitations under the License.
 package misc
 
 // MergeMaps merge two maps and return a new one.
-// Second parameter map will override the first one
-// From https://github.com/helm/helm/blob/v3.14.1/pkg/cli/values/options.go
+// Second parameter map will override the first one, except:
+// for a given key, if both values are []string, the result is deduplicated concatenation
+// (elements from the first map in order, then from the second, skipping duplicates).
+// Nested map[string]interface{} values are merged recursively.
+// Initial version from https://github.com/helm/helm/blob/v3.14.1/pkg/cli/values/options.go
 func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
-	//if a == nil && b == nil {
-	//	return nil
-	//}
-	//if a == nil {
-	//	return b
-	//}
-	//if b == nil {
-	//	return a
-	//}
 	out := make(map[string]interface{}, len(a))
 	for k, v := range a {
 		out[k] = v
@@ -42,7 +36,33 @@ func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
 				}
 			}
 		}
+		if vb, ok := v.([]string); ok {
+			if va, ok := out[k].([]string); ok {
+				out[k] = mergeStringSlicesDeduped(va, vb)
+				continue
+			}
+		}
 		out[k] = v
+	}
+	return out
+}
+
+func mergeStringSlicesDeduped(a, b []string) []string {
+	seen := make(map[string]struct{}, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, s := range a {
+		if _, dup := seen[s]; dup {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	for _, s := range b {
+		if _, dup := seen[s]; dup {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
 	}
 	return out
 }

@@ -86,6 +86,25 @@ type UpstreamProviderType string
 const UpstreamProviderTypeOidc UpstreamProviderType = "oidc"
 const UpstreamProviderTypeInternal UpstreamProviderType = "internal"
 
+type RenamingOperation string
+
+const RenamingOperationRename RenamingOperation = "rename"
+const RenamingOperationCopy RenamingOperation = "copy"
+
+type ClaimRenamingSpec struct {
+
+	// +required
+	OldName string `json:"oldName"`
+
+	// +required
+	NewName string `json:"newName"`
+
+	// +optional
+	// +default:value="rename"
+	// +kubebuilder:validation:Enum=rename;copy
+	Operation RenamingOperation `json:"operation"`
+}
+
 type UpstreamProviderSpec struct {
 
 	// +kubebuilder:validation:Optional
@@ -131,6 +150,18 @@ type UpstreamProviderSpec struct {
 
 	// +optional
 	Scopes []string `json:"scopes"`
+
+	// If true, user info are merged with oidc claims
+	// +default:value=false
+	UseUserInfo bool `json:"useUserInfo"`
+
+	// Renaming of the claims from this providers
+	// +optional
+	ClaimRenamings []ClaimRenamingSpec `json:"claimRenamings,omitempty"`
+
+	// List of claims to remove from this provider
+	// +optional
+	ClaimRemovals []string `json:"claimRemovals,omitempty"`
 
 	// Allow to replace missing configuration discovery. Or to fix uncorrected value
 	// It all or nothing -> if != nil take this config and don't perform discovery. If == nil, use discovery.

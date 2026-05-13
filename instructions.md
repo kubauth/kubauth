@@ -315,3 +315,17 @@ If the k8s upstreamProviders does not define scopes, use  []string{oidc.ScopeOpe
 composer2
 
 Changed my mind: Revert upstream_controller to require scope to be defined and remove defaulting in NewUpstream
+
+--- 
+composer2
+
+in internal/misc/merge.go, modify the MergeMaps() by adding the following requirement: For a given key, if both values are []string, result is deduplicated concatenation.
+
+--- 
+composer2
+
+Write test case for this MergeMaps function
+
+
+
+

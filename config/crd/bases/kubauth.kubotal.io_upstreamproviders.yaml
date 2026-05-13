@@ -90,6 +90,30 @@ spec:
                     - name
                     type: object
                 type: object
+              claimRemovals:
+                description: List of claims to remove from this provider
+                items:
+                  type: string
+                type: array
+              claimRenamings:
+                description: Renaming of the claims from this providers
+                items:
+                  properties:
+                    newName:
+                      type: string
+                    oldName:
+                      type: string
+                    operation:
+                      default: rename
+                      enum:
+                      - rename
+                      - copy
+                      type: string
+                  required:
+                  - newName
+                  - oldName
+                  type: object
+                type: array
               clientId:
                 type: string
               clientSecret:
@@ -169,8 +193,13 @@ spec:
                 - oidc
                 - internal
                 type: string
+              useUserInfo:
+                default: false
+                description: If true, user info are merged with oidc claims
+                type: boolean
             required:
             - type
+            - useUserInfo
             type: object
           status:
             description: UpstreamProviderStatus defines the observed state of User
