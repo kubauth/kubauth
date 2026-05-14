@@ -299,7 +299,7 @@ Implement a webhook skeleton for UpstreamProviders resource, using the one from 
 --- 
 Got an issue:  internal error occurred: failed calling webhook "mupstreamprovider-v1alpha1.kb.io": failed to call webhook: Post "https://kubauth-oidc-webhook.kubauth.svc:443/mutate-kubauth-kubotal-io-v1alpha1-upstreamprovider?timeout=10s": dial tcp 10.96.234.119:443: connect: connection refused
 
-That's logical, as helm want to create resources while webhook server is not yer running.
+That's logical, as helm want to create resources while webhook server is not yet running.
 
 Do you have a solution to defer the UpstreamProviders creation until webhook is ready?
 
@@ -326,6 +326,14 @@ composer2
 
 Write test case for this MergeMaps function
 
+
+--- 
+composer2
+
+Do you think it is possible to refactor upstream.go implementation by keeping a reference to UpstreamProvider.Spec k8s object instead of manually copy most of the field ?
+Just answer, don't implement anything for now
+
+OK, do this refactoring
 
 
 

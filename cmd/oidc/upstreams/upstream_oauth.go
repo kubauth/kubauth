@@ -36,7 +36,7 @@ type OAuth2AuthCodeSettings struct {
 }
 
 func (u *upstream) supportsPKCES256() bool {
-	for _, m := range u.codeChallengeMethods {
+	for _, m := range u.extraConfig.CodeChallengeMethods {
 		if m == "S256" {
 			return true
 		}
@@ -49,12 +49,12 @@ func (u *upstream) OAuth2AuthCodeSettings() (*OAuth2AuthCodeSettings, bool) {
 		return nil, false
 	}
 	return &OAuth2AuthCodeSettings{
-		ClientID:         u.clientId,
+		ClientID:         u.spec.ClientId,
 		ClientSecret:     u.clientSecret,
-		RedirectURL:      u.redirectURL,
+		RedirectURL:      u.spec.RedirectURL,
 		Endpoint:         u.provider.Endpoint(),
 		SupportsPKCES256: u.supportsPKCES256(),
-		Scopes:           u.scopes,
+		Scopes:           u.spec.Scopes,
 	}, true
 }
 
@@ -69,7 +69,7 @@ func (u *upstream) ParseAndVerifyIDToken(ctx context.Context, rawIDToken string)
 	if u.provider == nil {
 		return nil, fmt.Errorf("upstream has no OIDC provider")
 	}
-	verifier := u.provider.Verifier(&oidc.Config{ClientID: u.clientId})
+	verifier := u.provider.Verifier(&oidc.Config{ClientID: u.spec.ClientId})
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return nil, err

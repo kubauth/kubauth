@@ -27,6 +27,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// type ClaimSet map[string]interface{}
+
 // Upstream is the representation if an upstream server in memory, after loading from an UpstreamProvider CRD
 type Upstream interface {
 	GetName() string
@@ -54,24 +56,113 @@ type Upstream interface {
 }
 
 type upstream struct {
-	name           string
-	clientSpecific bool
-	myType         kubauthv1alpha1.UpstreamProviderType
-	displayName    string
-	issuerURL      string
-	redirectURL    string
-	clientId       string
-	clientSecret   string
-	useUserInfo    bool
+	name         string
+	spec         kubauthv1alpha1.UpstreamProviderSpec
+	clientSecret string // resolved from Secret; not part of Spec
 	// Computed
-	provider             *oidc.Provider
-	httpClient           *http.Client
-	codeChallengeMethods []string
-	introspectionURL     string
-	endSessionURL        string
-	JwksURL              string
-	Algorithms           []string
-	scopes               []string
+	provider    *oidc.Provider
+	httpClient  *http.Client
+	extraConfig extraConfig
+}
+
+type extraConfig struct {
+	IntrospectionURL     string   `json:"introspection_endpoint"`
+	EndSessionURL        string   `json:"end_session_endpoint"`
+	JwksURL              string   `json:"jwks_uri"`
+	Algorithms           []string `json:"id_token_signing_alg_values_supported"`
+	CodeChallengeMethods []string `json:"code_challenge_methods_supported"`
+}
+
+var _ Upstream = &upstream{}
+
+func NewInternalUpstream(welcomeMessage string) Upstream {
+	return &upstream{
+		name: "internal",
+		spec: kubauthv1alpha1.UpstreamProviderSpec{
+			Type:        kubauthv1alpha1.UpstreamProviderTypeInternal,
+			DisplayName: welcomeMessage,
+		},
+	}
+}
+
+// NewUpstream Create a new Upstream Object
+// WARNING: This function can return an error AND a (partial) upstream object
+// caPEM is the raw PEM-encoded CA bundle for the upstream issuer (may be nil).
+func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.UpstreamProvider, clientSecret string, caPEM []byte) (Upstream, error) {
+	spec := *upstreamProvider.Spec.DeepCopy()
+	if spec.Type == kubauthv1alpha1.UpstreamProviderTypeInternal {
+		return &upstream{
+			name: upstreamProvider.Name,
+			spec: spec,
+		}, nil
+	}
+	u := &upstream{
+		name:         upstreamProvider.Name,
+		spec:         spec,
+		clientSecret: clientSecret,
+	}
+	// We need to set an http.Client and store it in context for the oidc library
+	httpClientConfig := &httpclient.Config{
+		BaseURL:            spec.IssuerURL,
+		InsecureSkipVerify: spec.InsecureSkipVerify,
+		DumpExchanges:      spec.DumpExchanges,
+		Label:              "upstreamProvider/" + upstreamProvider.Name,
+	}
+	if len(caPEM) > 0 {
+		httpClientConfig.RootCaBytes = [][]byte{caPEM}
+	}
+
+	httpClient, err := httpclient.New(httpClientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating http client: %w", err)
+	}
+	u.httpClient = httpClient.GetBaseHttpDotClient()
+	ctx = oidc.ClientContext(ctx, u.httpClient)
+
+	if spec.ExplicitConfig == nil {
+		// We will use discovery
+		u.provider, err = oidc.NewProvider(ctx, spec.IssuerURL)
+		if err != nil {
+			return nil, fmt.Errorf("error on upstream oidc provider: %w", err)
+		}
+		// We need to claim some configuration values from the response.body as, either they are not managed by the oidc.Provider at all or they are private without getter
+		err = u.provider.Claims(&u.extraConfig)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching complementary endpoints: %w", err)
+		}
+	} else {
+		// No discovery. Use explicit config
+		providerConfig := ToOIDCProviderConfig(spec.IssuerURL, spec.ExplicitConfig)
+		u.provider = providerConfig.NewProvider(ctx)
+		u.extraConfig.IntrospectionURL = spec.ExplicitConfig.IntrospectionURL
+		u.extraConfig.EndSessionURL = spec.ExplicitConfig.EndSessionURL
+		u.extraConfig.JwksURL = spec.ExplicitConfig.JWKSURL
+		u.extraConfig.Algorithms = spec.ExplicitConfig.Algorithms
+	}
+	return u, nil
+}
+
+func (u *upstream) GetName() string {
+	return u.name
+}
+
+func (u *upstream) GetDisplayName() string {
+	if u.spec.DisplayName != "" {
+		return u.spec.DisplayName
+	}
+	return u.name
+}
+
+func (u *upstream) GetProviderType() kubauthv1alpha1.UpstreamProviderType {
+	return u.spec.Type
+}
+
+func (u *upstream) IsClientSpecific() bool {
+	return u.spec.ClientSpecific
+}
+
+func (u *upstream) IsUseUserInfo() bool {
+	return u.spec.UseUserInfo
 }
 
 func (u *upstream) CleanupClaims(claims map[string]interface{}) map[string]interface{} {
@@ -84,123 +175,7 @@ func (u *upstream) PerformRenaming(claims map[string]interface{}) map[string]int
 	return claims
 }
 
-var _ Upstream = &upstream{}
-
-func NewInternalUpstream(welcomeMessage string) Upstream {
-	return &upstream{
-		name:        "internal",
-		myType:      kubauthv1alpha1.UpstreamProviderTypeInternal,
-		displayName: welcomeMessage,
-	}
-}
-
-// NewUpstream Create a new Upstream Object
-// WARNING: This function can return an error AND a (partial) upstream object
-// caPEM is the raw PEM-encoded CA bundle for the upstream issuer (may be nil).
-func NewUpstream(ctx context.Context, upstreamProvider *kubauthv1alpha1.UpstreamProvider, clientSecret string, caPEM []byte) (Upstream, error) {
-	if upstreamProvider.Spec.Type == kubauthv1alpha1.UpstreamProviderTypeInternal {
-		upstream := &upstream{
-			name:           upstreamProvider.Name,
-			clientSpecific: upstreamProvider.Spec.ClientSpecific,
-			myType:         upstreamProvider.Spec.Type,
-			displayName:    upstreamProvider.Spec.DisplayName,
-		}
-		// Nothing more to do
-		return upstream, nil
-	}
-	specScopes := upstreamProvider.Spec.Scopes
-	scopesCopy := make([]string, len(specScopes))
-	copy(scopesCopy, specScopes)
-	upstream := &upstream{
-		name:           upstreamProvider.Name,
-		clientSpecific: upstreamProvider.Spec.ClientSpecific,
-		myType:         upstreamProvider.Spec.Type,
-		displayName:    upstreamProvider.Spec.DisplayName,
-		issuerURL:      upstreamProvider.Spec.IssuerURL,
-		redirectURL:    upstreamProvider.Spec.RedirectURL,
-		clientId:       upstreamProvider.Spec.ClientId,
-		useUserInfo:    upstreamProvider.Spec.UseUserInfo,
-		clientSecret:   clientSecret,
-		scopes:         scopesCopy,
-	}
-	// We need to set an http.Client and store it in context for the oidc library
-	httpClientConfig := &httpclient.Config{
-		BaseURL:            upstreamProvider.Spec.IssuerURL,
-		InsecureSkipVerify: upstreamProvider.Spec.InsecureSkipVerify,
-		DumpExchanges:      upstreamProvider.Spec.DumpExchanges,
-		Label:              "upstreamProvider/" + upstreamProvider.Name,
-	}
-	if len(caPEM) > 0 {
-		httpClientConfig.RootCaBytes = [][]byte{caPEM}
-	}
-
-	httpClient, err := httpclient.New(httpClientConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error creating http client: %w", err)
-	}
-	upstream.httpClient = httpClient.GetBaseHttpDotClient()
-	ctx = oidc.ClientContext(ctx, upstream.httpClient)
-
-	if upstreamProvider.Spec.ExplicitConfig == nil {
-		// We will use discovery
-		upstream.provider, err = oidc.NewProvider(ctx, upstreamProvider.Spec.IssuerURL)
-		if err != nil {
-			return nil, fmt.Errorf("error on upstream oidc provider: %w", err)
-		}
-		// We need to claim some configuration values from the response.body as, either they are not managed by the oidc.Provider at all or they are private without getter
-		var extraConfig struct {
-			IntrospectionURL     string   `json:"introspection_endpoint"`
-			EndSessionURL        string   `json:"end_session_endpoint"`
-			JwksURL              string   `json:"jwks_uri"`
-			Algorithms           []string `json:"id_token_signing_alg_values_supported"`
-			CodeChallengeMethods []string `json:"code_challenge_methods_supported"`
-		}
-		err = upstream.provider.Claims(&extraConfig)
-		if err != nil {
-			return nil, fmt.Errorf("error fetching complementary endpoints: %w", err)
-		}
-		upstream.introspectionURL = extraConfig.IntrospectionURL
-		upstream.endSessionURL = extraConfig.EndSessionURL
-		upstream.JwksURL = extraConfig.JwksURL
-		upstream.Algorithms = extraConfig.Algorithms
-		upstream.codeChallengeMethods = extraConfig.CodeChallengeMethods
-
-	} else {
-		// No discovery. Use explicit config
-		providerConfig := ToOIDCProviderConfig(upstreamProvider.Spec.IssuerURL, upstreamProvider.Spec.ExplicitConfig)
-		upstream.provider = providerConfig.NewProvider(ctx)
-		// Just copy for
-		upstream.introspectionURL = upstreamProvider.Spec.ExplicitConfig.IntrospectionURL
-		upstream.endSessionURL = upstreamProvider.Spec.ExplicitConfig.EndSessionURL
-		upstream.JwksURL = upstreamProvider.Spec.ExplicitConfig.JWKSURL
-		upstream.Algorithms = upstreamProvider.Spec.ExplicitConfig.Algorithms
-	}
-	return upstream, nil
-}
-
-func (u *upstream) GetName() string {
-	return u.name
-}
-
-func (u *upstream) GetDisplayName() string {
-	if u.displayName != "" {
-		return u.displayName
-	}
-	return u.name
-}
-
-func (u *upstream) GetProviderType() kubauthv1alpha1.UpstreamProviderType {
-	return u.myType
-}
-
-func (u *upstream) IsClientSpecific() bool {
-	return u.clientSpecific
-}
-
-func (u *upstream) IsUseUserInfo() bool {
-	return u.useUserInfo
-}
-
+// GetEffectiveConfig is not used in the interaction, but by the controller to update the status
 func (u *upstream) GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig {
 	if u.provider == nil {
 		return nil
@@ -210,10 +185,10 @@ func (u *upstream) GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig 
 		TokenURL:         u.provider.Endpoint().TokenURL,
 		DeviceAuthURL:    u.provider.Endpoint().DeviceAuthURL,
 		UserInfoURL:      u.provider.UserInfoEndpoint(),
-		JWKSURL:          u.JwksURL,
-		Algorithms:       u.Algorithms,
-		IntrospectionURL: u.introspectionURL,
-		EndSessionURL:    u.endSessionURL,
+		JWKSURL:          u.extraConfig.JwksURL,
+		Algorithms:       u.extraConfig.Algorithms,
+		IntrospectionURL: u.extraConfig.IntrospectionURL,
+		EndSessionURL:    u.extraConfig.EndSessionURL,
 	}
 }
 
