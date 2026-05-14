@@ -65,7 +65,7 @@ func (u *upstream) ClientContext(ctx context.Context) context.Context {
 	return oidc.ClientContext(ctx, u.httpClient)
 }
 
-func (u *upstream) ParseAndVerifyIDToken(ctx context.Context, rawIDToken string) (map[string]interface{}, error) {
+func (u *upstream) ParseAndVerifyIDToken(ctx context.Context, rawIDToken string) (ClaimSet, error) {
 	if u.provider == nil {
 		return nil, fmt.Errorf("upstream has no OIDC provider")
 	}
@@ -81,7 +81,7 @@ func (u *upstream) ParseAndVerifyIDToken(ctx context.Context, rawIDToken string)
 	return claims, nil
 }
 
-func (u *upstream) FetchUserInfoClaims(ctx context.Context, tokenSource oauth2.TokenSource) (map[string]interface{}, error) {
+func (u *upstream) FetchUserInfoClaims(ctx context.Context, tokenSource oauth2.TokenSource) (ClaimSet, error) {
 	if u.provider == nil || u.provider.UserInfoEndpoint() == "" {
 		return nil, nil
 	}

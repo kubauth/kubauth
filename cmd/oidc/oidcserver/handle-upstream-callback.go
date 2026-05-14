@@ -19,6 +19,7 @@ package oidcserver
 import (
 	"encoding/json"
 	"fmt"
+	"kubauth/cmd/oidc/upstreams"
 	"kubauth/internal/misc"
 	"net/http"
 
@@ -120,7 +121,7 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 	// The base claim set (idClaims) is the OIDC claims set from the upstream provider.
 
 	ts := cfg.TokenSource(xctx, tok)
-	var idClaims map[string]interface{}
+	var idClaims upstreams.ClaimSet
 	if rawID, ok := tok.Extra("id_token").(string); ok && rawID != "" {
 		idClaims, err = u.ParseAndVerifyIDToken(xctx, rawID)
 		if err != nil {

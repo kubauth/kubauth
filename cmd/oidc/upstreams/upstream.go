@@ -27,7 +27,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// type ClaimSet map[string]interface{}
+type ClaimSet map[string]interface{}
 
 // Upstream is the representation if an upstream server in memory, after loading from an UpstreamProvider CRD
 type Upstream interface {
@@ -43,16 +43,16 @@ type Upstream interface {
 	// ClientContext returns ctx wrapped with the upstream HTTP client for token/userinfo calls.
 	ClientContext(ctx context.Context) context.Context
 	// ParseAndVerifyIDToken verifies the ID token against this upstream and returns its claims as a map.
-	ParseAndVerifyIDToken(ctx context.Context, rawIDToken string) (map[string]interface{}, error)
+	ParseAndVerifyIDToken(ctx context.Context, rawIDToken string) (ClaimSet, error)
 	// FetchUserInfoClaims returns UserInfo claims when supported; nil map if there is no userinfo endpoint.
-	FetchUserInfoClaims(ctx context.Context, tokenSource oauth2.TokenSource) (map[string]interface{}, error)
+	FetchUserInfoClaims(ctx context.Context, tokenSource oauth2.TokenSource) (ClaimSet, error)
 	// IsUseUserInfo we want to user userInfo endpoint
 	IsUseUserInfo() bool
 	// PerformRenaming rename claims
-	PerformRenaming(claims map[string]interface{}) map[string]interface{}
+	PerformRenaming(claims ClaimSet) ClaimSet
 	// CleanupClaims remove 'technical' claims (https://openid.net/specs/openid-connect-core-1_0.html#IDToken)
 	// and the one from the ClaimRemovals list
-	CleanupClaims(claims map[string]interface{}) map[string]interface{}
+	CleanupClaims(claims ClaimSet) ClaimSet
 }
 
 type upstream struct {
@@ -165,12 +165,15 @@ func (u *upstream) IsUseUserInfo() bool {
 	return u.spec.UseUserInfo
 }
 
-func (u *upstream) CleanupClaims(claims map[string]interface{}) map[string]interface{} {
+// CleanupClaims remove 'technical' claims (https://openid.net/specs/openid-connect-core-1_0.html#IDToken)
+// and the one from the u.spec.ClaimRemovals list
+func (u *upstream) CleanupClaims(claims ClaimSet) ClaimSet {
 	//TODO implement me
 	return claims
 }
 
-func (u *upstream) PerformRenaming(claims map[string]interface{}) map[string]interface{} {
+// PerformRenaming rename claims based on u.spec.ClaimsRenaming
+func (u *upstream) PerformRenaming(claims ClaimSet) ClaimSet {
 	//TODO implement me
 	return claims
 }
