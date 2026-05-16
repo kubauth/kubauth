@@ -12,6 +12,8 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     haproxy.org/ssl-passthrough: "true"
     ingress.kubernetes.io/ssl-passthrough: "true"
+    {{- else if .Values.oidc.server.tls }}
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     {{- end }}
     {{- with .Values.oidc.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
@@ -21,6 +23,12 @@ metadata:
     {{- end }}
 spec:
   ingressClassName: {{ .Values.oidc.ingress.class }}
+  {{- if and (not .Values.oidc.ingress.passthrough) .Values.oidc.server.tls }}
+  tls:
+    - hosts:
+        - {{ required "oidc.ingress.host must be defined!" .Values.oidc.ingress.host }}
+      secretName: {{ include "kubauth.oidc.server.certificateSecretName" . }}
+  {{- end }}
   rules:
     - host: {{ required "oidc.ingress.host must be defined!" .Values.oidc.ingress.host }}
       http:
