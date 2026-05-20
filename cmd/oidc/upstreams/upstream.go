@@ -21,13 +21,42 @@ import (
 	"fmt"
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"kubauth/internal/httpclient"
+	"kubauth/internal/misc"
 	"net/http"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
 
+// oidcIDTokenRegisteredClaims are JWT / OIDC ID Token claims documented in
+// https://openid.net/specs/openid-connect-core-1_0.html#IDToken - removed by
+// CleanupClaims except "sub", which must be kept as the principal identifier.
+var oidcIDTokenRegisteredClaims = map[string]struct{}{
+	"iss":       {},
+	"aud":       {},
+	"exp":       {},
+	"iat":       {},
+	"auth_time": {},
+	"nonce":     {},
+	"acr":       {},
+	"amr":       {},
+	"azp":       {},
+	"at_hash":   {},
+	"c_hash":    {},
+}
+
 type ClaimSet map[string]interface{}
+
+func cloneClaimSet(claims ClaimSet) ClaimSet {
+	if claims == nil {
+		return nil
+	}
+	out := make(ClaimSet, len(claims))
+	for k, v := range claims {
+		out[k] = v
+	}
+	return out
+}
 
 // Upstream is the representation if an upstream server in memory, after loading from an UpstreamProvider CRD
 type Upstream interface {
@@ -36,6 +65,7 @@ type Upstream interface {
 	GetEffectiveConfig() *kubauthv1alpha1.UpstreamProviderConfig
 	GetProviderType() kubauthv1alpha1.UpstreamProviderType
 	IsClientSpecific() bool
+	LocalEnrichment() bool
 
 	// OAuth2AuthCodeSettings returns client and endpoint configuration for upstream OIDC
 	// authorization code flow. ok is false for providers that do not support it (e.g. Internal).
@@ -46,8 +76,8 @@ type Upstream interface {
 	ParseAndVerifyIDToken(ctx context.Context, rawIDToken string) (ClaimSet, error)
 	// FetchUserInfoClaims returns UserInfo claims when supported; nil map if there is no userinfo endpoint.
 	FetchUserInfoClaims(ctx context.Context, tokenSource oauth2.TokenSource) (ClaimSet, error)
-	// IsUseUserInfo we want to user userInfo endpoint
-	IsUseUserInfo() bool
+	// UseUserInfo we want to user userInfo endpoint
+	UseUserInfo() bool
 	// PerformRenaming rename claims
 	PerformRenaming(claims ClaimSet) ClaimSet
 	// CleanupClaims remove 'technical' claims (https://openid.net/specs/openid-connect-core-1_0.html#IDToken)
@@ -161,21 +191,57 @@ func (u *upstream) IsClientSpecific() bool {
 	return u.spec.ClientSpecific
 }
 
-func (u *upstream) IsUseUserInfo() bool {
+func (u *upstream) LocalEnrichment() bool {
+	return misc.BoolPtrTrue(u.spec.LocalEnrichment)
+}
+
+func (u *upstream) UseUserInfo() bool {
 	return u.spec.UseUserInfo
 }
 
-// CleanupClaims remove 'technical' claims (https://openid.net/specs/openid-connect-core-1_0.html#IDToken)
-// and the one from the u.spec.ClaimRemovals list
+// CleanupClaims removes OIDC ID Token registered claims (except sub) and keys
+// listed in spec.claimRemovals. See https://openid.net/specs/openid-connect-core-1_0.html#IDToken
 func (u *upstream) CleanupClaims(claims ClaimSet) ClaimSet {
-	//TODO implement me
-	return claims
+	if claims == nil {
+		return nil
+	}
+	out := cloneClaimSet(claims)
+	for k := range oidcIDTokenRegisteredClaims {
+		delete(out, k)
+	}
+	for _, k := range u.spec.ClaimRemovals {
+		if k != "" {
+			delete(out, k)
+		}
+	}
+	return out
 }
 
-// PerformRenaming rename claims based on u.spec.ClaimsRenaming
+// PerformRenaming applies spec.claimRenamings in order. newName always overrides
+// an existing value at that key. Operation "rename" moves the value (deletes
+// oldName); "copy" sets newName and keeps oldName. Empty operation defaults to rename.
 func (u *upstream) PerformRenaming(claims ClaimSet) ClaimSet {
-	//TODO implement me
-	return claims
+	if claims == nil || len(u.spec.ClaimRenamings) == 0 {
+		return claims
+	}
+	out := cloneClaimSet(claims)
+	for _, rule := range u.spec.ClaimRenamings {
+		if rule.OldName == "" || rule.NewName == "" {
+			continue
+		}
+		val, ok := out[rule.OldName]
+		if !ok {
+			continue
+		}
+		switch rule.Operation {
+		case kubauthv1alpha1.RenamingOperationCopy:
+			out[rule.NewName] = val
+		default:
+			delete(out, rule.OldName)
+			out[rule.NewName] = val
+		}
+	}
+	return out
 }
 
 // GetEffectiveConfig is not used in the interaction, but by the controller to update the status

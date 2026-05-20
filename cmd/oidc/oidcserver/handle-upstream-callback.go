@@ -19,6 +19,7 @@ package oidcserver
 import (
 	"encoding/json"
 	"fmt"
+	"kubauth/cmd/oidc/authenticator"
 	"kubauth/cmd/oidc/upstreams"
 	"kubauth/internal/misc"
 	"net/http"
@@ -28,24 +29,6 @@ import (
 )
 
 const sessPendingUpstreamUser = "pendingUpstreamUser"
-
-func mergeUpstreamClaimMaps(userinfo, idToken map[string]interface{}) map[string]interface{} {
-	n := 0
-	if userinfo != nil {
-		n += len(userinfo)
-	}
-	if idToken != nil {
-		n += len(idToken)
-	}
-	out := make(map[string]interface{}, n)
-	for k, v := range userinfo {
-		out[k] = v
-	}
-	for k, v := range idToken {
-		out[k] = v
-	}
-	return out
-}
 
 // handleUpstreamCallback completes the upstream OIDC authorization code flow and resumes Kubauth authorize.
 func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Request) {
@@ -102,15 +85,15 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 		Endpoint:     settings.Endpoint,
 		Scopes:       settings.Scopes,
 	}
-	xctx := u.ClientContext(ctx)
+	clientCtx := u.ClientContext(ctx)
 
 	var tok *oauth2.Token
 	var err error
 	if s.LoginSessionManager.GetString(ctx, sessUpstreamPKCE) == "1" {
 		verifier := s.LoginSessionManager.GetString(ctx, sessUpstreamVerifier)
-		tok, err = cfg.Exchange(xctx, code, oauth2.VerifierOption(verifier))
+		tok, err = cfg.Exchange(clientCtx, code, oauth2.VerifierOption(verifier))
 	} else {
-		tok, err = cfg.Exchange(xctx, code)
+		tok, err = cfg.Exchange(clientCtx, code)
 	}
 	if err != nil {
 		logger.Error("upstream token exchange failed", "error", err)
@@ -120,10 +103,11 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 
 	// The base claim set (idClaims) is the OIDC claims set from the upstream provider.
 
-	ts := cfg.TokenSource(xctx, tok)
+	ts := cfg.TokenSource(clientCtx, tok)
 	var idClaims upstreams.ClaimSet
 	if rawID, ok := tok.Extra("id_token").(string); ok && rawID != "" {
-		idClaims, err = u.ParseAndVerifyIDToken(xctx, rawID)
+		idClaims, err = u.ParseAndVerifyIDToken(clientCtx, rawID)
+		idClaims = misc.NormalizeStringArray(idClaims)
 		if err != nil {
 			logger.Error("upstream id_token verification failed", "error", err)
 			http.Error(w, "invalid id_token", http.StatusBadGateway)
@@ -137,33 +121,62 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	// If `useUserInfo: true`, then userInfo is requested and the result is merged on top of the base claim
-	if u.IsUseUserInfo() {
-		uiClaims, err := u.FetchUserInfoClaims(xctx, ts)
+	// If `UseUserInfo: true`, then userInfo is requested and the result is merged on top of the base claim
+	if u.UseUserInfo() {
+		uiClaims, err := u.FetchUserInfoClaims(clientCtx, ts)
+		uiClaims = misc.NormalizeStringArray(uiClaims)
 		if err != nil {
 			logger.Error("upstream userinfo failed", "error", err)
 			http.Error(w, "userinfo failed", http.StatusBadGateway)
 			return
 		}
-		fmt.Printf("User Info Claims:%s\n", misc.Any2Yaml(uiClaims))
+		s.upstreamPrintf("User Info Claims:%s\n", misc.Any2Yaml(uiClaims))
 		idClaims = misc.MergeMaps(idClaims, uiClaims)
 	}
-	fmt.Printf("ID Claims:%s\n", misc.Any2Yaml(idClaims))
+	s.upstreamPrintf("Upstream ID Claims:%s\n", misc.Any2Yaml(idClaims))
 
 	// Then, the set of `claimRenamings` is applied.
 	idClaims = u.PerformRenaming(idClaims)
 
-	fmt.Printf("After renaming:%s\n", misc.Any2Yaml(idClaims))
+	s.upstreamPrintf("Upstream claim after renaming:%s\n", misc.Any2Yaml(idClaims))
 
 	idClaims = u.CleanupClaims(idClaims)
 
-	user, err := mapUpstreamClaimsToUserClaims(idClaims)
-	if err != nil {
-		logger.Error("upstream claims mapping failed", "error", err)
-		http.Error(w, "invalid user claims", http.StatusBadGateway)
-		return
+	s.upstreamPrintf("Upstream claims after cleanup:%s\n", misc.Any2Yaml(idClaims))
+
+	sub, _ := idClaims["sub"].(string)
+	if sub == "" {
+		logger.Error("Missing sub claim")
+		http.Error(w, "Missing sub claim", http.StatusBadGateway)
 	}
-	fmt.Printf("User login:'%s'  fullName:'%s' claims:%s\n", user.Login, user.FullName, misc.Any2Yaml(user.Claims))
+
+	var user *authenticator.OidcUser = nil
+	if u.LocalEnrichment() {
+		user, _, err = s.Authenticator.Identify(ctx, sub, "")
+		if err != nil {
+			logger.Error("Error authenticating user", "error", err)
+			http.Error(w, "Error authenticating user", http.StatusInternalServerError)
+		}
+		if user != nil {
+			user.Claims = misc.NormalizeStringArray(user.Claims)
+			x := misc.MergeMaps(idClaims, user.Claims)
+			user.Claims = x
+			s.upstreamPrintf("User login:'%s'  fullName:'%s' enrichment:true claims:%s\n", user.Login, user.FullName, misc.Any2Yaml(user.Claims))
+		}
+	}
+	if user == nil {
+		// No info from local IDP. Build our user from upstream claims (After renaming and cleanup)
+		fullName := ""
+		if s, ok := idClaims["name"].(string); ok {
+			fullName = s
+		}
+		user = &authenticator.OidcUser{
+			Login:    sub,
+			Claims:   idClaims,
+			FullName: fullName,
+		}
+		s.upstreamPrintf("User login:'%s'  fullName:'%s' enrichment:false claims:%s\n", user.Login, user.FullName, misc.Any2Yaml(user.Claims))
+	}
 
 	_ = s.SsoSessionManager.RenewToken(ctx)
 
@@ -189,4 +202,10 @@ func (s *OIDCServer) handleUpstreamCallback(w http.ResponseWriter, r *http.Reque
 		s.SsoSessionManager.Put(ctx, "ssoUser", user)
 	}
 	s.completeUpstreamAuthorize(ctx, w, rawQuery, user)
+}
+
+func (s *OIDCServer) upstreamPrintf(format string, a ...interface{}) {
+	if s.DumpUpstreamClaims {
+		fmt.Printf(format, a...)
+	}
 }

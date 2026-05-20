@@ -16,6 +16,8 @@ limitations under the License.
 
 package misc
 
+import "fmt"
+
 // MergeMaps merge two maps and return a new one.
 // Second parameter map will override the first one, except:
 // for a given key, if both values are []string, the result is deduplicated concatenation
@@ -28,6 +30,7 @@ func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
 		out[k] = v
 	}
 	for k, v := range b {
+		fmt.Printf("Key: %s, b Value type: %T   a Value Type:%T\n", k, v, out[k])
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {
@@ -65,4 +68,56 @@ func mergeStringSlicesDeduped(a, b []string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+// NormalizeStringArray walks the map recursively. For each value of type []interface{},
+// if every element is a string, it is replaced with []string; otherwise the slice is
+// left as []interface{} but its elements are still normalized when they are maps or slices.
+// Nested map[string]interface{} values are normalized recursively.
+// The input map is not modified; a new map is returned.
+// We need this function as json/yaml unmarshalling may return []interface{} for what can be a []string
+func NormalizeStringArray(m map[string]interface{}) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		out[k] = normalizeStringArrayValue(v)
+	}
+	return out
+}
+
+func normalizeStringArrayValue(v interface{}) interface{} {
+	switch t := v.(type) {
+	case map[string]interface{}:
+		return NormalizeStringArray(t)
+	case []interface{}:
+		if ss, ok := interfaceSliceToStringSlice(t); ok {
+			return ss
+		}
+		out := make([]interface{}, len(t))
+		for i, e := range t {
+			out[i] = normalizeStringArrayValue(e)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// interfaceSliceToStringSlice reports whether every element of in is a string and returns that []string.
+// A nil slice yields (nil, true).
+func interfaceSliceToStringSlice(in []interface{}) ([]string, bool) {
+	if in == nil {
+		return nil, true
+	}
+	out := make([]string, len(in))
+	for i, e := range in {
+		s, ok := e.(string)
+		if !ok {
+			return nil, false
+		}
+		out[i] = s
+	}
+	return out, true
 }

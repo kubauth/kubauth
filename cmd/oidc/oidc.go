@@ -104,6 +104,7 @@ var flags struct {
 	clientPrivilegedNamespace string
 	defaultStyle              string
 	internalWelcomeMessage    string
+	dumpUpstreamClaims        bool
 
 	// SSO Config
 	ssoNamespace  string
@@ -171,6 +172,7 @@ func init() {
 	Cmd.PersistentFlags().StringVar(&flags.clientPrivilegedNamespace, "clientPrivilegedNamespace", "", "The only OIDC client namespace, where client_id is not préfixed by namespace.")
 	Cmd.PersistentFlags().StringVar(&flags.defaultStyle, "defaultStyle", "dark", "Allow to change template style and layout.")
 	Cmd.PersistentFlags().StringVar(&flags.internalWelcomeMessage, "internalWelcomeMessage", "Local login", "User prompt for local login")
+	Cmd.PersistentFlags().BoolVar(&flags.dumpUpstreamClaims, "dumpUpstreamClaims", false, "Dump claims from upstream")
 
 	// SSO Config
 	Cmd.PersistentFlags().StringVar(&flags.ssoNamespace, "ssoNamespace", "", "The namespace hosting SSO sessions")
@@ -616,6 +618,7 @@ var Cmd = &cobra.Command{
 			DefaultStyle:            flags.defaultStyle,
 			SsoMode:                 flags.ssoMode,
 			InternalWelcomeMessage:  flags.internalWelcomeMessage,
+			DumpUpstreamClaims:      flags.dumpUpstreamClaims,
 		}).Setup(ctx, router)
 		if err != nil {
 			setupLog.Error(err, "unable to setup oidc server")

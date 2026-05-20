@@ -16,7 +16,10 @@ limitations under the License.
 
 package authenticator
 
-import "context"
+import (
+	"context"
+	"kubauth/internal/proto"
+)
 
 type OidcUser struct {
 	Login    string
@@ -25,5 +28,8 @@ type OidcUser struct {
 }
 
 type OidcAuthenticator interface {
+	// Identify return user information whatever password status
+	Identify(ctx context.Context, login string, password string) (*OidcUser, proto.Status, error)
+	// Authenticate return nil if user is not authenticated (password checked)
 	Authenticate(ctx context.Context, login string, password string) (*OidcUser, error)
 }

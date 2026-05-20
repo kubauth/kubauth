@@ -45,6 +45,17 @@ func New(config *httpclient.Config) (authenticator.OidcAuthenticator, error) {
 }
 
 func (u *httpProvider) Authenticate(ctx context.Context, login string, password string) (*authenticator.OidcUser, error) {
+	user, passwordStatus, err := u.Identify(ctx, login, password)
+	if err != nil {
+		return nil, err
+	}
+	if passwordStatus != proto.PasswordChecked {
+		return nil, nil
+	}
+	return user, nil
+}
+
+func (u *httpProvider) Identify(ctx context.Context, login string, password string) (*authenticator.OidcUser, proto.Status, error) {
 	logger := logr.FromContextAsSlogLogger(ctx)
 	request := &proto.IdentityRequest{
 		Login:    login,
@@ -53,11 +64,11 @@ func (u *httpProvider) Authenticate(ctx context.Context, login string, password 
 	response := &proto.IdentityResponse{}
 	err := proto.Exchange(u.httpClient, "GET", "v1/identity", request, response)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	if response.Status != proto.PasswordChecked {
-		return nil, nil
-	}
+	//if response.Status != proto.PasswordChecked {
+	//	return nil, nil
+	//}
 	// ------------------------------------------- Enrich user's claim with value
 	// Ensure response coherency
 	if response.User.Claims == nil {
@@ -79,7 +90,7 @@ func (u *httpProvider) Authenticate(ctx context.Context, login string, password 
 	// ---- Handle groups
 	groupFromClaims, err := getStringArrayInMap(claims, "groups")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	groups := append(response.User.Groups, groupFromClaims...)
 	groups = misc.DedupAndSort(groups)
@@ -90,7 +101,7 @@ func (u *httpProvider) Authenticate(ctx context.Context, login string, password 
 	// ---- Handle emails
 	emailsFromClaims, err := getStringArrayInMap(claims, "emails")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	emails := misc.AppendIfNotPresent(response.User.Emails, emailsFromClaims)
 	if len(emails) != 0 {
@@ -114,7 +125,7 @@ func (u *httpProvider) Authenticate(ctx context.Context, login string, password 
 		Login:    login,
 		Claims:   claims,
 		FullName: response.User.Name,
-	}, nil
+	}, response.Status, nil
 }
 
 func getStringArrayInMap(m map[string]interface{}, key string) ([]string, error) {

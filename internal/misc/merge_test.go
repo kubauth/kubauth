@@ -201,3 +201,48 @@ func TestMergeMaps_doesNotMutateInputs(t *testing.T) {
 		t.Errorf("second map mutated: %#v", b)
 	}
 }
+
+func TestNormalizeStringArray_allStringSlice(t *testing.T) {
+	in := map[string]interface{}{
+		"scopes": []interface{}{"openid", "email"},
+	}
+	got := NormalizeStringArray(in)
+	want := map[string]interface{}{
+		"scopes": []string{"openid", "email"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+	if !reflect.DeepEqual(in, map[string]interface{}{
+		"scopes": []interface{}{"openid", "email"},
+	}) {
+		t.Fatal("input mutated")
+	}
+}
+
+func TestNormalizeStringArray_nestedMapAndMixedSlice(t *testing.T) {
+	in := map[string]interface{}{
+		"nested": map[string]interface{}{
+			"roles": []interface{}{"a", "b"},
+		},
+		"mixed": []interface{}{"x", 1},
+	}
+	got := NormalizeStringArray(in)
+	nested := got["nested"].(map[string]interface{})
+	if roles, ok := nested["roles"].([]string); !ok || !reflect.DeepEqual(roles, []string{"a", "b"}) {
+		t.Fatalf("nested roles = %#v", nested["roles"])
+	}
+	mixed, ok := got["mixed"].([]interface{})
+	if !ok || len(mixed) != 2 {
+		t.Fatalf("mixed = %#v", got["mixed"])
+	}
+	if mixed[0] != "x" || mixed[1] != 1 {
+		t.Fatalf("mixed elements = %#v", mixed)
+	}
+}
+
+func TestNormalizeStringArray_nilMap(t *testing.T) {
+	if got := NormalizeStringArray(nil); got != nil {
+		t.Fatalf("got %#v, want nil", got)
+	}
+}

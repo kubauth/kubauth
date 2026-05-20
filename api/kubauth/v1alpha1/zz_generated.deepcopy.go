@@ -850,6 +850,11 @@ func (in *UpstreamProviderSpec) DeepCopyInto(out *UpstreamProviderSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.LocalEnrichment != nil {
+		in, out := &in.LocalEnrichment, &out.LocalEnrichment
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ExplicitConfig != nil {
 		in, out := &in.ExplicitConfig, &out.ExplicitConfig
 		*out = new(UpstreamProviderConfig)

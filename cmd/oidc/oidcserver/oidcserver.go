@@ -66,6 +66,7 @@ type OIDCServer struct {
 	DefaultStyle            string
 	SsoMode                 SsoMode
 	InternalWelcomeMessage  string
+	DumpUpstreamClaims      bool
 
 	KubeClient              client.Client
 	EventRecorder           record.EventRecorder

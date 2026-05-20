@@ -109,6 +109,9 @@ build:  build-kubauth  ## Build kubauth binaries with dependencies
 build-kubauth: generate ## Build kubauth binary.
 	CGO_ENABLED=0 go build -o bin/kubauth main.go
 
+.PHOMY: test
+test:
+	CGO_ENABLED=0 go test ./...
 
 ##@ Docker
 

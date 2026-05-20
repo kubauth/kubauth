@@ -163,6 +163,11 @@ type UpstreamProviderSpec struct {
 	// +optional
 	ClaimRemovals []string `json:"claimRemovals,omitempty"`
 
+	// Use local IDP to add extra claims if 'sub' claims match a local user.
+	// +kubebuilder:validation:Optional
+	// Default: true
+	LocalEnrichment *bool `json:"localEnrichment,omitempty"`
+
 	// Allow to replace missing configuration discovery. Or to fix uncorrected value
 	// It all or nothing -> if != nil take this config and don't perform discovery. If == nil, use discovery.
 	// +optional

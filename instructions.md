@@ -337,3 +337,15 @@ OK, do this refactoring
 
 
 
+--- 
+composer2
+
+Implements the two functions with TODO in upstream.go
+
+give me the command to run upstream_claim
+
+
+--- 
+composer2
+
+Implement internal/misc/merge.go NormalizeStringArray()

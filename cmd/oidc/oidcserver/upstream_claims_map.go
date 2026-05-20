@@ -23,9 +23,7 @@ import (
 
 // mapUpstreamClaimsToUserClaims maps verified upstream OIDC claims (ID token and/or UserInfo)
 // into the Kubauth user model used for fosite sessions and tokens.
-//
-// This is intentionally small and explicit; extend here as product requirements grow.
-func mapUpstreamClaimsToUserClaims(claims map[string]interface{}) (*authenticator.OidcUser, error) {
+func mapUpstreamClaimsToUser(claims map[string]interface{}) (*authenticator.OidcUser, error) {
 	if claims == nil {
 		return nil, fmt.Errorf("no claims")
 	}
@@ -34,22 +32,13 @@ func mapUpstreamClaimsToUserClaims(claims map[string]interface{}) (*authenticato
 		return nil, fmt.Errorf("missing sub claim")
 	}
 	login := sub
-	if preferred, ok := claims["preferred_username"].(string); ok && preferred != "" {
-		login = preferred
-	} else if email, ok := claims["email"].(string); ok && email != "" {
-		login = email
-	}
-	outClaims := make(map[string]interface{}, len(claims))
-	for k, v := range claims {
-		outClaims[k] = v
-	}
 	fullName := ""
 	if s, ok := claims["name"].(string); ok {
 		fullName = s
 	}
 	return &authenticator.OidcUser{
 		Login:    login,
-		Claims:   outClaims,
+		Claims:   claims,
 		FullName: fullName,
 	}, nil
 }
