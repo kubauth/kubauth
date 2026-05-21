@@ -781,6 +781,11 @@ spec:
               issuerURL:
                 description: The issuer URL
                 type: string
+              localEnrichment:
+                description: |-
+                  Use local IDP to add extra claims if 'sub' claims match a local user.
+                  Default: true
+                type: boolean
               redirectURL:
                 type: string
               scopes:

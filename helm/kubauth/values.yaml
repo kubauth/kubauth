@@ -198,11 +198,13 @@ oidc:
     annotations:
 
 
-  # All UpstreamProvider CRs must live in this namespace (OIDC controller watches/cache only here).
-  # Defaults to .Release.Namespace in the chart template.
   upstreamProviders:
-    namespace:
     internalWelcomeMessage: "Local login"
+    # All UpstreamProvider CRs must live in this namespace (OIDC controller watches/cache only here).
+    # Defaults to .Release.Namespace in the chart template.
+    namespace:
+    ## For claims merge quick and dirty debugging
+    dumpUpstreamClaims: false
 
   sso:
     mode: onDemand # onDemand, never, always
