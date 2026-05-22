@@ -14,6 +14,7 @@ metadata:
     ingress.kubernetes.io/ssl-passthrough: "true"
     {{- else if .Values.oidc.server.tls }}
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    haproxy.org/server-ssl: "true"
     {{- end }}
     {{- with .Values.oidc.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
