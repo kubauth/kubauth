@@ -65,7 +65,7 @@ type OIDCServer struct {
 	PostLogoutURL           string
 	DefaultStyle            string
 	SsoMode                 SsoMode
-	InternalWelcomeMessage  string
+	DefaultLoginLabel       string
 	DumpUpstreamClaims      bool
 
 	KubeClient              client.Client

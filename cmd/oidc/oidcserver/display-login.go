@@ -133,7 +133,7 @@ func (s *OIDCServer) populateLoginModelWithUpstreams(ctx context.Context, kubaut
 			}
 		} else {
 			// No upstreams list defined for this client, and no upstreamProviders at all: Setup default internal provider
-			internal = upstreams.NewInternalUpstream(s.InternalWelcomeMessage)
+			internal = upstreams.NewInternalUpstream(s.DefaultLoginLabel)
 		}
 	}
 	if len(upstreamButtons) > 0 {

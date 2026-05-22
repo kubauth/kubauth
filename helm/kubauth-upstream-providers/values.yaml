@@ -32,7 +32,11 @@ upstreamProviders: []
 #    insecureSkipVerify: false
 #    redirectURL: "https://kubauth.mycluster.mycompany.com/upstream/callback"
 #    clientId: kubauth-downstream
+#    # Only one of clientSecret or clientSecretRef must be defined
 #    clientSecret: aGoodSecret
+#    clientSecretRef:
+#      name: fromExternalSecret
+#      key: clientSecret
 #    scopes:
 #      - openid
 #      - profile

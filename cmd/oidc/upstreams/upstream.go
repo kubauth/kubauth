@@ -105,12 +105,12 @@ type extraConfig struct {
 
 var _ Upstream = &upstream{}
 
-func NewInternalUpstream(welcomeMessage string) Upstream {
+func NewInternalUpstream(defaultLoginLabel string) Upstream {
 	return &upstream{
 		name: "internal",
 		spec: kubauthv1alpha1.UpstreamProviderSpec{
 			Type:        kubauthv1alpha1.UpstreamProviderTypeInternal,
-			DisplayName: welcomeMessage,
+			DisplayName: defaultLoginLabel,
 		},
 	}
 }

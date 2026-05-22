@@ -118,18 +118,13 @@ spec:
                 type: string
               clientSecret:
                 properties:
-                  secret:
-                    properties:
-                      key:
-                        type: string
-                      name:
-                        type: string
-                    required:
-                    - key
-                    - name
-                    type: object
+                  key:
+                    type: string
+                  name:
+                    type: string
                 required:
-                - secret
+                - key
+                - name
                 type: object
               clientSpecific:
                 default: false
@@ -138,7 +133,7 @@ spec:
               displayName:
                 description: |-
                   Name prompted to the user
-                  Required for all but internal. When internal, "" means display the dialog. A value means display a button
+                  Required for all but internal.
                 type: string
               dumpExchanges:
                 default: false

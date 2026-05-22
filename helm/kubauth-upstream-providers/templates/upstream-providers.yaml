@@ -49,9 +49,13 @@ spec:
   {{ with .clientId }}clientId: {{ .}}{{ end }}
   {{- with .clientSecret }}
   clientSecret:
-    secret:
-      name: upstream-{{ $name }}
-      key: clientSecret
+    name: upstream-{{ $name }}
+    key: clientSecret
+  {{- end }}
+  {{- with .clientSecretRef }}
+  clientSecret:
+    name: {{ .name}}
+    key: {{ .key }}
   {{- end }}
   {{- with .scopes }}
   scopes:

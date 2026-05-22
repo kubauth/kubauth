@@ -30,18 +30,20 @@
 
     {{- if .ShowLoginForm}}
     <fieldset class="login-form-fieldset">
+        {{- if ne .FieldsetLabel "--" }}
         <legend class="login-form-legend">{{.FieldsetLabel}}</legend>
+        {{- end }}
         <form id="loginForm" method="POST" action="/oauth2/login">
             <div id="errorMessage" class="error-message">
                 <!-- Error messages will be displayed here -->
             </div>
             <div class="form-group">
-                <label for="login">Login</label>
+                <label for="login">Login:</label>
                 <input type="text" id="login" name="login" required>
             </div>
 
             <div class="form-group password-group">
-                <label for="password">Password</label>
+                <label for="password">Password:</label>
                 <input type="password" id="password" name="password" required>
                 <span class="password-toggle" id="passwordToggle">
                         <!-- Eye icon (hidden) -->
@@ -60,7 +62,7 @@
                 <label class="checkbox-container">
                     <input type="checkbox" id="remember" name="remember">
                     <span class="checkmark"></span>
-                    Activate SSO
+                    Remember Me
                 </label>
             </div>
             {{- end }}

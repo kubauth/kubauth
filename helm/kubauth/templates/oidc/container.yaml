@@ -52,11 +52,11 @@ Expand oidc container
     - --enforcePKCE={{ .Values.oidc.enforcePKCE }}
     - --jwtAccessToken={{ .Values.oidc.jwtAccessToken }}
     - --clientPrivilegedNamespace={{ .Values.oidc.clientPrivilegedNamespace | default .Release.Namespace }}
-    - --upstreamNamespace={{ .Values.oidc.upstreamProviders.namespace | default .Release.Namespace }}
+    - --upstreamNamespace={{ .Values.oidc.upstreamProviderNamespace | default .Release.Namespace }}
     - --ssoMode={{ .Values.oidc.sso.mode }}
     - --defaultStyle={{ .Values.oidc.defaultStyle }}
-    - --internalWelcomeMessage={{ .Values.oidc.upstreamProviders.internalWelcomeMessage }}
-    - --dumpUpstreamClaims={{ .Values.oidc.upstreamProviders.dumpUpstreamClaims }}
+    - --defaultLoginLabel={{ .Values.oidc.defaultLoginLabel }}
+    - --dumpUpstreamClaims={{ .Values.oidc.dumpUpstreamClaims }}
     {{-  range .Values.oidc.additionalArgs }}
     - {{ . }}
     {{- end }}

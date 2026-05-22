@@ -157,9 +157,9 @@ func (r *UpstreamProviderReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	clientSecret := ""
-	if upstreamProvider.Spec.ClientSecret != nil {
+	if upstreamProvider.Spec.ClientSecret.Name != "" {
 		var secErr error
-		clientSecret, secErr = r.fetchClientSecret(ctx, req.Namespace, upstreamProvider.Spec.ClientSecret)
+		clientSecret, secErr = r.fetchClientSecret(ctx, req.Namespace, upstreamProvider.Spec.ClientSecret.Name, upstreamProvider.Spec.ClientSecret.Key)
 		if secErr != nil {
 			r.Event(upstreamProvider, "Warning", "Configuration", secErr.Error())
 			return r.updateStatus(ctx, upstreamProvider, nil, secErr)
@@ -224,24 +224,24 @@ func (r *UpstreamProviderReconciler) updateStatus(ctx context.Context, upstreamP
 	return ctrl.Result{}, nil
 }
 
-func (r *UpstreamProviderReconciler) fetchClientSecret(ctx context.Context, namespace string, src *kubauthv1alpha1.LocalSecretReference) (string, error) {
-	if src == nil || src.Secret.Name == "" {
-		return "", fmt.Errorf("clientSecret.secret name is required")
+func (r *UpstreamProviderReconciler) fetchClientSecret(ctx context.Context, namespace string, secretName string, secretKey string) (string, error) {
+	if secretName == "" {
+		return "", fmt.Errorf("clientSecret.name is required")
 	}
-	if src.Secret.Key == "" {
+	if secretKey == "" {
 		return "", fmt.Errorf("clientSecret.key is required")
 	}
 	var secret corev1.Secret
-	err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: src.Secret.Name}, &secret)
+	err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: secretName}, &secret)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return "", fmt.Errorf("client secret %q not found in namespace %q", src.Secret.Name, namespace)
+			return "", fmt.Errorf("client secret %q not found in namespace %q", secretName, namespace)
 		}
 		return "", err
 	}
-	value, ok := secret.Data[src.Secret.Key]
+	value, ok := secret.Data[secretKey]
 	if !ok {
-		return "", fmt.Errorf("no key %q in secret %q/%q", src.Secret.Key, namespace, src.Secret.Name)
+		return "", fmt.Errorf("no key %q in secret %q/%q", secretKey, namespace, secretName)
 	}
 	return string(value), nil
 }

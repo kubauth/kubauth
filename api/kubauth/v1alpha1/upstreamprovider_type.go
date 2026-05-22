@@ -50,9 +50,10 @@ type LocalSecretSpec struct {
 	Key string `json:"key"`
 }
 
-type LocalSecretReference struct {
-	Secret LocalSecretSpec `json:"secret"`
-}
+//
+//type LocalSecretReference struct {
+//	Secret LocalSecretSpec `json:"secret"`
+//}
 
 // UpstreamProviderConfig mirrors the subset of the OIDC discovery document represented by
 // github.com/coreos/go-oidc/v3/oidc.ProviderConfig. It is defined here (not embedded) so CRD types
@@ -117,7 +118,7 @@ type UpstreamProviderSpec struct {
 	Type UpstreamProviderType `json:"type"`
 
 	// Name prompted to the user
-	// Required for all but internal. When internal, "" means display the dialog. A value means display a button
+	// Required for all but internal.
 	// +optional
 	DisplayName string `json:"displayName"`
 
@@ -146,7 +147,7 @@ type UpstreamProviderSpec struct {
 	ClientId string `json:"clientId"`
 
 	// +optional
-	ClientSecret *LocalSecretReference `json:"clientSecret"`
+	ClientSecret LocalSecretSpec `json:"clientSecret"`
 
 	// +optional
 	Scopes []string `json:"scopes"`

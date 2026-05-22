@@ -159,6 +159,14 @@ oidc:
   # Default to {{ include "kubauth.baseName" .}}-oidc-client-admin.
   clientAdminClusterRoleName:
 
+  # Label on login box when no upstream providers are defined.
+  defaultLoginLabel: "Welcome"
+  # All UpstreamProvider CRs must live in this namespace (OIDC controller watches/cache only here).
+  # Defaults to .Release.Namespace in the chart template.
+  upstreamProviderNamespace:
+  ## For claims merge quick and dirty debugging
+  dumpUpstreamClaims: false
+
   idProvider:
     baseURL: http://localhost:6805
     rootCAPath: # TBD if https.
@@ -197,14 +205,6 @@ oidc:
     passthrough: true
     annotations:
 
-
-  upstreamProviders:
-    internalWelcomeMessage: "Local login"
-    # All UpstreamProvider CRs must live in this namespace (OIDC controller watches/cache only here).
-    # Defaults to .Release.Namespace in the chart template.
-    namespace:
-    ## For claims merge quick and dirty debugging
-    dumpUpstreamClaims: false
 
   sso:
     mode: onDemand # onDemand, never, always

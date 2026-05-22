@@ -103,7 +103,7 @@ var flags struct {
 	jwtAccessToken            bool
 	clientPrivilegedNamespace string
 	defaultStyle              string
-	internalWelcomeMessage    string
+	defaultLoginLabel         string
 	dumpUpstreamClaims        bool
 
 	// SSO Config
@@ -171,7 +171,7 @@ func init() {
 	Cmd.PersistentFlags().BoolVar(&flags.jwtAccessToken, "jwtAccessToken", false, "Access token is a JWT. Otherwise is an opaque value")
 	Cmd.PersistentFlags().StringVar(&flags.clientPrivilegedNamespace, "clientPrivilegedNamespace", "", "The only OIDC client namespace, where client_id is not préfixed by namespace.")
 	Cmd.PersistentFlags().StringVar(&flags.defaultStyle, "defaultStyle", "dark", "Allow to change template style and layout.")
-	Cmd.PersistentFlags().StringVar(&flags.internalWelcomeMessage, "internalWelcomeMessage", "Local login", "User prompt for local login")
+	Cmd.PersistentFlags().StringVar(&flags.defaultLoginLabel, "defaultLoginLabel", "", "Label on local login when no upstreamProviders define")
 	Cmd.PersistentFlags().BoolVar(&flags.dumpUpstreamClaims, "dumpUpstreamClaims", false, "Dump claims from upstream")
 
 	// SSO Config
@@ -446,10 +446,10 @@ var Cmd = &cobra.Command{
 		const secretIndexOnUpstreamProvider = "secretIndexOnUpstreamProvider"
 		err = mgr.GetFieldIndexer().IndexField(context.Background(), &kubauthv1alpha1.UpstreamProvider{}, secretIndexOnUpstreamProvider, func(rawObj client.Object) []string {
 			upstreamProvider := rawObj.(*kubauthv1alpha1.UpstreamProvider)
-			if upstreamProvider.Spec.ClientSecret == nil || upstreamProvider.Spec.ClientSecret.Secret.Name == "" {
+			if upstreamProvider.Spec.ClientSecret.Name == "" {
 				return nil
 			}
-			return []string{fmt.Sprintf("%s:%s", upstreamProvider.Namespace, upstreamProvider.Spec.ClientSecret.Secret.Name)}
+			return []string{fmt.Sprintf("%s:%s", upstreamProvider.Namespace, upstreamProvider.Spec.ClientSecret.Name)}
 		})
 		if err != nil {
 			setupLog.Error(err, "unable to index upstreamProvider by secret")
@@ -617,7 +617,7 @@ var Cmd = &cobra.Command{
 			JwtAccessToken:          flags.jwtAccessToken,
 			DefaultStyle:            flags.defaultStyle,
 			SsoMode:                 flags.ssoMode,
-			InternalWelcomeMessage:  flags.internalWelcomeMessage,
+			DefaultLoginLabel:       flags.defaultLoginLabel,
 			DumpUpstreamClaims:      flags.dumpUpstreamClaims,
 		}).Setup(ctx, router)
 		if err != nil {
