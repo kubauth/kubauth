@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/go-logr/logr"
 )
@@ -107,9 +108,11 @@ func appendLogoutQuery(postLogoutURL string, requestQuery url.Values) string {
 	if err != nil {
 		// Bad URL configured — fall back to raw concatenation rather
 		// than dropping `state` silently. The browser will surface
-		// the malformed URL clearly enough.
+		// the malformed URL clearly enough. Use the raw string to
+		// pick the separator: `u` may be nil or partially populated
+		// when Parse fails, so its RawQuery is unreliable.
 		sep := "?"
-		if u != nil && u.RawQuery != "" {
+		if strings.Contains(postLogoutURL, "?") {
 			sep = "&"
 		}
 		return postLogoutURL + sep + "state=" + url.QueryEscape(state)

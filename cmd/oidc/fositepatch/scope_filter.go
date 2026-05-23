@@ -96,21 +96,32 @@ func AllowedIDTokenClaimsFor(grantedScopes []string) map[string]struct{} {
 	return allowed
 }
 
-// FilterExtraClaimsByScope drops any Extra entry that's not in the
-// allowed set built from the granted scopes. Mutates and returns
-// the same map, or nil if `extra` was nil (no allocation in that
-// case — the caller's nil-handling stays explicit).
+// FilterExtraClaimsByScope returns a NEW map containing only the
+// Extra entries allowed by the granted scopes. The caller's input
+// map is not mutated.
+//
+// Why a copy rather than in-place delete: in fosite/hydra the same
+// underlying map can be referenced by multiple session views
+// (IDTokenClaims_.Extra, JWTClaims_.Extra, the cached SSO session
+// principal). In-place deletion here would silently strip claims
+// from access tokens / stored sessions and races with concurrent
+// readers — the same family of bug we just fixed in
+// handleUserInfo.
+//
+// Returns nil if `extra` was nil so the caller's nil-handling stays
+// explicit.
 func FilterExtraClaimsByScope(extra map[string]interface{}, grantedScopes []string) map[string]interface{} {
 	if extra == nil {
 		return nil
 	}
 	allowed := AllowedIDTokenClaimsFor(grantedScopes)
-	for k := range extra {
-		if _, ok := allowed[k]; !ok {
-			delete(extra, k)
+	filtered := make(map[string]interface{}, len(extra))
+	for k, v := range extra {
+		if _, ok := allowed[k]; ok {
+			filtered[k] = v
 		}
 	}
-	return extra
+	return filtered
 }
 
 // scopeFilteringIDTokenStrategy wraps an OpenIDConnectTokenStrategy

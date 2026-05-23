@@ -59,7 +59,26 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		// other prompt value. Reject early with `invalid_request`
 		// rather than letting downstream code emit a misleading
 		// `login_required` for what is actually a malformed request.
+		// Per §3.1.2.6, deliver the error via the redirect-based
+		// authorization error response when the request is parseable,
+		// so clients receive it on their `redirect_uri` rather than as
+		// a bare HTTP 400.
 		if promptNone && len(promptValues) > 1 {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/oauth2/auth?"+rawQuery, nil)
+			if err == nil {
+				ar, arErr := s.oauth2.NewAuthorizeRequest(ctx, req)
+				if arErr == nil {
+					logger.Info("invalid prompt combination: prompt=none with other prompt values",
+						"clientID", clientId, "prompt", promptValues)
+					s.oauth2.WriteAuthorizeError(ctx, w, ar, fosite.ErrInvalidRequest.WithDescription("prompt=none cannot be combined with other prompt values"))
+					return
+				}
+				// fosite refused the rebuilt request — surface its
+				// error rather than the prompt-combination one; the
+				// client should fix its request first.
+				s.oauth2.WriteAuthorizeError(ctx, w, ar, arErr)
+				return
+			}
 			http.Error(w, "invalid_request: prompt=none cannot be combined with other prompt values", http.StatusBadRequest)
 			return
 		}
