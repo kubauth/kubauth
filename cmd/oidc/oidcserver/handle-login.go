@@ -55,6 +55,14 @@ func (s *OIDCServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 				promptLogin = true
 			}
 		}
+		// OIDC Core 1.0 §3.1.2.1: `none` MUST NOT appear with any
+		// other prompt value. Reject early with `invalid_request`
+		// rather than letting downstream code emit a misleading
+		// `login_required` for what is actually a malformed request.
+		if promptNone && len(promptValues) > 1 {
+			http.Error(w, "invalid_request: prompt=none cannot be combined with other prompt values", http.StatusBadRequest)
+			return
+		}
 		logger.Debug("handleLogin(GET)", "clientID", clientId, "prompt", promptValues)
 
 		// Persist the authorization query in the session so the POST can retrieve it
