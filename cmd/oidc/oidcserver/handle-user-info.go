@@ -68,6 +68,12 @@ func (s *OIDCServer) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	// fositepatch.AllowedIDTokenClaimsFor for the scope→claim
 	// mapping kubauth uses (mirrors the id_token filter installed
 	// in fositepatch.NewScopeFilteringIDTokenStrategy).
+	//
+	// Note: the allowlist also includes kubauth-specific extensions
+	// (`authority`, `uid`) and protocol-level entries that ride every
+	// response regardless of scope — same policy as the id_token.
+	// `azp` is the only always-allowed claim explicitly stripped here
+	// since RFC 9068 reserves it for id_tokens.
 	allowed := fositepatch.AllowedIDTokenClaimsFor(ar.GetGrantedScopes())
 	claims := make(map[string]interface{}, len(idClaims.Extra)+1)
 	for k, v := range idClaims.Extra {
