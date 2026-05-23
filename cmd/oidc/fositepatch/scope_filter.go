@@ -98,7 +98,8 @@ func AllowedIDTokenClaimsFor(grantedScopes []string) map[string]struct{} {
 
 // FilterExtraClaimsByScope drops any Extra entry that's not in the
 // allowed set built from the granted scopes. Mutates and returns
-// the same map (or a fresh one if `extra` was nil).
+// the same map, or nil if `extra` was nil (no allocation in that
+// case — the caller's nil-handling stays explicit).
 func FilterExtraClaimsByScope(extra map[string]interface{}, grantedScopes []string) map[string]interface{} {
 	if extra == nil {
 		return nil

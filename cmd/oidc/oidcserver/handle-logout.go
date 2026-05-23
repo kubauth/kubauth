@@ -82,21 +82,26 @@ func (s *OIDCServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	// OIDC RP-Initiated Logout 1.0 §3: if `state` is included in the
 	// request, the OP MUST echo it on the redirect to
-	// post_logout_redirect_uri. Some RPs also expect `iss` (the
-	// auth-server-issuer-identification draft) — emit when the
-	// request asked for it.
+	// post_logout_redirect_uri.
 	postLogoutURL = appendLogoutQuery(postLogoutURL, r.URL.Query())
 	http.Redirect(w, r, postLogoutURL, http.StatusFound)
 }
 
-// appendLogoutQuery copies the OIDC RP-Initiated-Logout response
-// parameters (`state`, `iss`) from the incoming request's query
-// onto the post-logout redirect URL. Existing query params on the
-// postLogoutURL are preserved; the response params are appended.
+// appendLogoutQuery copies the OIDC RP-Initiated-Logout `state`
+// response parameter from the incoming request's query onto the
+// post-logout redirect URL. Existing query params on the
+// postLogoutURL are preserved; `state` is appended/overwritten.
+// Per §3, `state` MUST be echoed when present in the request,
+// including an explicit empty value — so we check key presence
+// rather than the empty-string semantics of url.Values.Get.
 func appendLogoutQuery(postLogoutURL string, requestQuery url.Values) string {
-	state := requestQuery.Get("state")
-	if state == "" {
+	stateValues, hasState := requestQuery["state"]
+	if !hasState {
 		return postLogoutURL
+	}
+	state := ""
+	if len(stateValues) > 0 {
+		state = stateValues[0]
 	}
 	u, err := url.Parse(postLogoutURL)
 	if err != nil {
