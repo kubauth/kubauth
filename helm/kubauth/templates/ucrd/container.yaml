@@ -109,6 +109,11 @@ Expand ucrd container
       mountPath: {{ .mountPath }}
       readOnly: true
     {{- end }}
+    {{- range .Values.ucrd.extraConfigMaps }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
 
 {{- end }}
 
@@ -141,5 +146,10 @@ Expand ucrd volumes in pod
 - name: {{ .name }}
   secret:
     secretName: {{ .secretName }}
+{{- end }}
+{{- range .Values.ucrd.extraConfigMaps }}
+- name: {{ .name }}
+  configMap:
+    name: {{ .configMapName }}
 {{- end }}
 {{- end }}

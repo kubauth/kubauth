@@ -243,6 +243,10 @@ oidc:
   #  - name:
   #    mountPath:
   #    secretName:
+  extraConfigMaps: []
+  #  - name:
+  #    mountPath:
+  #    configMapName:
 
   # Container specific securityContext
   securityContext:
@@ -364,6 +368,10 @@ audit:
   #  - name:
   #    mountPath:
   #    secretName:
+  extraConfigMaps: []
+  #  - name:
+  #    mountPath:
+  #    configMapName:
 
   # Container specific securityContext
   securityContext:
@@ -435,6 +443,10 @@ merger:
   #  - name:
   #    mountPath:
   #    secretName:
+  extraConfigMaps: []
+  #  - name:
+  #    mountPath:
+  #    configMapName:
 
   # Container specific securityContext
   securityContext:
@@ -583,6 +595,10 @@ ldap:
   #  - name:
   #    mountPath:
   #    secretName:
+  extraConfigMaps: []
+  #  - name:
+  #    mountPath:
+  #    configMapName:
 
   # Container specific securityContext
   securityContext:
@@ -645,6 +661,10 @@ ucrd:
   #  - name:
   #    mountPath:
   #    secretName:
+  extraConfigMaps: []
+  #  - name:
+  #    mountPath:
+  #    configMapName:
 
 
   # Container specific securityContext

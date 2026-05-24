@@ -128,6 +128,11 @@ Expand oidc container
       mountPath: {{ .mountPath }}
       readOnly: true
     {{- end }}
+    {{- range .Values.oidc.extraConfigMaps }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
 
 {{- end }}
 
@@ -160,5 +165,10 @@ Expand oidc volumes in pod
 - name: {{ .name }}
   secret:
     secretName: {{ .secretName }}
+{{- end }}
+{{- range .Values.oidc.extraConfigMaps }}
+- name: {{ .name }}
+  configMap:
+    name: {{ .configMapName }}
 {{- end }}
 {{- end }}

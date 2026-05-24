@@ -58,6 +58,11 @@ Expand ldap container
       mountPath: {{ .mountPath }}
       readOnly: true
     {{- end }}
+    {{- range .Values.ldap.extraConfigMaps }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
 
 {{- end }}
 
@@ -80,6 +85,11 @@ Expand ldap volumes in pod
 - name: {{ .name }}
   secret:
     secretName: {{ .secretName }}
+{{- end }}
+{{- range .Values.ldap.extraConfigMaps }}
+- name: {{ .name }}
+  configMap:
+    name: {{ .configMapName }}
 {{- end }}
 - name: ldap-config
   configMap:

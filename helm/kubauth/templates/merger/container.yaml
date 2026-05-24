@@ -58,6 +58,11 @@ Expand merger container
       mountPath: {{ .mountPath }}
       readOnly: true
     {{- end }}
+    {{- range .Values.merger.extraConfigMaps }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath }}
+      readOnly: true
+    {{- end }}
 
 {{- end }}
 
@@ -80,6 +85,11 @@ Expand merger volumes in pod
 - name: {{ .name }}
   secret:
     secretName: {{ .secretName }}
+{{- end }}
+{{- range .Values.merger.extraConfigMaps }}
+- name: {{ .name }}
+  configMap:
+    name: {{ .configMapName }}
 {{- end }}
 - name: merger-config
   configMap:
