@@ -19,7 +19,6 @@ package oidcserver
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/go-logr/logr"
 )
@@ -79,43 +78,5 @@ func (s *OIDCServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 		logger.Error("failed to destroy local login session", "error", err, "errType", fmt.Sprintf("%T", err))
 	}
 	s.LoginSessionManager.Put(ctx, "clientId", clientId2)
-
-	// OIDC RP-Initiated Logout 1.0 §3: if `state` is included in the
-	// request, the OP MUST echo it on the redirect to
-	// post_logout_redirect_uri.
-	postLogoutURL = appendLogoutQuery(postLogoutURL, r.URL.Query())
 	http.Redirect(w, r, postLogoutURL, http.StatusFound)
-}
-
-// appendLogoutQuery copies the OIDC RP-Initiated-Logout `state`
-// response parameter from the incoming request's query onto the
-// post-logout redirect URL. Existing query params on the
-// postLogoutURL are preserved; `state` is appended/overwritten.
-// Per §3, `state` MUST be echoed when present in the request,
-// including an explicit empty value — so we check key presence
-// rather than the empty-string semantics of url.Values.Get.
-func appendLogoutQuery(postLogoutURL string, requestQuery url.Values) string {
-	stateValues, hasState := requestQuery["state"]
-	if !hasState {
-		return postLogoutURL
-	}
-	state := ""
-	if len(stateValues) > 0 {
-		state = stateValues[0]
-	}
-	u, err := url.Parse(postLogoutURL)
-	if err != nil {
-		// Bad URL configured — fall back to raw concatenation rather
-		// than dropping `state` silently. The browser will surface
-		// the malformed URL clearly enough.
-		sep := "?"
-		if u != nil && u.RawQuery != "" {
-			sep = "&"
-		}
-		return postLogoutURL + sep + "state=" + url.QueryEscape(state)
-	}
-	q := u.Query()
-	q.Set("state", state)
-	u.RawQuery = q.Encode()
-	return u.String()
 }
