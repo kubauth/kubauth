@@ -56,11 +56,13 @@ func (s *OIDCServer) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	idClaims := sess.IDTokenClaims_
-	claims := idClaims.Extra
-	if claims == nil {
-		claims = map[string]interface{}{}
+	claims := make(map[string]interface{}, len(idClaims.Extra)+1)
+	for k, v := range idClaims.Extra {
+		if k == "azp" {
+			continue
+		}
+		claims[k] = v
 	}
-	delete(claims, "azp") // Remove, as not in user definition
 	claims["sub"] = idClaims.Subject
 
 	//claims := map[string]interface{}{
