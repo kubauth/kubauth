@@ -94,4 +94,3 @@ spec:
         {{- if .Values.ldap.enabled -}}
         {{- include "volumes.ldap" . | nindent 8 }}
         {{- end }}
-

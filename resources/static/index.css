@@ -93,11 +93,11 @@
     .applications-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .banner h1 {
         font-size: 24px;
     }
-    
+
     .app-card {
         padding: 16px;
     }
