@@ -23,4 +23,3 @@ Create the name of the secret hosting the merger server certificate
 {{- define "kubauth.merger.server.certificateSecretName" -}}
 {{- default (printf "%s-merger-server-cert" (include "kubauth.baseName" .)) .Values.merger.server.certificateSecretName }}
 {{- end }}
-

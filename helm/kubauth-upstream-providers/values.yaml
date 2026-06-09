@@ -61,4 +61,3 @@ upstreamProviders: []
 ##      userinfo_endpoint: https://keycloak.mycompany.com/realms/master/protocol/openid-connect/userinfo
 ##      device_authorization_endpoint: https://keycloak.mycompany.com/realms/master/protocol/openid-connect/auth/device
 #    dumpExchanges: false
-

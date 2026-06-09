@@ -1,14 +1,13 @@
 
-
 # Upstream claims merge
 
 Here is a proposal about how claims from an upstream provider are handled before being given back to fosite lib.
 
 This processing occurs in the callback from the upstream provider.
 
-Here are the fields of the UpstreamProvider spec relative to this operation 
+Here are the fields of the UpstreamProvider spec relative to this operation
 
-```
+```yaml
 apiVersion: kubauth.kubotal.io/v1alpha1
 kind: UpstreamProvider
 ....
@@ -33,10 +32,9 @@ Note on claimRenamings:
 - If newName already exists in the current set, it will be overridden.
 - Renaming are performed in order.
 
-
 And we will use this utility function for all merging of claims sources
 
-```
+```go
 // MergeMaps merge two maps and return a new one.
 // Base from https://github.com/helm/helm/blob/v3.14.1/pkg/cli/values/options.go
 // Second parameter map will override the first one
@@ -62,13 +60,7 @@ The overall processing is the following:
 - Then request to the downStream provider(s) is issued, with the `sub` value as principal. And the result is merged on top of current value.
 - Then hand is given back to fosite lib to return resulting claim set to the user.
 
-
-
-
-
 # References
 
-
-https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
-https://openid.net/specs/openid-connect-core-1_0.html#IDToken
-
+<https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims>
+<https://openid.net/specs/openid-connect-core-1_0.html#IDToken>

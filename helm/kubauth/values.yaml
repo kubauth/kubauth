@@ -111,7 +111,6 @@ networkPolicies:
   ipBlock:
 
 
-
   # *** WARNING Not yet implemented. (4 variables) ***
   # Following are for special cases. Should be false in usual deployment
   # Allow all pods communication in deployment namespace. Also allow pod to resolve name using core dns
@@ -124,7 +123,6 @@ networkPolicies:
   allowIntraNamespacePolicyName:
   # Default to {{ include "kubauth.baseName" .}}-allow-all-egress
   allowAllEgressPolicyName:
-
 
 
 # Entry ports:
@@ -339,7 +337,7 @@ audit:
   server:
     tls: false
     bindAddr: "127.0.0.1"
-    bindPort:  6805
+    bindPort: 6805
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
     bfaProtection: false
@@ -415,7 +413,7 @@ merger:
   server:
     tls: false
     bindAddr: "127.0.0.1"
-    bindPort:  6804
+    bindPort: 6804
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
     bfaProtection: false
@@ -564,7 +562,7 @@ ldap:
   server:
     tls: false
     bindAddr: "127.0.0.1"
-    bindPort:  6803
+    bindPort: 6803
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
     bfaProtection: false
@@ -629,7 +627,7 @@ ucrd:
   server:
     tls: false
     bindAddr: "127.0.0.1"
-    bindPort:  6802
+    bindPort: 6802
     certificateIssuer: # TBD
     issuerKind: ClusterIssuer
     bfaProtection: false
@@ -722,4 +720,3 @@ ucrd:
 
   adminRoleName:
   systemRoleName:
-

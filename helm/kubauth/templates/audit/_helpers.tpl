@@ -32,4 +32,3 @@ Create the name of the role for kubauth administrator (Manage users and group)
 {{- define "kubauth.audit.adminRoleName" -}}
 {{- default (printf "%s-audit-admin" (include "kubauth.baseName" .)) .Values.audit.adminRoleName }}
 {{- end }}
-

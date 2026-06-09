@@ -121,4 +121,3 @@ Create the name of the role for kubauth administrator (Manage users and group)
 {{- define "kubauth.ucrd.adminRoleName" -}}
 {{- default (printf "%s-ucrd-admin" (include "kubauth.baseName" .)) .Values.ucrd.adminRoleName }}
 {{- end }}
-

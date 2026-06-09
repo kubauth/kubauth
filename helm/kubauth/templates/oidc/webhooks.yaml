@@ -113,6 +113,3 @@ webhooks:
 
 {{- end }}
 {{- end }}
-
-
-

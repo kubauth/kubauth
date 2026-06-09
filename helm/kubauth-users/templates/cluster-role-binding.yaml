@@ -35,4 +35,3 @@ roleRef:
   {{ end }}
 
 {{- end }}
-
