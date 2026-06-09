@@ -1,0 +1,27 @@
+# Gitleaks config for the kubauth repo.
+#
+# We extend the upstream default rules and add an allowlist for the
+# test fixtures' fake credentials. The strings match real-looking
+# secret patterns by design (so kubauth's behaviour is exercised) but
+# they are not real secrets.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures with intentional fake credentials"
+paths = [
+  '''tests/fixtures/.*''',
+  '''tests/e2e/.*''',
+  # Conformance suite reports — captured JSON logs that contain
+  # ephemeral access/refresh tokens and id_tokens generated against
+  # the test cluster. Not real secrets; rotate by re-running the plan.
+  '''tests/conformance/results/.*''',
+]
+regexes = [
+  # All test secrets are suffixed with -please-change to make them
+  # obviously fake.
+  '''secret-please-change''',
+  '''alice-password''',
+  '''carol-password''',
+  '''ldapadmin''',
+]

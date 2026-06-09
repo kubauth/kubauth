@@ -1,0 +1,9 @@
+# shellcheck config — applies to every shellcheck invocation in this repo.
+# Reference: https://www.shellcheck.net/wiki/Directive
+
+# Resolve `# shellcheck source=...` directives relative to the script's own dir
+# (so `source "$(dirname "$0")/lib/env.sh"` is followable from any CWD).
+source-path=SCRIPTDIR
+
+# Treat external sources as followable (we want lib/env.sh to be analyzed).
+external-sources=true
