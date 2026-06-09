@@ -30,3 +30,5 @@ go.work
 *.swo
 *~
 
+# Per-developer local dev-env overrides (copy from dev.env.example)
+dev.env

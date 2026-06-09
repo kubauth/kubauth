@@ -12,18 +12,36 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-APP_VERSION ?= 0.3.0-snapshot
-HELM_KUBAUTH_VERSION ?=  0.3.0-snapshot
-HELM_KUBAUTH_USERS_VERSION ?=  0.3.0-snapshot
-HELM_KUBAUTH_UPSTREAM_PROVIDERS_VERSION ?= 0.3.0-snapshot
+# Image/chart registry — overridable via dev.env (it is env-specific). The
+# product VERSIONS below are intentionally NOT overridable from dev.env: they
+# are code-bound and git-controlled (see the ':=' after the include).
+REGISTRY ?= quay.io/kubauth
 
-DOCKER_TAG=${APP_VERSION}
+# Per-developer local dev-env overrides (git-ignored): REGISTRY, cluster/registry
+# names, KUBAUTH_REGISTRY_PORT… An absent file is a no-op. The hack/ scripts
+# source the same file on the shell side (hack/lib.sh), so dev.env applies
+# identically either way.
+-include dev.env
 
-IMG ?= quay.io/kubauth/exec/kubauth:${DOCKER_TAG}
+# Product versions — code-bound. Declared with ':=' AFTER the include so a
+# dev.env value can't silently change what you build/publish; the CLI/CI still
+# can (command-line assignments beat makefile ':='), e.g.
+#   make docker APP_VERSION=v0.3.1
+APP_VERSION := 0.3.0-snapshot
+HELM_KUBAUTH_VERSION := 0.3.0-snapshot
+HELM_KUBAUTH_USERS_VERSION := 0.3.0-snapshot
+HELM_KUBAUTH_UPSTREAM_PROVIDERS_VERSION := 0.3.0-snapshot
 
-IMG_UBUNTU ?= quay.io/kubauth/exec/kubauth:${DOCKER_TAG}-ubuntu
+DOCKER_TAG := $(APP_VERSION)
 
-HELM_DOCKER_REPO := quay.io/kubauth/charts
+IMG ?= $(REGISTRY)/exec/kubauth:$(DOCKER_TAG)
+IMG_UBUNTU ?= $(REGISTRY)/exec/kubauth:$(DOCKER_TAG)-ubuntu
+HELM_DOCKER_REPO := $(REGISTRY)/charts
+
+# Local dev cluster + registry names (kept in sync with the defaults in
+# hack/lib.sh). Override in dev.env if they collide with another stack.
+KUBAUTH_CLUSTER_NAME ?= kubauth
+KUBAUTH_REGISTRY_NAME ?= kubauth-registry
 
 # To authenticate for pushing in quay repo (img) (Use encrypted password):
 # docker login quay.io
@@ -100,6 +118,25 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
+##@ Local Development Environment
+
+.PHONY: dev-up
+dev-up: ## Bring up local Kind cluster + registry + cert-manager + kubauth CRDs (idempotent)
+	@bash ./hack/kind-with-registry.sh
+
+.PHONY: dev-down
+dev-down: ## Tear down the local Kind cluster and OCI registry
+	@kind delete cluster --name $(KUBAUTH_CLUSTER_NAME) || true
+	@docker rm -f -v $(KUBAUTH_REGISTRY_NAME) || true
+
+.PHONY: check-tools
+check-tools: ## Check locally-installed tools match .tool-versions
+	@bash ./hack/check-tools.sh
+
+.PHONY: verify-tool-versions
+verify-tool-versions: ## Verify .tool-versions and go.mod agree on the Go version
+	@bash ./hack/verify-tool-versions.sh
+
 
 ##@ Build
 
@@ -110,8 +147,8 @@ build:  build-kubauth  ## Build kubauth binaries with dependencies
 build-kubauth: generate ## Build kubauth binary.
 	CGO_ENABLED=0 go build -o bin/kubauth main.go
 
-.PHOMY: test
-test:
+.PHONY: test
+test: ## Run the Go unit tests
 	CGO_ENABLED=0 go test ./...
 
 ##@ Docker
@@ -261,43 +298,19 @@ chart-kubauth-upstream-providers: chart-kubauth-upstream-providers-yaml crds ## 
 charts: chart-kubauth chart-kubauth-users chart-kubauth-upstream-providers	## Build all charts
 ##@ Dependencies
 
-## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
-$(LOCALBIN):
-	mkdir -p $(LOCALBIN)
-
 ## Tool Binaries
 KUBECTL ?= kubectl
 KIND ?= kind
-KUSTOMIZE ?= $(LOCALBIN)/kustomize
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+# controller-gen runs via the go.mod 'tool' directive (no per-arch binary in
+# ./bin that would break across host/devcontainer — a Mac-built binary can't run
+# in the Linux container). kustomize is baked (checksum-verified) into the
+# devcontainer and pinned in .tool-versions; on a native host, install it
+# yourself (versions live in .tool-versions / go.mod, not here).
+KUSTOMIZE ?= kustomize
+CONTROLLER_GEN ?= go tool controller-gen
 
-## Tool Versions
-KUSTOMIZE_VERSION ?= v5.6.0
-CONTROLLER_TOOLS_VERSION ?= v0.18.0
-
-.PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(LOCALBIN)
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
-
-.PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
-$(CONTROLLER_GEN): $(LOCALBIN)
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
-
-# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
-# $1 - target path with name of binary
-# $2 - package url which can be installed
-# $3 - specific version of package
-define go-install-tool
-@[ -f "$(1)-$(3)" ] || { \
-set -e; \
-package=$(2)@$(3) ;\
-echo "Downloading $${package}" ;\
-rm -f $(1) || true ;\
-GOBIN=$(LOCALBIN) go install $${package} ;\
-mv $(1) $(1)-$(3) ;\
-} ;\
-ln -sf $(1)-$(3) $(1)
-endef
+# No-op targets so existing prerequisites (e.g. 'manifests: controller-gen',
+# 'install: ... kustomize') still resolve now that both tools come from
+# 'go tool' / PATH rather than a download into ./bin.
+.PHONY: controller-gen kustomize
+controller-gen kustomize:
