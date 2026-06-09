@@ -1,0 +1,26 @@
+---
+# markdownlint config — strict-but-pragmatic.
+# Reference: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Start from defaults.
+default: true
+
+# MD013 line length — disabled. Forced reflow on prose is more pain than
+# value (link-heavy intro tables, callouts with embedded URLs, ASCII
+# diagrams). Reviewers spot run-on lines just fine.
+MD013: false
+
+# MD033 inline HTML — we use <br/> in tables, allow it.
+MD033:
+  allowed_elements: [br, b, i, sub, sup, kbd]
+
+# MD041 first line h1 — README-style, fine to relax for docs in subfolders.
+MD041: false
+
+# MD024 duplicate headings — allowed if not siblings (e.g., reuse "Why" under different sections).
+MD024:
+  siblings_only: true
+
+# MD036 emphasis-as-heading — disabled. Bold leading labels (**Why**, **Acceptance**)
+# are a useful ADR-style pattern for backlog items.
+MD036: false
