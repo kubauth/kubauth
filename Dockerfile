@@ -18,6 +18,8 @@ ARG RUNTIME_BASE=gcr.io/distroless/static:nonroot
 FROM --platform=$BUILDPLATFORM docker.io/golang:1.26.2 AS builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG VERSION=dev
+ARG BUILD_TS=
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -38,7 +40,9 @@ COPY internal/ internal/
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o kubauth main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a \
+    -ldflags "-X kubauth/internal/global.Version=${VERSION} -X kubauth/internal/global.BuildTs=${BUILD_TS}" \
+    -o kubauth main.go
 
 # Use a configurable minimal base image to package the manager binary
 # Default to distroless. Override with --build-arg RUNTIME_BASE=ubuntu:22.04, etc.
