@@ -1,0 +1,14 @@
+version: "2"
+
+linters:
+  # standard = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - bodyclose   # HTTP response bodies must be closed (resource leak / DoS)
+    - errorlint   # correct error wrapping (%w, errors.Is/As)
+    - gosec       # security issues (G-rules)
+    - misspell    # typos in comments and strings
+  exclusions:
+    # Skip machine-generated files (zz_generated.deepcopy.go, etc.). This is the
+    # v2 default; pinned here so a config change can't silently start linting them.
+    generated: lax
