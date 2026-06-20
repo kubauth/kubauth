@@ -78,9 +78,10 @@ func (l *ldapAuthenticator) Authenticate(ctx context.Context, request *proto.Ide
 		if uidStr != "" {
 			uid, err := strconv.Atoi(uidStr)
 			if err != nil {
-				logger.Error("Non numerical Uid value (%s) for user '%s'", uid, request.Login, "uid", uid, "login", request.Login)
+				logger.Error("Non numerical Uid value", "uidStr", uidStr, "login", request.Login, "error", err)
+			} else {
+				response.User.Uid = &uid
 			}
-			response.User.Uid = &uid
 		}
 		response.User.Emails = getAttrs(*ldapUser, l.config.UserSearch.EmailAttr)
 		response.User.Name = getAttr(*ldapUser, l.config.UserSearch.CnAttr)
