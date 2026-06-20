@@ -1,0 +1,92 @@
+name: build-test-lint
+
+# Quality gate: lint (pre-commit), golangci-lint, and build/vet/test.
+# Runs on pushes to release-ish branches and on every PR.
+#
+# harden-runner uses egress-policy: audit (records egress, does not block).
+# Immediate hardening follow-up: flip to `block` + allowed-endpoints once one
+# audit run has revealed the exact endpoints (github, go proxy/sumdb, pypi).
+on:
+  push:
+    branches: [main, "v*"]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: read-only token by default; no job needs more.
+permissions:
+  contents: read
+
+concurrency:
+  group: build-test-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: pre-commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.x"
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        env:
+          # commit-msg hook; no commit-msg context in a file-level PR run.
+          SKIP: conventional-pre-commit
+
+  golangci:
+    name: golangci-lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: .tool-versions
+          cache: false # gate runs fresh; avoids the Go cache-poisoning surface
+      - uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9.2.1
+        with:
+          version: v2.12.2
+          # Build golangci-lint with the runner's Go (1.26): the released
+          # prebuilt binary lags the Go release and panics on go1.26 code.
+          install-mode: goinstall
+          # Don't fail on the pre-existing backlog; enforce clean *new* code.
+          only-new-issues: true
+
+  build-test:
+    name: build · vet · test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: .tool-versions
+          cache: false # gate runs fresh; avoids the Go cache-poisoning surface
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
+      - name: coverage summary
+        run: go tool cover -func=coverage.out | tail -20
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 14
