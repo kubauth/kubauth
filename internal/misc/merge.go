@@ -16,8 +16,6 @@ limitations under the License.
 
 package misc
 
-import "fmt"
-
 // MergeMaps merge two maps and return a new one.
 // Second parameter map will override the first one, except:
 // for a given key, if both values are []string, the result is deduplicated concatenation
@@ -30,7 +28,6 @@ func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
 		out[k] = v
 	}
 	for k, v := range b {
-		fmt.Printf("Key: %s, b Value type: %T   a Value Type:%T\n", k, v, out[k])
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {

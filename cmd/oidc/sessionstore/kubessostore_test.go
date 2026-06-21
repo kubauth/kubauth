@@ -144,6 +144,36 @@ func TestCommitCtx_UpdatesExisting(t *testing.T) {
 	}
 }
 
+func TestFind_NoLoggerInContextDoesNotPanic(t *testing.T) {
+	// Find() forwards to FindCtx with a bare context.Background() that carries no
+	// logger; the store must fall back to slog.Default() instead of panicking.
+	store, _ := newStore(t)
+	b, found, err := store.Find("missing-token")
+	if err != nil {
+		t.Fatalf("Find: %v", err)
+	}
+	if found || b != nil {
+		t.Fatalf("expected not-found, got found=%v len=%d", found, len(b))
+	}
+}
+
+func TestCommitCtx_NoErrorLoggedOnSuccessfulUpdate(t *testing.T) {
+	store, _ := newStore(t)
+	if err := store.CommitCtx(testCtx(), "tok-log", envelopeBytes(t, "alice", nil, "Alice"), time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("create commit: %v", err)
+	}
+	// Capture error-level logs during a successful update; none should appear.
+	var buf strings.Builder
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelError}))
+	ctx := logr.NewContextWithSlogLogger(context.Background(), logger)
+	if err := store.CommitCtx(ctx, "tok-log", envelopeBytes(t, "alice", nil, "Alice Updated"), time.Now().Add(2*time.Hour)); err != nil {
+		t.Fatalf("update commit: %v", err)
+	}
+	if strings.Contains(buf.String(), "Failed to update SSO session") {
+		t.Fatalf("error logged on a successful update:\n%s", buf.String())
+	}
+}
+
 func TestCommitCtx_InvalidJSONErrors(t *testing.T) {
 	store, _ := newStore(t)
 	if err := store.CommitCtx(testCtx(), "tok-bad", []byte("{not json"), time.Now()); err == nil {

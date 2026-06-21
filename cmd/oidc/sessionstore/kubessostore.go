@@ -21,6 +21,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
+
 	kubauthv1alpha1 "kubauth/api/kubauth/v1alpha1"
 	"time"
 
@@ -43,6 +45,17 @@ func NewKubeSsoStore(k8sClient client.Client, namespace string) *KubeSsoStore {
 	return &KubeSsoStore{client: k8sClient, namespace: namespace}
 }
 
+// loggerFrom returns the slog logger carried by ctx, or slog.Default() when none
+// is set. The non-Ctx Find/Commit/Delete/All wrappers call the *Ctx methods with a
+// bare context.Background(); without this fallback the logger.* calls would panic
+// on a nil logger.
+func loggerFrom(ctx context.Context) *slog.Logger {
+	if l := logr.FromContextAsSlogLogger(ctx); l != nil {
+		return l
+	}
+	return slog.Default()
+}
+
 const annotationRawSession = "kubauth.kubotal.io/session"
 
 type sessionEnvelope struct {
@@ -59,7 +72,7 @@ func (s *KubeSsoStore) Find(token string) ([]byte, bool, error) {
 func (s *KubeSsoStore) FindCtx(ctx context.Context, token string) ([]byte, bool, error) {
 	var sess kubauthv1alpha1.SsoSession
 	name := encodeName(token)
-	logger := logr.FromContextAsSlogLogger(ctx)
+	logger := loggerFrom(ctx)
 	if err := s.client.Get(ctx, types.NamespacedName{Namespace: s.namespace, Name: name}, &sess); err != nil {
 		logger.Debug("SsoSession not found", "token", token, "encoded", name)
 		return nil, false, client.IgnoreNotFound(err)
@@ -85,7 +98,7 @@ func (s *KubeSsoStore) Commit(token string, b []byte, expiry time.Time) error {
 // CommitCtx stores or updates the SsoSession resource using provided context.
 func (s *KubeSsoStore) CommitCtx(ctx context.Context, token string, b []byte, expiry time.Time) error {
 	// Decode the envelope to extract mirrored fields
-	logger := logr.FromContextAsSlogLogger(ctx)
+	logger := loggerFrom(ctx)
 	var env sessionEnvelope
 	if len(b) > 0 {
 		if err := json.Unmarshal(b, &env); err != nil {
@@ -148,7 +161,9 @@ func (s *KubeSsoStore) CommitCtx(ctx context.Context, token string, b []byte, ex
 		existing.Spec.Claims = nil
 	}
 	err = s.client.Update(ctx, &existing)
-	logger.Error("Failed to update SSO session", "error", err)
+	if err != nil {
+		logger.Error("Failed to update SSO session", "error", err)
+	}
 	return err
 }
 
@@ -160,7 +175,7 @@ func (s *KubeSsoStore) Delete(token string) error {
 // DeleteCtx removes the SsoSession resource using provided context.
 func (s *KubeSsoStore) DeleteCtx(ctx context.Context, token string) error {
 	name := encodeName(token)
-	logger := logr.FromContextAsSlogLogger(ctx)
+	logger := loggerFrom(ctx)
 	logger.Debug("Deleting session", "token", token, "encoded", name)
 	return s.client.Delete(ctx, &kubauthv1alpha1.SsoSession{ObjectMeta: metav1.ObjectMeta{Namespace: s.namespace, Name: name}})
 }
@@ -182,7 +197,7 @@ func (s *KubeSsoStore) AllCtx(ctx context.Context) ([]string, error) {
 			res = append(res, t)
 		}
 	}
-	logger := logr.FromContextAsSlogLogger(ctx)
+	logger := loggerFrom(ctx)
 	logger.Debug("Listing sessions", "count", len(res))
 
 	return res, nil
