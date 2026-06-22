@@ -297,6 +297,108 @@ func TestNew_ActivatedReturnsBfaProtector(t *testing.T) {
 	}
 }
 
+// real lockout delay / decay path ----------------------------------------
+
+func TestProtectLoginResult_AppliesRealDelayAndDecaysPending(t *testing.T) {
+	// Exercise the *real* penalty path (non-zero penaltyByFailure), not the
+	// instant no-op variant used elsewhere. We assert three things at once:
+	//   1. failure() actually sleeps for the computed delay (wall-clock),
+	//   2. pendingFailures is incremented for the duration of the sleep,
+	//   3. pendingFailures decays back to 0 once the call returns, while
+	//      nbrOfFailure (the persistent counter) keeps its increment.
+	const penalty = 60 * time.Millisecond
+	p := newBareProtector()
+	p.freeFailure = 0 // first failure already incurs a penalty
+	p.penaltyByFailure = penalty
+	p.maxPenalty = time.Second // well above a single step, so no capping here
+
+	// Run the (blocking, sleeping) failure on a goroutine so we can observe
+	// the in-flight pendingFailures increment from the test goroutine.
+	done := make(chan time.Duration, 1)
+	go func() {
+		start := time.Now()
+		p.ProtectLoginResult(testCtx(), "alice", proto.PasswordFail)
+		done <- time.Since(start)
+	}()
+
+	// While the goroutine is mid-sleep, pendingFailures must read 1. Poll
+	// briefly to avoid racing the goroutine's startup.
+	sawPending := false
+	deadline := time.Now().Add(penalty) // generous: whole penalty window
+	for time.Now().Before(deadline) {
+		p.mu.Lock()
+		st := p.stateByLogin["alice"]
+		p.mu.Unlock()
+		if st != nil && st.pendingFailures.Load() == 1 {
+			sawPending = true
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	if !sawPending {
+		t.Error("expected pendingFailures to be incremented to 1 during the lockout sleep")
+	}
+
+	elapsed := <-done
+	if elapsed < penalty {
+		t.Errorf("failure() should have slept at least %v (real delay path), slept %v", penalty, elapsed)
+	}
+
+	// After return: pending decayed to 0, persistent failure count is 1.
+	st := p.stateByLogin["alice"]
+	if st == nil {
+		t.Fatal("expected alice state after a real failure")
+	}
+	if got := st.pendingFailures.Load(); got != 0 {
+		t.Errorf("pendingFailures should decay to 0 after the call, got %d", got)
+	}
+	if st.nbrOfFailure != 1 {
+		t.Errorf("nbrOfFailure should be 1, got %d", st.nbrOfFailure)
+	}
+	if st.lastFailure.IsZero() {
+		t.Error("lastFailure should have been stamped")
+	}
+
+	// Decay/growth: a second failure (count=2) yields a strictly larger
+	// delay than the first (count=1), confirming the linear ramp is live.
+	start := time.Now()
+	p.ProtectLoginResult(testCtx(), "alice", proto.PasswordFail)
+	second := time.Since(start)
+	if second < 2*penalty {
+		t.Errorf("second failure (count=2) should sleep >= %v, slept %v", 2*penalty, second)
+	}
+	if st.nbrOfFailure != 2 {
+		t.Errorf("nbrOfFailure should be 2 after second failure, got %d", st.nbrOfFailure)
+	}
+	if got := st.pendingFailures.Load(); got != 0 {
+		t.Errorf("pendingFailures should again decay to 0, got %d", got)
+	}
+}
+
+func TestProtectLoginResult_DelayCappedAtMaxPenalty(t *testing.T) {
+	// The real path must honour the maxPenalty cap: with a huge per-failure
+	// step but a tiny cap, the inflicted sleep stays bounded by the cap and
+	// does not blow up to penaltyByFailure.
+	const cap = 40 * time.Millisecond
+	p := newBareProtector()
+	p.freeFailure = 0
+	p.penaltyByFailure = 10 * time.Second // would be enormous if uncapped
+	p.maxPenalty = cap
+
+	start := time.Now()
+	p.ProtectLoginResult(testCtx(), "alice", proto.PasswordFail)
+	elapsed := time.Since(start)
+
+	if elapsed < cap {
+		t.Errorf("delay should be at least the cap %v, got %v", cap, elapsed)
+	}
+	// Loose upper bound: nowhere near the uncapped 10s. Generous to absorb
+	// scheduler jitter on a busy CI box.
+	if elapsed > 2*time.Second {
+		t.Errorf("delay should be capped near %v, but slept %v (cap not applied?)", cap, elapsed)
+	}
+}
+
 func TestNew_OptionsApplied(t *testing.T) {
 	ctx, cancel := context.WithCancel(testCtx())
 	defer cancel()
