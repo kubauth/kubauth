@@ -170,7 +170,7 @@ func TestDo_HappyPathReturns200(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		t.Errorf("expected 200, got %d", resp.StatusCode)
 	}
@@ -242,7 +242,7 @@ func TestDo_SetsContentTypeHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if seenCT != "application/x-www-form-urlencoded" {
 		t.Errorf("content-type not propagated: got %q", seenCT)
 	}
@@ -262,7 +262,7 @@ func TestDo_BasicAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if !seenOK || seenUser != "alice" || seenPass != "s3cret" {
 		t.Errorf("basic auth not set: ok=%v user=%q pass=%q", seenOK, seenUser, seenPass)
 	}
@@ -281,7 +281,7 @@ func TestDo_BearerToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if seenAuth != "Bearer abc.def.ghi" {
 		t.Errorf("expected 'Bearer abc.def.ghi', got %q", seenAuth)
 	}
@@ -300,7 +300,7 @@ func TestDo_NoAuthSetIfNotConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if seenAuth != "" {
 		t.Errorf("expected no Authorization header, got %q", seenAuth)
 	}
@@ -319,7 +319,7 @@ func TestDo_JoinsBaseURLAndPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if seenPath != "/api/v1/users" {
 		t.Errorf("expected /api/v1/users, got %q", seenPath)
 	}

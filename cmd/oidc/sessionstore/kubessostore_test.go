@@ -404,7 +404,8 @@ func TestEncodeName_ProducesRFC1123CompliantName(t *testing.T) {
 	// (alphanumeric + -). Verify on a sample.
 	got := encodeName("token-with-special!@#$%^&*()_+chars")
 	for _, c := range got {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+		allowed := (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-'
+		if !allowed {
 			t.Errorf("non-RFC1123 char in encoded name: %q", c)
 		}
 	}

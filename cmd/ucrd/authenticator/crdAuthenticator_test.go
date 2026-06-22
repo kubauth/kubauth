@@ -9,6 +9,7 @@ package authenticator
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 // helpers ----------------------------------------------------------------
@@ -280,5 +282,60 @@ func TestAuthenticate_NoBindingsForUser(t *testing.T) {
 	}
 	if len(resp.User.Groups) != 0 {
 		t.Errorf("alice should have no groups, got %v", resp.User.Groups)
+	}
+}
+
+// fail-closed: API errors must DENY, never allow ------------------------
+
+// newFailingListAuthenticator wires a crdAuthenticator on top of a fake
+// client whose List always errors, simulating an apiserver outage / RBAC
+// rejection while resolving the user's GroupBindings.
+func newFailingListAuthenticator(t *testing.T, listErr error, seed ...client.Object) *crdAuthenticator {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := kubauthv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(seed...).
+		WithIndex(&kubauthv1alpha1.GroupBinding{}, "userkey", func(o client.Object) []string {
+			gb := o.(*kubauthv1alpha1.GroupBinding)
+			return []string{gb.Spec.User}
+		}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(_ context.Context, _ client.WithWatch, _ client.ObjectList, _ ...client.ListOption) error {
+				return listErr
+			},
+		}).
+		Build()
+	return &crdAuthenticator{k8sClient: c, userNamespace: userNS}
+}
+
+func TestAuthenticate_ListErrorDeniesNotAllows(t *testing.T) {
+	// SECURITY (fail-closed): if the GroupBinding List fails, Authenticate
+	// must surface a non-nil error and NOT fabricate an allow-ish response.
+	// A swallowed List error could otherwise let a request through with
+	// empty groups / no claims, silently dropping authorization data.
+	sentinel := errors.New("apiserver unavailable")
+	// Seed a perfectly valid, password-checkable user. If the code ignored
+	// the List failure it would happily return PasswordChecked — exactly
+	// the dangerous outcome this test forbids.
+	a := newFailingListAuthenticator(t, sentinel,
+		userObj("alice", func(u *kubauthv1alpha1.User) {
+			u.Spec.PasswordHash = mustHash(t, "secret")
+		}),
+	)
+
+	resp, err := a.Authenticate(testCtx(), &proto.IdentityRequest{Login: "alice", Password: "secret"})
+
+	if err == nil {
+		t.Fatalf("expected a non-nil error on List failure (fail-closed), got resp=%+v", resp)
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("error should wrap the underlying List error, got %v", err)
+	}
+	if resp != nil {
+		t.Errorf("on deny the response must be nil, got %+v", resp)
 	}
 }

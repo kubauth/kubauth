@@ -105,7 +105,7 @@ func TestSecrets_FirstIsActiveRestAreRotated(t *testing.T) {
 
 func TestSecrets_OnlyOneSecret_NoRotated(t *testing.T) {
 	c := NewKubauthClient(sampleOidcClient(), "id", [][]byte{[]byte("only")})
-	if rot := c.GetRotatedHashes(); rot != nil && len(rot) != 0 {
+	if rot := c.GetRotatedHashes(); len(rot) != 0 {
 		t.Errorf("single-secret client: rotated should be empty, got %v", rot)
 	}
 }
