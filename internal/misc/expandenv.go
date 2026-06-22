@@ -88,6 +88,10 @@ func ExpandEnv(s string) (string, error) {
 				output = append(output, []byte(value)...)
 				chunkStart = i + 1
 				chunkEnd = -1
+				// Return to nominal state — without this, the next `$`
+				// is consumed by this case's fallthrough and adjacent
+				// variables (`${A}${B}`) leave the second unexpanded.
+				state = STATE_NOMINAL
 			} else if isAlphanumeric(s[i]) {
 				variable = append(variable, s[i])
 			} else {
