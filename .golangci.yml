@@ -12,3 +12,12 @@ linters:
     # Skip machine-generated files (zz_generated.deepcopy.go, etc.). This is the
     # v2 default; pinned here so a config change can't silently start linting them.
     generated: lax
+    rules:
+      # Test files legitimately hold fixture credentials (gosec G101), write
+      # world-readable temp files (G306), and exercise error paths where the
+      # HTTP response is nil (bodyclose false positives). Production code stays
+      # strict. Only tests are relaxed for these two linters.
+      - path: _test\.go
+        linters:
+          - bodyclose
+          - gosec
