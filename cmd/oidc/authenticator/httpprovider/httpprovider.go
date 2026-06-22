@@ -129,7 +129,7 @@ func (u *httpProvider) Identify(ctx context.Context, login string, password stri
 }
 
 func getStringArrayInMap(m map[string]interface{}, key string) ([]string, error) {
-	if entry, exists := m["key"]; exists && entry != nil {
+	if entry, exists := m[key]; exists && entry != nil {
 		// Try to convert claims["groups"] to []string
 		switch v := entry.(type) {
 		case []string:
