@@ -324,7 +324,7 @@ func TestProtectLoginResult_AppliesRealDelayAndDecaysPending(t *testing.T) {
 	// While the goroutine is mid-sleep, pendingFailures must read 1. Poll
 	// briefly to avoid racing the goroutine's startup.
 	sawPending := false
-	deadline := time.Now().Add(penalty) // generous: whole penalty window
+	deadline := time.Now().Add(2 * time.Second) // bound goroutine startup, not the penalty window
 	for time.Now().Before(deadline) {
 		p.mu.Lock()
 		st := p.stateByLogin["alice"]

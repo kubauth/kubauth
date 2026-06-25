@@ -47,7 +47,7 @@ func TestNew_AcceptsHTTPAndHTTPS(t *testing.T) {
 
 // New() — CA loading -----------------------------------------------------
 
-func TestNew_RejectsEmptyPEMBundle(t *testing.T) {
+func TestNew_SkipsEmptyPEMBundle(t *testing.T) {
 	_, err := New(&Config{
 		BaseURL:     "https://example.org",
 		RootCaBytes: [][]byte{[]byte("")}, // empty entries are skipped, this should be fine
@@ -108,7 +108,7 @@ func TestNew_RejectsCAFileNotFound(t *testing.T) {
 	}
 }
 
-func TestNew_HTTPSchemeSkipsCASetup(t *testing.T) {
+func TestNew_PlainHTTPSkipsCASetup(t *testing.T) {
 	// Plain http:// shouldn't try to load any CA — even invalid CA paths
 	// should be ignored because no TLS is configured.
 	_, err := New(&Config{

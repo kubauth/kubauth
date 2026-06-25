@@ -34,6 +34,9 @@ func TestOnlyGet_AllowsGET(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("code = %d, want 200 (nothing written for an allowed method)", rec.Code)
 	}
+	if rec.Body.Len() != 0 {
+		t.Errorf("an allowed method must not write a body, got %q", rec.Body.String())
+	}
 }
 
 func TestOnlyGet_RejectsNonGET(t *testing.T) {

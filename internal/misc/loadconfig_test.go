@@ -132,7 +132,10 @@ func TestLoadConfig_RelativePathBecomesAbsolute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Use a relative path by chdir'ing into the temp dir.
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)

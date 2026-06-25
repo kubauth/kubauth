@@ -63,17 +63,15 @@ func TestIntrospect_NoClientAuth_NonPublicPath_Errors(t *testing.T) {
 	accessToken := ts.accessTokenForUser(t, "openid")
 
 	// No Authorization header and the body client_id is a confidential client,
-	// so the public-client fast path is not taken and fosite rejects it.
+	// so the public-client fast path is not taken and fosite must reject the
+	// request outright: a confidential client cannot introspect unauthenticated.
 	form := url.Values{}
 	form.Set("token", accessToken)
 	form.Set("client_id", testClientID) // confidential, not public
 	rr := ts.do(newPostForm(t, "/oauth2/introspect", form))
 
-	if rr.Code == http.StatusOK {
-		body := decodeJSON(t, rr)
-		if active, _ := body["active"].(bool); active {
-			t.Fatalf("confidential client without auth must not get an active introspection")
-		}
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("confidential client without auth: got %d, want 401 body=%q", rr.Code, rr.Body.String())
 	}
 }
 

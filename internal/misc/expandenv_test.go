@@ -149,8 +149,8 @@ func TestExpandEnv_VariableNamesAcceptUnderscoreAndDigits(t *testing.T) {
 
 func TestExpandEnv_InvalidCharInVariableNameRejected(t *testing.T) {
 	// `${FOO-BAR}` is not a valid variable name (hyphen not alphanumeric).
-	// Per the parser: the whole `${...}` chunk is dropped from output and
-	// treated as if no expansion happened. No error raised — by design.
+	// Per the parser the chunk is left in the output verbatim (no expansion
+	// and no error), not dropped.
 	got, err := ExpandEnv("v=${FOO-BAR}")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

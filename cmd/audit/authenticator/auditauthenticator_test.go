@@ -114,7 +114,14 @@ func TestAuthenticate_PassThroughAndCreatesRecord(t *testing.T) {
 		t.Errorf("record login label = %q, want alice", la.Labels["kubauth.kubotal.io/login"])
 	}
 	if la.Spec.User.Claims == nil {
-		t.Error("record claims JSON not stored")
+		t.Fatal("record claims JSON not stored")
+	}
+	var gotClaims map[string]interface{}
+	if err := json.Unmarshal(la.Spec.User.Claims.Raw, &gotClaims); err != nil {
+		t.Fatalf("record claims JSON unmarshal: %v", err)
+	}
+	if gotClaims["team"] != "blue" {
+		t.Errorf("record claims = %v, want team=blue", gotClaims)
 	}
 }
 
@@ -193,7 +200,11 @@ func TestAuthenticate_MapsDetails(t *testing.T) {
 		t.Fatalf("Authenticate: %v", err)
 	}
 
-	la := listAttempts(t, fc)[0]
+	items := listAttempts(t, fc)
+	if len(items) != 1 {
+		t.Fatalf("LoginAttempt count = %d, want 1", len(items))
+	}
+	la := items[0]
 	if len(la.Spec.Details) != 1 {
 		t.Fatalf("details count = %d, want 1", len(la.Spec.Details))
 	}
