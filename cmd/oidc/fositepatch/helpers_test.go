@@ -113,7 +113,7 @@ func newTestStore(t *testing.T, auth authenticator.OidcAuthenticator, allowPassw
 }
 
 // newTestConfig builds a fosite.Config mirroring the production wiring in
-// oidcserver.go (32-byte global secret, exact lifespans, offline refresh
+// oidcserver.go (same global secret, exact lifespans, offline refresh
 // scopes). The ExactScopeStrategy is set explicitly so scope filtering in
 // the ROPC handler is deterministic.
 func newTestConfig() *fosite.Config {

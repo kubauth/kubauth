@@ -339,3 +339,78 @@ func TestAuthenticate_ListErrorDeniesNotAllows(t *testing.T) {
 		t.Errorf("on deny the response must be nil, got %+v", resp)
 	}
 }
+
+// newFailingGetAuthenticator wires a crdAuthenticator whose Get always errors,
+// simulating an apiserver outage / RBAC rejection while fetching the User or a
+// bound Group. List still works, so the failure is isolated to Get.
+func newFailingGetAuthenticator(t *testing.T, getErr error, seed ...client.Object) *crdAuthenticator {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := kubauthv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(seed...).
+		WithIndex(&kubauthv1alpha1.GroupBinding{}, "userkey", func(o client.Object) []string {
+			return []string{o.(*kubauthv1alpha1.GroupBinding).Spec.User}
+		}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
+				return getErr
+			},
+		}).
+		Build()
+	return &crdAuthenticator{k8sClient: c, userNamespace: userNS}
+}
+
+func TestAuthenticate_UserGetErrorDeniesNotAllows(t *testing.T) {
+	// SECURITY (fail-closed): a non-NotFound error while fetching the User must
+	// deny. With no GroupBindings seeded, the only Get is the User fetch, so this
+	// isolates the primary deny path: a valid, password-checkable user must NOT
+	// slip through (as UserNotFound or worse) when the apiserver errors.
+	sentinel := errors.New("apiserver unavailable")
+	a := newFailingGetAuthenticator(t, sentinel,
+		userObj("alice", func(u *kubauthv1alpha1.User) {
+			u.Spec.PasswordHash = mustHash(t, "secret")
+		}),
+	)
+
+	resp, err := a.Authenticate(testCtx(), &proto.IdentityRequest{Login: "alice", Password: "secret"})
+
+	if err == nil {
+		t.Fatalf("expected a non-nil error on User Get failure (fail-closed), got resp=%+v", resp)
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("error should wrap the underlying Get error, got %v", err)
+	}
+	if resp != nil {
+		t.Errorf("on deny the response must be nil, got %+v", resp)
+	}
+}
+
+func TestAuthenticate_GroupGetErrorDeniesNotAllows(t *testing.T) {
+	// SECURITY (fail-closed): a non-NotFound error while fetching a bound Group
+	// must deny, not silently drop the group's claims. (A NotFound is tolerated,
+	// covered by TestAuthenticate_GroupBindingPointsToMissingGroupIsTolerated.)
+	sentinel := errors.New("apiserver unavailable")
+	a := newFailingGetAuthenticator(t, sentinel,
+		userObj("alice", func(u *kubauthv1alpha1.User) {
+			u.Spec.PasswordHash = mustHash(t, "secret")
+		}),
+		bindingObj("b", "alice", "admins"),
+		groupObj("admins", `{"role":"admin"}`),
+	)
+
+	resp, err := a.Authenticate(testCtx(), &proto.IdentityRequest{Login: "alice", Password: "secret"})
+
+	if err == nil {
+		t.Fatalf("expected a non-nil error on Group Get failure (fail-closed), got resp=%+v", resp)
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("error should wrap the underlying Get error, got %v", err)
+	}
+	if resp != nil {
+		t.Errorf("on deny the response must be nil, got %+v", resp)
+	}
+}

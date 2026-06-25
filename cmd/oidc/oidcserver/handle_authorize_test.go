@@ -74,8 +74,17 @@ func TestAuthorize_InvalidRedirectURI_DoesNotRedirectToLogin(t *testing.T) {
 	q.Set("redirect_uri", "https://attacker.test/cb") // not whitelisted
 	rr := ts.do(newGet(t, "/oauth2/auth?"+q.Encode()))
 
-	if rr.Code == http.StatusFound && strings.Contains(rr.Header().Get("Location"), "/oauth2/login") {
-		t.Fatalf("a non-whitelisted redirect_uri must be rejected, not forwarded to login")
+	// RFC 6749 4.1.2.1: an untrusted redirect_uri must NOT be redirected to.
+	// fosite reports the error locally (400 invalid_request), never forwarding
+	// the flow to the login page or to the attacker URL.
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status: got %d, want 400 body=%q", rr.Code, rr.Body.String())
+	}
+	if loc := rr.Header().Get("Location"); loc != "" {
+		t.Errorf("must not issue any redirect on an invalid redirect_uri, got Location %q", loc)
+	}
+	if !strings.Contains(rr.Body.String(), "invalid_request") {
+		t.Errorf("body should carry an invalid_request error, got %q", rr.Body.String())
 	}
 }
 
@@ -86,8 +95,20 @@ func TestAuthorize_UnsupportedResponseType_IsRejected(t *testing.T) {
 	q.Set("response_type", "token") // client only allows "code"
 	rr := ts.do(newGet(t, "/oauth2/auth?"+q.Encode()))
 
-	if rr.Code == http.StatusFound && strings.Contains(rr.Header().Get("Location"), "/oauth2/login") {
-		t.Fatalf("unsupported response_type should not reach the login page")
+	// The client and redirect_uri are valid, so fosite delivers the OAuth error
+	// to the REGISTERED redirect_uri (never the login page), per RFC 6749 4.1.2.1.
+	if rr.Code != http.StatusSeeOther && rr.Code != http.StatusFound {
+		t.Fatalf("status: got %d, want a 30x error redirect body=%q", rr.Code, rr.Body.String())
+	}
+	loc := rr.Header().Get("Location")
+	if strings.Contains(loc, "/oauth2/login") {
+		t.Fatalf("unsupported response_type must not reach the login page, Location=%q", loc)
+	}
+	if !strings.HasPrefix(loc, q.Get("redirect_uri")) {
+		t.Errorf("error must be delivered to the registered redirect_uri %q, got %q", q.Get("redirect_uri"), loc)
+	}
+	if !strings.Contains(loc, "error=unsupported_response_type") {
+		t.Errorf("redirect should carry error=unsupported_response_type, got %q", loc)
 	}
 }
 

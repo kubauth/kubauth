@@ -27,10 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-// testCtx returns a context wired with a discard slog logger — required
-// by KubeSsoStore methods, which call `logr.FromContextAsSlogLogger(ctx)`
-// and panic on nil. Replaces plain `context.Background()` everywhere
-// in this file.
+// testCtx returns a context wired with a discard slog logger. KubeSsoStore
+// methods fall back to slog.Default() when the context carries no logger
+// (see loggerFrom), so this keeps test output quiet rather than guarding
+// against a panic. Replaces plain context.Background() throughout this file.
 func testCtx() context.Context {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return logr.NewContextWithSlogLogger(context.Background(), logger)
