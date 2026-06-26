@@ -69,7 +69,7 @@ Expand ucrd container
     initialDelaySeconds: 5
     periodSeconds: 10
   {{- end }}
-  image: "{{ .Values.ucrd.image.repository }}:{{ .Values.ucrd.image.tag | default .Chart.AppVersion }}"
+  image: "{{ .Values.ucrd.image.repository | default .Chart.Annotations.kubotal_image_repository }}:{{ .Values.ucrd.image.tag | default .Chart.AppVersion }}"
   imagePullPolicy: {{ .Values.ucrd.image.pullPolicy }}
   {{- with .Values.ucrd.extraEnv }}
   env:

@@ -214,7 +214,8 @@ oidc:
     roleName:
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository. Default is .Chart.Annotations.kubotal_image_repository (See Chart.yaml)
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
@@ -329,7 +330,8 @@ audit:
   displayFlags: true
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository. Default is .Chart.Annotations.kubotal_image_repository (See Chart.yaml)
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
@@ -391,7 +393,8 @@ merger:
   displayFlags: true
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository. Default is .Chart.Annotations.kubotal_image_repository (See Chart.yaml)
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
@@ -554,7 +557,8 @@ ldap:
   displayFlags: true
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository. Default is .Chart.Annotations.kubotal_image_repository (See Chart.yaml)
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
@@ -619,7 +623,8 @@ ucrd:
   displayFlags: true
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository. Default is .Chart.Annotations.kubotal_image_repository (See Chart.yaml)
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent

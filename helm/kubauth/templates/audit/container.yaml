@@ -30,7 +30,7 @@ Expand audit container
     - containerPort: {{ .Values.audit.server.bindPort }}
       name: audit
       protocol: TCP
-  image: "{{ .Values.audit.image.repository }}:{{ .Values.audit.image.tag | default .Chart.AppVersion }}"
+  image: "{{ .Values.audit.image.repository | default .Chart.Annotations.kubotal_image_repository }}:{{ .Values.audit.image.tag | default .Chart.AppVersion }}"
   imagePullPolicy: {{ .Values.audit.image.pullPolicy }}
   {{- with .Values.audit.extraEnv }}
   env:

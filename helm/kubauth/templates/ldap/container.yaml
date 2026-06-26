@@ -25,7 +25,7 @@ Expand ldap container
     - containerPort: {{ .Values.ldap.server.bindPort }}
       name: ldap
       protocol: TCP
-  image: "{{ .Values.ldap.image.repository }}:{{ .Values.ldap.image.tag | default .Chart.AppVersion }}"
+  image: "{{ .Values.ldap.image.repository | default .Chart.Annotations.kubotal_image_repository }}:{{ .Values.ldap.image.tag | default .Chart.AppVersion }}"
   imagePullPolicy: {{ .Values.ldap.image.pullPolicy }}
   {{- with .Values.ldap.extraEnv }}
   env:
