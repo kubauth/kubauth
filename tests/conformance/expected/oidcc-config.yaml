@@ -1,0 +1,13 @@
+# Expected-failures allowlist: oidcc-config-certification-test-plan.
+#
+# Curated baseline, NOT generated from a run. The 3-bucket gate in
+# conformance-run.sh fails on BOTH drift directions: a new regression
+# AND a now-passing module still listed here. See conformance/README.md.
+#
+# oidcc-config is the canary plan: a single discovery/JWKS module that
+# proves the whole bring-up + REST path end to end. It must be fully
+# green, so the allowlist is intentionally empty -- any non-green module
+# is an UNEXPECTED failure that fails the gate.
+plan: oidcc-config-certification-test-plan
+suite: release-v5.1.43
+expected_failures: []

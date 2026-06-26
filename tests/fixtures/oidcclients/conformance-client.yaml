@@ -1,0 +1,66 @@
+---
+# OIDC client used by the OpenID Foundation Conformance Suite.
+#
+# The suite runs in-cluster (`fixtures/conformance/`) and is reached
+# from the host browser via `make conformance-portforward`, which
+# forwards 8443 → conformance-nginx. The suite's BASE_URL is therefore
+# `https://localhost.emobix.co.uk:8443` and it generates redirect URIs
+# of the form `<BASE_URL>/test/a/<alias>/callback`.
+#
+# Per-plan aliases (matching the `alias` field in conformance/config/*.json):
+#   - kubauth-oidcc-basic              → oidcc-basic-certification
+#   - kubauth-oidcc-rp-initiated-logout → oidcc-rp-initiated-logout-certification
+#
+# A separate client (vs reusing smoke-client) keeps the conformance
+# config self-contained: confidential code+refresh, openid+profile+email,
+# the suite's redirect URI list, no ROPC.
+#
+# Used by: tests/conformance/config/oidcc-*.json
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: conformance-client-secret
+  namespace: kubauth-system
+type: Opaque
+stringData:
+  client_secret: "conformance-client-secret-please-change"
+---
+apiVersion: kubauth.kubotal.io/v1alpha1
+kind: OidcClient
+metadata:
+  name: conformance-client
+  namespace: kubauth-system
+spec:
+  description: OpenID Foundation Conformance Suite test client
+  displayName: Conformance
+  public: false
+  secrets:
+    - name: conformance-client-secret
+      key: client_secret
+      hashed: false
+  redirectURIs:
+    - "https://localhost.emobix.co.uk:8443/test/a/kubauth-oidcc-basic/callback"
+    - "https://localhost.emobix.co.uk:8443/test/a/kubauth-oidcc-basic/callback/implicit"
+    - "https://localhost.emobix.co.uk:8443/test/a/kubauth-oidcc-rp-initiated-logout/callback"
+    - "https://localhost.emobix.co.uk:8443/test/a/kubauth-oidcc-rp-initiated-logout/callback/implicit"
+  grantTypes:
+    - authorization_code
+    - refresh_token
+  responseTypes:
+    - code
+  scopes:
+    - openid
+    - profile
+    - email
+    - groups
+    - offline_access
+  audiences:
+    - kubauth-conformance
+  forceOpenIdScope: false
+  accessTokenLifespan: 5m
+  refreshTokenLifespan: 30m
+  idTokenLifespan: 5m
+  # `post_logout_redirect_uri` for RP-initiated logout: the suite sends
+  # the user back to its callback under the same alias.
+  postLogoutURL: "https://localhost.emobix.co.uk:8443/test/a/kubauth-oidcc-rp-initiated-logout/callback"

@@ -138,6 +138,25 @@ verify-tool-versions: ## Verify .tool-versions and go.mod agree on the Go versio
 	@bash ./hack/verify-tool-versions.sh
 
 
+##@ Conformance
+
+# Autonomous, from-zero OIDC conformance run. Delegates to the tests/
+# suite, which owns the full pipeline (kind + cert-manager + working-tree
+# kubauth image + helm install + the OIDF suite + a 3-bucket allowlist
+# gate) and tears it down again. See tests/conformance/README.md.
+#
+# Forward the knobs only when set, so both `PLAN=basic make conformance`
+# and `make conformance PLAN=basic` work without clobbering the suite's
+# own defaults with empty strings (command-line make vars are not
+# auto-exported to the sub-make's recipe environment).
+.PHONY: conformance
+conformance: ## From-zero autonomous OIDC conformance run + teardown (PLAN=config|basic|rp-logout|all, KEEP=1, REUSE=1)
+	@$(MAKE) -C tests conformance \
+		$(if $(PLAN),PLAN=$(PLAN),) \
+		$(if $(KEEP),KEEP=$(KEEP),) \
+		$(if $(REUSE),REUSE=$(REUSE),)
+
+
 ##@ Build
 
 .PHONY: build

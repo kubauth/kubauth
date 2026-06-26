@@ -1,0 +1,58 @@
+---
+# CA-based ClusterIssuer used by every kubauth component in tests.
+#
+# Why not a plain selfSigned ClusterIssuer:
+#   cert-manager's selfSigned ClusterIssuer + Certificate templates
+#   that omit `commonName` produce certs with an empty Subject DN.
+#   RFC-compliant (the SAN extension covers hostname matching) but
+#   strict TLS clients — notably the OpenID Conformance Suite's JVM
+#   — refuse to parse them and the discovery step fails with
+#   `Failed to parse server certificates`.
+#
+# The fix: a one-time bootstrap selfSigned issuer mints a self-signed
+# CA cert with a real `commonName: kubauth-tests-ca`, and a CA-typed
+# ClusterIssuer kept under the same legacy name `kubauth-tests-selfsigned`
+# (so the chart's issuerRef keeps working without changes) issues
+# every downstream cert from that CA. Each downstream cert inherits
+# a non-empty subject derived from its first dnsName.
+
+# 1. Bootstrap ClusterIssuer — only used to sign the CA cert below.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: kubauth-tests-bootstrap
+spec:
+  selfSigned: {}
+---
+# 2. CA certificate with a proper Subject DN.
+#    Lives in cert-manager's namespace because the CA-typed
+#    ClusterIssuer below resolves the secret there by default
+#    (cert-manager's --cluster-resource-namespace).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kubauth-tests-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: kubauth-tests-ca
+  secretName: kubauth-tests-ca-key-pair
+  duration: 87600h        # 10 years — test cluster, no rotation policy
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: kubauth-tests-bootstrap
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+# 3. The ClusterIssuer every kubauth component references.
+#    Name kept identical to the previous selfSigned-typed issuer so
+#    nothing in the chart, fixtures or scripts has to change.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: kubauth-tests-selfsigned
+spec:
+  ca:
+    secretName: kubauth-tests-ca-key-pair
