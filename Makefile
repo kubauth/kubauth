@@ -18,7 +18,7 @@
 # explicitly. Targets that need it depend on `check-registry`, which fails with
 # a clear message when it is unset.
 # Main official repository is quay.io/kubauth
-REGISTRY ?= ""
+REGISTRY ?=
 
 # Per-developer local dev-env overrides (git-ignored): REGISTRY, cluster/registry
 # names, KUBAUTH_REGISTRY_PORT… An absent file is a no-op. The hack/ scripts
@@ -39,15 +39,6 @@ HELM_KUBAUTH_UPSTREAM_PROVIDERS_VERSION := 0.3.0-snapshot
 IMG_REPO := $(REGISTRY)/exec/kubauth
 
 HELM_DOCKER_REPO := $(REGISTRY)/charts
-
-#DOCKER_TAG := $(APP_VERSION)
-#
-#IMG ?= $(REGISTRY)/exec/kubauth:$(DOCKER_TAG)
-#IMG_UBUNTU ?= $(REGISTRY)/exec/kubauth:$(DOCKER_TAG)-ubuntu
-
-
-
-
 
 # Local dev cluster + registry names (kept in sync with the defaults in
 # hack/lib.sh). Override in dev.env if they collide with another stack.
