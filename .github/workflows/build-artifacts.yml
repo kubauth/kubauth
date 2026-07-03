@@ -1,8 +1,9 @@
 name: build-artifact
 
-# Build and push the multi-arch image on every push to main.
-# Delegates the actual work to `make docker-buildx`, which builds for
-# $(PLATFORMS) and pushes to $(REGISTRY)/exec/kubocd.
+# Build and push the multi-arch image + Helm charts on every push to main.
+# Delegates to `make docker-buildx` (builds for $(PLATFORMS), pushes to
+# $(REGISTRY)/exec/kubauth) and `make charts` (packages + pushes the three
+# charts to oci://$(REGISTRY)/charts).
 on:
   push:
     branches:
@@ -11,44 +12,51 @@ on:
   workflow_dispatch:
 
 # Required repo configuration (Settings > Secrets and variables > Actions):
-#   - Variable REGISTRY            e.g. quay.io/kubocd   (becomes $(REGISTRY))
+#   - Variable REGISTRY            e.g. quay.io/kubauth   (becomes $(REGISTRY))
 #   - Secrets  REGISTRY_USERNAME, REGISTRY_PASSWORD      (push to that registry)
 #   - Optional Variable DOCKERHUB_USERNAME + Secret DOCKERHUB_TOKEN (base-image pulls)
 env:
   REGISTRY: ${{ vars.REGISTRY }}
 
+# Least privilege: this job pushes to an external OCI registry with its own
+# secrets and never writes repo contents.
 permissions:
-  contents: write
+  contents: read
+
+# One publish at a time per ref: a newer push to main supersedes an older,
+# still-running build so the two can't race on the same snapshot tag.
+concurrency:
+  group: build-artifact-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-artifact:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 0          # goreleaser needs tags + full history
+          persist-credentials: false
 
-      # ubuntu-latest already ships make, go and docker; this only adds the
-      # bits `make docker-buildx` needs for cross-platform builds.
+      # ubuntu already ships make, go and docker. The Dockerfile cross-compiles
+      # the Go binary (FROM --platform=$BUILDPLATFORM + GOOS/GOARCH) and the
+      # runtime stage runs nothing under the target arch, so no QEMU/binfmt is
+      # needed for the multi-arch build.
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
-          go-version-file: go.mod
+          go-version-file: .tool-versions
+          cache: false # build runs fresh; avoids the Go cache-poisoning surface
 
-      # Cross-platform emulation for the linux/arm64 + linux/amd64 build.
-      # `make docker-buildx` creates its own `kubocd-builder`, so no
-      # setup-buildx-action step is needed here.
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-
-      # Authenticate to Docker Hub so the BuildKit/QEMU base images
-      # (moby/buildkit, etc.) pull reliably instead of hitting anonymous
-      # rate limits / timeouts. Skipped automatically if the var is unset.
+      # Authenticate to Docker Hub so the base images pull reliably instead of
+      # hitting anonymous rate limits. Skipped automatically if the var is unset.
       - name: Log in to Docker Hub
         if: ${{ vars.DOCKERHUB_USERNAME != '' }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -59,15 +67,16 @@ jobs:
         run: echo "host=${REGISTRY%%/*}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to the container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ steps.reg.outputs.host }}
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      - name: make charts
-        run: make charts REGISTRY="${REGISTRY}"
-
+      # Image first: if the multi-arch build or push fails, the job stops here
+      # and no charts referencing this appVersion get published.
       - name: make docker-buildx
         run: make docker-buildx REGISTRY="${REGISTRY}"
 
+      - name: make charts
+        run: make charts REGISTRY="${REGISTRY}"
