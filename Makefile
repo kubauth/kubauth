@@ -215,7 +215,7 @@ PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
 docker-buildx:  check-registry display ## Build and push docker image for the manager for cross-platform support
 	- $(CONTAINER_TOOL) buildx create --name kubauth-builder --driver=docker-container
-	- $(CONTAINER_TOOL) buildx build --builder kubauth-builder --push --platform=$(PLATFORMS) --build-arg VERSION=$(APP_VERSION) --build-arg BUILD_TS=$(BUILD_TS) --tag $(IMG_REPO):$(APP_VERSION) -f Dockerfile .
+	$(CONTAINER_TOOL) buildx build --builder kubauth-builder --push --platform=$(PLATFORMS) --build-arg VERSION=$(APP_VERSION) --build-arg BUILD_TS=$(BUILD_TS) --tag $(IMG_REPO):$(APP_VERSION) -f Dockerfile .
 	- $(CONTAINER_TOOL) buildx rm kubauth-builder
 
 
@@ -258,7 +258,7 @@ chart-kubauth-yaml: check-registry ## Generate the helm/kubauth/Chart.yaml
 	echo "$$CHART_KUBAUTH_YAML" >./helm/kubauth/Chart.yaml
 
 .PHONY: chart-kubauth
-chart-kubauth: chart-kubauth-yaml crds ## Build and push oidc server helm chart
+chart-kubauth: check-registry chart-kubauth-yaml crds ## Build and push oidc server helm chart
 	cd ./helm && helm package -d ./../tmp kubauth && helm push ./../tmp/kubauth-${HELM_KUBAUTH_VERSION}.tgz oci://${HELM_DOCKER_REPO}
 
 # ----------------------
@@ -285,11 +285,11 @@ endef
 export CHART_KUBAUTH_USERS_YAML
 
 .PHONY: chart-kubauth-users-yaml
-chart-kubauth-users-yaml: check-registry ## Generate the helm/kubauth-users/Chart.yaml
+chart-kubauth-users-yaml: ## Generate the helm/kubauth-users/Chart.yaml
 	echo "$$CHART_KUBAUTH_USERS_YAML" >./helm/kubauth-users/Chart.yaml
 
 .PHONY: chart-kubauth-users
-chart-kubauth-users: chart-kubauth-users-yaml crds ## Build and push oidc users helm chart
+chart-kubauth-users: check-registry chart-kubauth-users-yaml crds ## Build and push oidc users helm chart
 	cd ./helm && helm package -d ./../tmp kubauth-users && helm push ./../tmp/kubauth-users-${HELM_KUBAUTH_USERS_VERSION}.tgz oci://${HELM_DOCKER_REPO}
 
 # ----------------------
@@ -316,11 +316,11 @@ endef
 export CHART_KUBAUTH_UPSTREAM_PROVIDERS_YAML
 
 .PHONY: chart-kubauth-upstream-providers-yaml
-chart-kubauth-upstream-providers-yaml: check-registry ## Generate the helm/kubauth-upstream-providers/Chart.yaml
+chart-kubauth-upstream-providers-yaml: ## Generate the helm/kubauth-upstream-providers/Chart.yaml
 	echo "$$CHART_KUBAUTH_UPSTREAM_PROVIDERS_YAML" >./helm/kubauth-upstream-providers/Chart.yaml
 
 .PHONY: chart-kubauth-upstream-providers
-chart-kubauth-upstream-providers: chart-kubauth-upstream-providers-yaml crds ## Build and push oidc upstream providers helm chart
+chart-kubauth-upstream-providers: check-registry chart-kubauth-upstream-providers-yaml crds ## Build and push oidc upstream providers helm chart
 	cd ./helm && helm package -d ./../tmp kubauth-upstream-providers && helm push ./../tmp/kubauth-upstream-providers-${HELM_KUBAUTH_UPSTREAM_PROVIDERS_VERSION}.tgz oci://${HELM_DOCKER_REPO}
 
 
