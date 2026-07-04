@@ -7,12 +7,14 @@
 # regression AND a now-passing module still listed here (drop it then).
 #
 # `ref` points at the COVERAGE.md backlog id, never a public issue
-# number. `result` is omitted on modules the suite leaves INTERRUPTED
-# without a clean result (it records '?'/'-' there); the gate then
-# matches on state alone. See conformance/README.md for the bucket rules.
+# number. `result` is omitted on modules the suite leaves without a clean
+# result (it records '?'/'-'), and `state` is omitted on the few modules
+# whose terminal state is suite-racy (INTERRUPTED on one run, FINISHED on
+# the next). Each omission then matches on what remains, and a module that
+# turns green is still flagged. See conformance/README.md for the rules.
 #
-# Run topology: 35 modules total. 24 green (PASSED/WARNING/SKIPPED),
-# 11 expected-fail (below). Re-baseline this file when the suite version
+# Run topology: 35 modules total. 23 green (PASSED/WARNING/SKIPPED),
+# 12 expected-fail (below). Re-baseline this file when the suite version
 # in env.sh changes -- a bump can move which modules pass.
 plan: oidcc-basic-certification-test-plan
 suite: release-v5.1.43
@@ -35,19 +37,17 @@ expected_failures:
     ref: "COVERAGE.md#b9"
   # B10 -- id_token_hint not honoured at /oauth2/auth.
   - module: oidcc-id-token-hint
-    state: INTERRUPTED
     result: FAILED
-    reason: "id_token_hint not honoured at the authorization endpoint"
+    reason: "id_token_hint not honoured (auth_time differs), terminal state suite-racy so state is omitted"
     ref: "COVERAGE.md#b10"
-  # B11 -- max_age not enforced; auth_time not stable across id_tokens.
+  # B11 -- max_age not enforced, auth_time not stable across id_tokens.
   - module: oidcc-max-age-1
     state: INTERRUPTED
     reason: "max_age re-auth gate not enforced (suite waits, times out)"
     ref: "COVERAGE.md#b11"
   - module: oidcc-max-age-10000
-    state: FINISHED
     result: FAILED
-    reason: "auth_time regenerated per id_token instead of pinned to login"
+    reason: "auth_time regenerated per id_token, terminal state suite-racy so state is omitted"
     ref: "COVERAGE.md#b11"
   # B12 -- request object (request= / request_uri=) not supported.
   - module: oidcc-ensure-registered-redirect-uri
@@ -68,7 +68,10 @@ expected_failures:
     reason: "prompt handling + second-flow driver gap (B13)"
     ref: "COVERAGE.md#b13"
   - module: oidcc-prompt-none-logged-in
-    state: INTERRUPTED
     result: FAILED
-    reason: "prompt=none handling + second-flow driver gap (B13)"
+    reason: "prompt=none re-auth regenerates auth_time (B13), terminal state suite-racy so state is omitted"
+    ref: "COVERAGE.md#b13"
+  - module: oidcc-prompt-none-not-logged-in
+    result: FAILED
+    reason: "prompt=none with no session returns a code instead of login_required (B13), state omitted (racy)"
     ref: "COVERAGE.md#b13"

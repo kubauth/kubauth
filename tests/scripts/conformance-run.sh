@@ -69,6 +69,12 @@ CLASSIFY="$(dirname "$0")/conformance-classify.py"
 readonly CLASSIFY
 readonly POLL_TIMEOUT_SECONDS="${POLL_TIMEOUT_SECONDS:-90}"
 readonly POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-2}"
+# INTERRUPTED is not always terminal: the suite occasionally finalises a
+# module INTERRUPTED -> FINISHED via a late async callback (a browser submit
+# that lands just after we observed the interruption). Settle-poll for this
+# long before recording, so modules.txt captures the terminal state instead
+# of a transient one that makes the gate drift between runs.
+readonly SETTLE_TIMEOUT_SECONDS="${SETTLE_TIMEOUT_SECONDS:-10}"
 
 usage() {
   sed -n '3,30p' "$0" | sed 's/^# \{0,1\}//'
@@ -190,6 +196,26 @@ run_module() {
     sleep "$POLL_INTERVAL_SECONDS"
     elapsed=$((elapsed + POLL_INTERVAL_SECONDS))
   done
+
+  # Settle a self-reported INTERRUPTED: re-poll briefly in case the suite
+  # finalises it to FINISHED (the late-callback race described at
+  # SETTLE_TIMEOUT_SECONDS). A genuinely interrupted test stays INTERRUPTED
+  # and we just spend the settle budget once. Skipped for the WAITING path
+  # below, which force-terminates and is terminal by construction.
+  if [[ "$status" == "INTERRUPTED" ]]; then
+    local settle=0 settle_status
+    while ((settle < SETTLE_TIMEOUT_SECONDS)); do
+      sleep "$POLL_INTERVAL_SECONDS"
+      settle=$((settle + POLL_INTERVAL_SECONDS))
+      suite_curl "${SUITE_URL}/api/info/${test_id}" -o /tmp/info.json
+      settle_status="$(jget status </tmp/info.json)"
+      if [[ "$settle_status" == "FINISHED" ]]; then
+        status="$settle_status"
+        result="$(jget result </tmp/info.json)"
+        break
+      fi
+    done
+  fi
 
   # Force-terminate if still WAITING (otherwise next module hits an
   # alias conflict). DELETE returns 200 even when the test has

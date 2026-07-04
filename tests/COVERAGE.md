@@ -19,7 +19,7 @@ click the menu icon at the top-left of this file in the GH UI.
 |---------------------------|-------|--------------------------------------------------------------|
 | Chainsaw e2e              | 26 + 1 stub | all green; covers full surface (auth, sessions, IdP, federation, security, CRDs) |
 | Chainsaw regression       | 0     | dir scaffolded; populate when a fixed bug deserves a watch   |
-| OIDF Conformance - plans  | 3     | `oidcc-config` 1/1 green; `oidcc-basic` ~24/35 green + ~11 expected-fail; `oidcc-rp-logout` 1 green + ~10 expected-fail. Counts are provisional - recomputed on the first real `make conformance` run (see B8, B15 + `conformance/expected/`) |
+| OIDF Conformance - plans  | 3     | `oidcc-config` 1/1 green, `oidcc-basic` 23/35 green + 12 expected-fail, `oidcc-rp-logout` 1 green + 10 expected-fail. Measured on an autonomous `make conformance` run (suite release-v5.1.43). The expected-fail set lives in `conformance/expected/` (see B8, B15) |
 | Go unit tests             | 200+  | 14 packages covered (~32% global coverage); 6 items left on backlog (G5/G6/G9/G10 share fosite fixtures, G11/G13/G14 each need their own) — see [Go unit tests](#go-unit-tests--inside-each-package) |
 
 **Open backlog**:
@@ -235,24 +235,24 @@ already-up cluster with `make conformance-{config,basic,rp-logout,all}`.
 Reports captured under `tests/conformance/results/<plan>/`. Also runs in
 CI nightly + on-demand (`.github/workflows/conformance.yml`).
 
-| Plan | What it asserts | Modules | Expected baseline (provisional) | Latest report |
+| Plan | What it asserts | Modules | Expected baseline (measured) | Latest report |
 |---|---|---|---|---|
 | `oidcc-config-certification-test-plan` | Discovery JSON shape, JWKS reachability, supported alg list, claim/scope advertisements, **RFC 6749 / 6750 error response shapes** | 1 | 1/1 green (PASSED) | [`results/oidcc-config/`](conformance/results/oidcc-config/) |
-| `oidcc-basic-certification-test-plan` | Full auth-code flow (`/authorize` → login → `/token` → id_token validation, claim presence, signature, expiry), **OAuth2 grant edge cases** (auth-code reuse, malformed JWT, etc.) | 35 | ~24/35 green (PASSED + WARNING + SKIPPED), ~11 expected-fail (B9-B13) | [`results/oidcc-basic/summary.txt`](conformance/results/oidcc-basic/summary.txt) |
-| `oidcc-rp-initiated-logout-certification-test-plan` | End-session endpoint advertisement, `id_token_hint` validation, `post_logout_redirect_uri` matching, `state` echo | 11 | 1 green (PASSED), ~10 expected-fail (FINISHED FAILED + INTERRUPTED) (see B8 + B15) | [`results/oidcc-rp-initiated-logout/summary.txt`](conformance/results/oidcc-rp-initiated-logout/summary.txt) |
+| `oidcc-basic-certification-test-plan` | Full auth-code flow (`/authorize` → login → `/token` → id_token validation, claim presence, signature, expiry), **OAuth2 grant edge cases** (auth-code reuse, malformed JWT, etc.) | 35 | 23/35 green (PASSED + WARNING + SKIPPED), 12 expected-fail (B9-B13) | [`results/oidcc-basic/summary.txt`](conformance/results/oidcc-basic/summary.txt) |
+| `oidcc-rp-initiated-logout-certification-test-plan` | End-session endpoint advertisement, `id_token_hint` validation, `post_logout_redirect_uri` matching, `state` echo | 11 | 1 green (PASSED), 10 expected-fail (racy terminal state, see B8 + B15) | [`results/oidcc-rp-initiated-logout/summary.txt`](conformance/results/oidcc-rp-initiated-logout/summary.txt) |
 
 The oidcc-basic WARNINGs are all benign
 `VerifyScopesReturnedInUserInfoClaims` notes (kubauth's user model
 doesn't carry every optional `profile` claim - informational, not a
 spec violation). The id_token-claim-leak warning (B6) is gone.
 
-> **Counts provisional.** The green / expected-fail numbers above are
-> carried over from the pre-autonomous harness and have not yet been
-> reproduced by a `make conformance` run on this branch; they are
-> recomputed from `results/<plan>/summary.txt` on the first real run
-> (local or CI). What is authoritative is the *set* of expected-fail
-> modules per plan in `conformance/expected/<plan>.yaml` and their
-> B-number mapping, not the aggregate counts.
+> **Counts measured.** The green / expected-fail numbers above are from
+> an autonomous `make conformance` run against suite release-v5.1.43
+> (the `oidcc-basic` figure assumes the case-insensitive Bearer fix for
+> `/userinfo`, without which ~18 happy-flow modules 401 at userinfo).
+> Re-baseline from `results/<plan>/summary.txt` when the suite version
+> bumps. What the gate enforces is the *set* of expected-fail modules
+> per plan in `conformance/expected/<plan>.yaml`, not the aggregate.
 
 The expected-fail set is enforced by the 3-bucket allowlist gate
 (`tests/conformance/expected/<plan>.yaml`); see
@@ -261,8 +261,8 @@ now-passing-but-still-listed module fails `make conformance`.
 
 ### Backlog — OIDF Conformance
 
-The not-green oidcc-basic modules (~11) and the not-green
-oidcc-rp-logout modules (~10) sort into distinct kubauth feature gaps,
+The not-green oidcc-basic modules (12) and the not-green
+oidcc-rp-logout modules (10) sort into distinct kubauth feature gaps,
 each tracked as its own backlog entry below. The exact set per plan
 lives in `conformance/expected/<plan>.yaml`. Two of the items
 (B9, B14) also explain part of why oidcc-rp-logout cascades.
@@ -282,10 +282,12 @@ checks the `302/303` redirect, not session termination — that's
 the gap this bug lives in.
 
 **Affected modules** (4 on `make conformance-rp-logout`:
-`-no-post-logout-redirect-uri` + `-only-state` land FINISHED FAILED,
-`-no-params` + `-no-state` land INTERRUPTED): each
-trips `EnsureErrorFromAuthorizationEndpointResponse` and
-`RejectAuthCodeInAuthorizationEndpointResponse`.
+`-no-post-logout-redirect-uri`, `-only-state`, `-no-params`,
+`-no-state`): each trips `EnsureErrorFromAuthorizationEndpointResponse`
+and `RejectAuthCodeInAuthorizationEndpointResponse`. The suite drives
+these over front-channel browser redirects, so the terminal state is
+racy (INTERRUPTED or FINISHED across runs). The allowlist matches them
+in any non-green state.
 
 **Kubauth fix path** — `cmd/oidc/oidcserver/handle-logout.go`
 should destroy the SSO session on every successful logout call,
@@ -413,21 +415,30 @@ metadata — `request_parameter_supported: false`).
 `request_parameter_supported: false` in
 `handle-oidc-configuration.go`.
 
-#### B13 — Multi-flow conformance tests don't progress · P2 · runner-side
+#### B13 — prompt handling gaps (runner multi-flow + prompt=none semantics) · P2
 
-**Affected modules** — `oidcc-prompt-login`, `oidcc-prompt-none-logged-in`.
+**Affected modules** — `oidcc-prompt-login` (INTERRUPTED, runner-side),
+`oidcc-prompt-none-logged-in` and `oidcc-prompt-none-not-logged-in`
+(FINISHED FAILED, kubauth-side).
 
-**Why** — these tests run **two** auth flows back-to-back. The
-in-cluster runner's `try_implicit_submit` auto-trigger only
-remembers ONE `implicit_submit.path` per test; when the second
-flow generates a new one, the trigger fires the first one a second
-time → "Got an HTTP request to '...' that wasn't expected" → the
+**Why (runner-side, `oidcc-prompt-login`)** — this test runs **two**
+auth flows back-to-back. The in-cluster runner's `try_implicit_submit`
+auto-trigger only remembers ONE `implicit_submit.path` per test. When
+the second flow generates a new one, the trigger fires the first one a
+second time → "Got an HTTP request to '...' that wasn't expected" → the
 suite interrupts the test.
 
-**Fix** — runner-side: track *every* `implicit_submit.path` seen
-and POST each one only once. Already partially done in
-`scripts/conformance-run.sh::poll_implicit_submits`; needs to be
-wired in the `run_module` polling loop. ~30 min.
+**Why (kubauth-side, the two `prompt=none` modules)** — kubauth does
+not honour `prompt=none` correctly. With no active session it issues a
+code instead of `error=login_required` (`-not-logged-in`), and on
+silent re-auth it regenerates `auth_time` per id_token instead of
+pinning it to the original login (`-logged-in`).
+
+**Fix** — runner-side: track *every* `implicit_submit.path` seen and
+POST each one only once (partly done in
+`scripts/conformance-run.sh::poll_implicit_submits`, needs wiring into
+the `run_module` polling loop). Kubauth-side: enforce `prompt=none` at
+`/oauth2/auth` and pin `auth_time` to the session login.
 
 #### B14 — `oidcc-rp-initiated-logout-no-{post-logout-redirect-uri,state}` need a logout success page · P2 · oidcc-rp-logout
 

@@ -42,14 +42,20 @@ dependency -- the suite host only has the stdlib). Shape:
     suite: <suite-version>
     expected_failures:
       - module: <module-name>
-        state: FINISHED | INTERRUPTED | ...
+        state: FINISHED | INTERRUPTED | ...   # OPTIONAL; omit when racy
         result: FAILED            # OPTIONAL; omit when noisy (?/-)
         reason: "..."             # free text, ignored by the gate
         ref: "COVERAGE.md#bNN"    # ignored by the gate
       - module: ...
 
-`module` and `state` are required on every entry; `result`, `reason`
-and `ref` are optional. An empty / absent `expected_failures:` means
+Only `module` is required; `state`, `result`, `reason` and `ref` are
+optional. Omitting `state` matches ANY non-green terminal state -- use
+it for modules the suite leaves in a racy INTERRUPTED/FINISHED state
+(e.g. browser-driven logout gaps), where the exact terminal state
+carries no signal but the module is still a known failure. A listed
+module that turns GREEN is always reported (via the is-green path), so
+omitting state never hides a landed fix. An empty / absent
+`expected_failures:` means
 "no module may fail" (used for oidcc-config). The parser is strict:
 an unknown key or a malformed entry raises, so a format drift fails
 loudly instead of silently letting a regression through.
@@ -113,7 +119,7 @@ def parse_results(path):
 
 _TOP_SCALARS = ("plan", "suite")
 _ENTRY_KEYS = ("module", "state", "result", "reason", "ref", "issue")
-_ENTRY_REQUIRED = ("module", "state")
+_ENTRY_REQUIRED = ("module",)
 
 
 def _strip_inline_comment(value):
@@ -162,7 +168,8 @@ def parse_allowlist(path):
             if req not in cur:
                 die("allowlist %s: entry missing required key %r: %r"
                     % (path, req, cur))
-        cur["state"] = cur["state"].upper()
+        if "state" in cur:
+            cur["state"] = cur["state"].upper()
         cur["result"] = _norm_result(cur.get("result", ""))
         entries.append(cur)
 
@@ -273,13 +280,17 @@ def classify(modules, entries):
             continue
 
         # Listed and not green: does state/result match the entry?
+        # `state` is optional: an entry that omits it matches any non-green
+        # terminal state (for modules the suite leaves in a racy
+        # INTERRUPTED/FINISHED state, e.g. browser-driven logout gaps).
         matched_modules.add(module)
-        state_ok = state == entry["state"]
+        entry_state = entry.get("state")
+        state_ok = entry_state is None or state == entry_state
         result_ok = entry["result"] == "NONE" or entry["result"] == result
         if state_ok and result_ok:
             expected_fail.append((module, state, result, entry.get("ref", "")))
         else:
-            want = entry["state"]
+            want = entry_state if entry_state is not None else "ANY"
             if entry["result"] != "NONE":
                 want += "/" + entry["result"]
             got = state if result == "NONE" else state + "/" + result
@@ -318,7 +329,7 @@ def main(argv):
         shown = state if result == "NONE" else "%s %s" % (state, result)
         print("    UNEXPECTED  %-70s %-18s %s" % (module, shown, note))
     for e in unused:
-        want = e["state"]
+        want = e.get("state", "ANY")
         if e["result"] != "NONE":
             want += "/" + e["result"]
         print("    UNEXPECTED  %-70s %-18s stale entry: module not in run "

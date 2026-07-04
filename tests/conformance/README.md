@@ -26,23 +26,20 @@ Two ways in:
   assume you already ran `make dev-up` + `make conformance-up` + a
   port-forward (see [Boot the suite](#boot-the-suite)).
 
-| Plan | Modules | Expected baseline (provisional) | Latest run |
+| Plan | Modules | Expected baseline | Latest run |
 |---|---|---|---|
 | `oidcc-config-certification-test-plan`         | 1  | 1 green (PASSED) / 0 expected-fail | [`results/oidcc-config/`](results/oidcc-config/) |
-| `oidcc-basic-certification-test-plan`          | 35 | ~24 green / ~11 expected-fail. Green = PASSED + WARNING + SKIPPED (warnings are benign profile-claim notes, see [Open work](#open-work)); the expected-fails map to B9-B13 | [`results/oidcc-basic/summary.txt`](results/oidcc-basic/summary.txt) |
-| `oidcc-rp-initiated-logout-certification-test-plan` | 11 | 1 green (PASSED) / ~10 expected-fail (FINISHED FAILED + INTERRUPTED), clustering on B8 + B15 (see [Open work](#open-work)) | [`results/oidcc-rp-initiated-logout/summary.txt`](results/oidcc-rp-initiated-logout/summary.txt) |
+| `oidcc-basic-certification-test-plan`          | 35 | 23 green / 12 expected-fail. Green = PASSED + WARNING + SKIPPED (warnings are benign profile-claim notes, see [Open work](#open-work)). The expected-fails map to B9-B13 | [`results/oidcc-basic/summary.txt`](results/oidcc-basic/summary.txt) |
+| `oidcc-rp-initiated-logout-certification-test-plan` | 11 | 1 green (PASSED) / 10 expected-fail (racy terminal state), clustering on B8 + B15 (see [Open work](#open-work)) | [`results/oidcc-rp-initiated-logout/summary.txt`](results/oidcc-rp-initiated-logout/summary.txt) |
 
-> **Counts are provisional.** The per-plan green / expected-fail numbers
-> above (and throughout [Open work](#open-work)) are carried over from the
-> pre-autonomous harness and have **not** yet been reproduced by a real
-> `make conformance` run on this branch. They are **recomputed on the
-> first real run** (locally or via the [CI workflow](#ci)) from
-> `results/<plan>/summary.txt`; update this table and the allowlists then.
-> What is authoritative today is the *set* of expected-fail modules and
-> their B-number mapping, encoded per plan in
-> [`expected/<plan>.yaml`](expected/) and enforced by the 3-bucket gate
-> (below) — the aggregate counts are a hand-off estimate until the first
-> green-on-known-state run.
+> **Counts measured.** The per-plan green / expected-fail numbers above
+> are from an autonomous `make conformance` run against suite
+> release-v5.1.43. The `oidcc-basic` figure assumes the case-insensitive
+> Bearer fix for `/userinfo` (without it ~18 happy-flow modules 401 at
+> the userinfo step). Re-baseline this table and the allowlists from
+> `results/<plan>/summary.txt` when the suite version bumps. What the
+> gate enforces is the *set* of expected-fail modules per plan in
+> [`expected/<plan>.yaml`](expected/), not the aggregate counts.
 
 Re-run any plan with `make conformance-<plan>`; the previous run's JSON
 is overwritten in `results/<plan>/`.
@@ -103,8 +100,13 @@ Gating, on first landing:
   proves the whole bring-up + REST path). Its 3-bucket verdict
   (0 unexpected) gates the workflow.
 - **`oidcc-basic`** and **`oidcc-rp-initiated-logout`** run
-  informationally (`continue-on-error`) until their allowlists have been
-  reviewed against a real CI run, then get promoted to gating.
+  informationally (`continue-on-error`). The OIDF suite drives them over
+  HtmlUnit browser automation, which is flaky at the module level: a
+  couple of modules per run transiently INTERRUPT or flip terminal state,
+  a different couple each run, so a single run is rarely 0-unexpected even
+  with a good allowlist (the settle-poll and optional-`state` entries cut
+  this down but do not remove it). Promoting them to gating needs
+  module-level retry of flaky modules, not just an allowlist review.
 
 The job's pass/fail is the orchestrator exit code = the allowlist verdict,
 so a fresh regression OR a now-fixed-but-still-listed module both fail it.
@@ -122,7 +124,7 @@ random per run):
 | Bucket | Definition |
 |---|---|
 | **GREEN** | `FINISHED` with `PASSED`, `WARNING`, or `SKIPPED`. WARNING and SKIPPED count as green on purpose (kubauth's minimal user model warns on some `profile` claims; `oidcc-refresh-token` skips). |
-| **EXPECTED-FAIL** | not green, AND listed in the allowlist with a matching `state` (and `result`, when the entry pins one). |
+| **EXPECTED-FAIL** | not green, AND listed in the allowlist. An entry may pin `state` and/or `result`, and both are optional: omit `state` for modules the suite leaves in a racy INTERRUPTED/FINISHED state (e.g. browser-driven logout gaps), omit `result` when the suite records no clean result (`?`/`-`). A module that turns green is still flagged via the green-but-listed path, so omitting them never hides a landed fix. |
 | **UNEXPECTED** | green-but-listed (a fix landed - drop it from the allowlist) OR not-green-and-not-listed (a regression). |
 
 The gate exits 0 **iff** the UNEXPECTED bucket is empty across all plans,
@@ -215,7 +217,10 @@ Each target calls `scripts/conformance-run.sh`, which:
 
 1. POSTs the plan config to `/api/plan?planName=...&variant=...`
 2. for every module in the plan: POSTs `/api/runner?test=...&plan=...`
-3. polls `/api/info/{testId}` until `FINISHED` or `INTERRUPTED`
+3. polls `/api/info/{testId}` until `FINISHED` or `INTERRUPTED`, then
+   settle-polls a self-reported `INTERRUPTED` for a few seconds in case
+   the suite finalises it to `FINISHED` via a late callback (keeps the
+   recorded terminal state stable between runs)
 4. when a module sits at `WAITING` because the suite's
    `implicitCallback` page can't auto-POST under HtmlUnit (Bootstrap5
    parse error in the suite's own UI), POSTs the `implicit_submit.path`
@@ -274,13 +279,13 @@ Drops the namespace and everything under it.
 
 ### `oidcc-basic` — finish what's still red/yellow
 
-On the pre-autonomous harness the plan reached roughly **24/35** modules
-green (`FINISHED` with PASSED, WARNING, or SKIPPED) — about 15 PASSED + 8
-WARNING + 1 SKIPPED — leaving ~11 expected-fail (all allowlisted in
-`expected/oidcc-basic.yaml`, mapped to B9-B13). These counts are
-provisional (see the [Status](#status) caveat) and get recomputed from
-`results/oidcc-basic/summary.txt` on the first real run. The not-green
-modules split into the buckets below.
+On the autonomous harness (suite release-v5.1.43, with the
+case-insensitive Bearer fix for `/userinfo`) the plan reaches **23/35**
+modules green (`FINISHED` with PASSED, WARNING, or SKIPPED) — about 14
+PASSED + 8 WARNING + 1 SKIPPED — leaving 12 expected-fail (all
+allowlisted in `expected/oidcc-basic.yaml`, mapped to B9-B13).
+Re-baseline from `results/oidcc-basic/summary.txt` when the suite version
+bumps. The not-green modules split into the buckets below.
 
 #### Warning content (after B6)
 
@@ -334,8 +339,8 @@ The 10 red modules split into two distinct kubauth gaps. Both
 tracked in `tests/COVERAGE.md`.
 
 **B8 - session not terminated when `id_token_hint` is absent.** 4
-modules trip `EnsureErrorFromAuthorizationEndpointResponse` (2 land
-FINISHED FAILED, 2 INTERRUPTED): after a hint-less `/oauth2/logout`
+modules trip `EnsureErrorFromAuthorizationEndpointResponse` (in a
+terminal state that is racy across runs): after a hint-less `/oauth2/logout`
 (no params, only state, only PLR, PLR+state), a follow-up
 `/oauth2/auth?prompt=none` returns a code instead of
 `error=login_required`. The chainsaw test `08-logout` covers the
@@ -345,18 +350,18 @@ termination, on the bare-logout path - that's the gap.
 
 **B15 — `/oauth2/logout` accepts unvalidated `id_token_hint` and
 unregistered `post_logout_redirect_uri`.** 6 modules (including
-the canonical `oidcc-rp-initiated-logout`) end INTERRUPTED with
+the canonical `oidcc-rp-initiated-logout`) fail with
 "OP has incorrectly called the registered post_logout_redirect_uri":
 kubauth redirects to the PLR even when the id_token_hint is
 syntactically invalid, signature-tampered, or absent, and even when
 the PLR isn't in the client's registered `redirectURIs` (or has
 extra query params appended).
 
-Provisional baseline (see the [Status](#status) caveat; recomputed from
-`results/oidcc-rp-initiated-logout/summary.txt` on the first real run):
-1 PASSED (discovery), then ~10 expected-fail, split as 4 B8 modules + 6
-B15 modules. All are allowlisted in
-`expected/oidcc-rp-initiated-logout.yaml`.
+Measured baseline (suite release-v5.1.43): 1 PASSED (discovery), then
+10 expected-fail, split as 4 B8 modules + 6 B15 modules. The suite
+drives these over browser redirects, so the terminal state is racy and
+the allowlist matches each in any non-green state. All are allowlisted
+in `expected/oidcc-rp-initiated-logout.yaml`.
 
 ### `oidcc-implicit`, `oidcc-hybrid`, `fapi-*`
 
