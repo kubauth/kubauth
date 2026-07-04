@@ -69,6 +69,41 @@ func TestUserInfo_MissingAuthorizationHeader_Returns401(t *testing.T) {
 	}
 }
 
+// The HTTP Authorization scheme is case-insensitive (RFC 7235), and we advertise
+// token_type "bearer" (lowercase), so compliant clients (including the OpenID
+// conformance suite) send "Authorization: bearer <token>". The handler must accept
+// that casing. Regression test for the /userinfo 401 that failed the oidcc-basic
+// certification plan.
+func TestUserInfo_LowercaseBearerScheme_ReturnsSubAndClaims(t *testing.T) {
+	ts := buildServer(t)
+	accessToken := ts.accessTokenForUser(t, "openid profile email")
+
+	for _, scheme := range []string{"bearer", "BEARER", "BeArEr"} {
+		t.Run(scheme, func(t *testing.T) {
+			req := newGet(t, "/userinfo")
+			req.Header.Set("Authorization", scheme+" "+accessToken)
+			rr := ts.do(req)
+
+			if rr.Code != http.StatusOK {
+				t.Fatalf("userinfo with %q scheme: got %d body=%q, want 200", scheme, rr.Code, rr.Body.String())
+			}
+			// Assert the full mapped claim set, not just sub: a case-insensitive
+			// scheme match must still resolve the token and project its claims,
+			// exactly like the canonical "Bearer" path.
+			claims := decodeJSON(t, rr)
+			if sub, _ := claims["sub"].(string); sub != testUserLogin {
+				t.Errorf("sub: got %q, want %q", sub, testUserLogin)
+			}
+			if email, _ := claims["email"].(string); email != "alice@test" {
+				t.Errorf("email: got %q, want alice@test", email)
+			}
+			if name, _ := claims["name"].(string); name != "Alice Example" {
+				t.Errorf("name: got %q, want Alice Example", name)
+			}
+		})
+	}
+}
+
 func TestUserInfo_NonBearerScheme_Returns401(t *testing.T) {
 	ts := buildServer(t)
 
