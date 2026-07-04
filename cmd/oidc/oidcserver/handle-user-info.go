@@ -31,14 +31,18 @@ func (s *OIDCServer) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logr.FromContextAsSlogLogger(ctx)
 
+	// HTTP auth schemes are case-insensitive (RFC 7235). We advertise token_type
+	// "bearer" (lowercase), so a compliant client sends "Authorization: bearer
+	// <token>". Match the scheme case-insensitively so we accept our own casing.
+	const bearerPrefix = "Bearer "
 	authz := r.Header.Get("Authorization")
-	if authz == "" || !strings.HasPrefix(authz, "Bearer ") {
+	if len(authz) < len(bearerPrefix) || !strings.EqualFold(authz[:len(bearerPrefix)], bearerPrefix) {
 		logger.Error("missing bearer token on userinfo handler")
 		w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\", error_description=\"missing bearer token\"")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	accessToken := strings.TrimPrefix(authz, "Bearer ")
+	accessToken := authz[len(bearerPrefix):]
 
 	_, ar, err := s.oauth2.IntrospectToken(ctx, accessToken, fosite.AccessToken, s.newSession(nil, GetClientIdFromRequest(r)), "openid")
 	if err != nil {
