@@ -19,6 +19,12 @@
 # a clear message when it is unset.
 REGISTRY ?=
 
+# The official publishing registry. NEVER a default here: it is only used by
+# check-registry as a guard, which refuses to target it outside CI (GitHub
+# Actions sets CI=true) unless FORCE_OFFICIAL=1 is passed explicitly. This
+# protects published artifacts from an accidental local `make docker-push`.
+OFFICIAL_REGISTRY := quay.io/kubauth
+
 # Per-developer local dev-env overrides (git-ignored): REGISTRY, cluster/registry
 # names, KUBAUTH_REGISTRY_PORT… An absent file is a no-op. The hack/ scripts
 # source the same file on the shell side (hack/lib.sh), so dev.env applies
@@ -95,11 +101,18 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 .PHONY: check-registry
-check-registry: ## Fail with a clear message if REGISTRY is not set
+check-registry: ## Fail if REGISTRY is unset, or if it targets the official registry outside CI
 	@if [ -z "$(strip $(REGISTRY))" ]; then \
 		echo "ERROR: REGISTRY is not set."; \
 		echo "Set it in dev.env, export it in your environment, or pass it on the command line, e.g.:"; \
 		echo "    make $(or $(MAKECMDGOALS),<target>) REGISTRY=quay.io/my-organization"; \
+		exit 1; \
+	fi
+	@if [ "$(strip $(REGISTRY))" = "$(OFFICIAL_REGISTRY)" ] && [ -z "$$CI" ] && [ "$(FORCE_OFFICIAL)" != "1" ]; then \
+		echo "ERROR: refusing to target the official registry ($(OFFICIAL_REGISTRY)) outside CI."; \
+		echo "This guard protects published artifacts from an accidental local push."; \
+		echo "Use your own registry in dev.env. If you really mean it:"; \
+		echo "    make $(or $(MAKECMDGOALS),<target>) FORCE_OFFICIAL=1"; \
 		exit 1; \
 	fi
 
