@@ -17,7 +17,6 @@
 # Intentionally empty in this makefile, as we want user to set REGISTRY
 # explicitly. Targets that need it depend on `check-registry`, which fails with
 # a clear message when it is unset.
-# Main official repository is quay.io/kubauth
 REGISTRY ?=
 
 # Per-developer local dev-env overrides (git-ignored): REGISTRY, cluster/registry
@@ -239,13 +238,15 @@ sources:
 maintainers:
   - name: kubauth
     url: https://github.com/kubauth
-annotations:
-  kubotal_image_repository: $(IMG_REPO)
 endef
 export CHART_KUBAUTH_YAML
 
+# The generated Chart.yaml is registry-free on purpose: the default image
+# repository lives in values.yaml (overridable at install time), so this
+# target needs no REGISTRY and the committed Chart.yaml never drifts with a
+# developer's dev.env.
 .PHONY: chart-kubauth-yaml
-chart-kubauth-yaml: check-registry ## Generate the helm/kubauth/Chart.yaml
+chart-kubauth-yaml: ## Generate the helm/kubauth/Chart.yaml
 	echo "$$CHART_KUBAUTH_YAML" >./helm/kubauth/Chart.yaml
 
 .PHONY: chart-kubauth

@@ -88,7 +88,7 @@ Expand oidc container
     initialDelaySeconds: 5
     periodSeconds: 10
   {{- end }}
-  image: "{{ .Values.oidc.image.repository | default .Chart.Annotations.kubotal_image_repository  }}:{{ .Values.oidc.image.tag | default .Chart.AppVersion }}"
+  image: "{{ .Values.oidc.image.repository | default .Values.image.repository }}:{{ .Values.oidc.image.tag | default .Chart.AppVersion }}"
   imagePullPolicy: {{ .Values.oidc.image.pullPolicy }}
   {{- with .Values.oidc.extraEnv }}
   env:

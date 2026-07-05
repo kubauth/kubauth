@@ -15,5 +15,3 @@ sources:
 maintainers:
   - name: kubauth
     url: https://github.com/kubauth
-annotations:
-  kubotal_image_repository: quay.io/kubauth/exec/kubauth
