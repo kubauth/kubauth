@@ -143,13 +143,21 @@ fi
 # idempotent; the patch just after repoints the server to host.docker.internal.
 kind export kubeconfig --name "${CLUSTER_NAME}"
 
-# From the devcontainer the apiserver is reachable via host.docker.internal, and
-# the serving cert validates against the SAN '${CLUSTER_NAME}-control-plane'.
-log "patching kubeconfig for devcontainer access..."
-api_port="$(docker port "${CLUSTER_NAME}-control-plane" 6443/tcp | head -1 | awk -F: '{print $2}')"
-kubectl config set-cluster "kind-${CLUSTER_NAME}" \
-  --server="https://host.docker.internal:${api_port}" \
-  --tls-server-name="${CLUSTER_NAME}-control-plane"
+# `kind export kubeconfig` writes a 127.0.0.1:<port> server, which is correct when
+# this runs on the host. Inside the devcontainer (a container, so the host loopback
+# is not the apiserver) repoint to host.docker.internal, which only resolves from
+# within containers and whose serving cert validates against the SAN
+# '${CLUSTER_NAME}-control-plane'. Detect the devcontainer via /.dockerenv so the
+# harness (make conformance, make dev-up) works from both the host and the devcontainer.
+if [ -f /.dockerenv ]; then
+  log "patching kubeconfig for devcontainer access (host.docker.internal)..."
+  api_port="$(docker port "${CLUSTER_NAME}-control-plane" 6443/tcp | head -1 | awk -F: '{print $2}')"
+  kubectl config set-cluster "kind-${CLUSTER_NAME}" \
+    --server="https://host.docker.internal:${api_port}" \
+    --tls-server-name="${CLUSTER_NAME}-control-plane"
+else
+  log "kubeconfig left at 127.0.0.1 (host apiserver access)."
+fi
 
 # ── 3. Wire the registry to the cluster network ──────────────────────────────
 if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.kind}}' "${REGISTRY_NAME}")" = "null" ]; then

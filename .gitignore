@@ -32,3 +32,15 @@ go.work
 
 # Per-developer local dev-env overrides (copy from dev.env.example)
 dev.env
+
+# Local dev-session scratch (kubeconfig etc.) at the repo root
+/.tmp/
+
+# Conformance harness runtime artefacts (keep the dir, drop run output)
+tests/.tmp/
+tests/conformance/results/*
+!tests/conformance/results/.gitkeep
+
+# Python bytecode cache (the conformance classifier ships as a .py)
+__pycache__/
+*.pyc
