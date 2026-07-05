@@ -21,8 +21,12 @@
 # Allow overriding base name of all resources
 baseNameOverride:
 
-# Other image: properties are defined by container.
+# Shared image configuration. All kubauth components run the same binary
+# image: `repository` below is the default for every container. Override it
+# here to consume from a mirror or a personal registry, or per component
+# (e.g. oidc.image.repository). Tags default to the chart appVersion.
 image:
+  repository: quay.io/kubauth/exec/kubauth
   pullSecrets: []
 
 # Setup toleration and node selector to run inside control plane
@@ -214,7 +218,8 @@ oidc:
     roleName:
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository for this container only. Default is the top-level image.repository.
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
@@ -329,7 +334,8 @@ audit:
   displayFlags: true
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository for this container only. Default is the top-level image.repository.
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
@@ -391,7 +397,8 @@ merger:
   displayFlags: true
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository for this container only. Default is the top-level image.repository.
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
@@ -554,7 +561,8 @@ ldap:
   displayFlags: true
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository for this container only. Default is the top-level image.repository.
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent
@@ -619,7 +627,8 @@ ucrd:
   displayFlags: true
 
   image:
-    repository: quay.io/kubauth/exec/kubauth
+    # -- Override the image repository for this container only. Default is the top-level image.repository.
+    repository:
     # -- Overrides the image tag whose default is the chart appVersion.
     tag:
     pullPolicy: IfNotPresent

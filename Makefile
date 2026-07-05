@@ -12,10 +12,18 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-# Image/chart registry — overridable via dev.env (it is env-specific). The
-# product VERSIONS below are intentionally NOT overridable from dev.env: they
-# are code-bound and git-controlled (see the ':=' after the include).
-REGISTRY ?= quay.io/kubauth
+
+# Image and chart registry — Must be set via dev.env or from environment.
+# Intentionally empty in this makefile, as we want user to set REGISTRY
+# explicitly. Targets that need it depend on `check-registry`, which fails with
+# a clear message when it is unset.
+REGISTRY ?=
+
+# The official publishing registry. NEVER a default here: it is only used by
+# check-registry as a guard, which refuses to target it outside CI (GitHub
+# Actions sets CI=true) unless FORCE_OFFICIAL=1 is passed explicitly. This
+# protects published artifacts from an accidental local `make docker-push`.
+OFFICIAL_REGISTRY := quay.io/kubauth
 
 # Per-developer local dev-env overrides (git-ignored): REGISTRY, cluster/registry
 # names, KUBAUTH_REGISTRY_PORT… An absent file is a no-op. The hack/ scripts
@@ -27,15 +35,14 @@ REGISTRY ?= quay.io/kubauth
 # dev.env value can't silently change what you build/publish; the CLI/CI still
 # can (command-line assignments beat makefile ':='), e.g.
 #   make docker APP_VERSION=v0.3.1
+# But, doing this break the GIT <-> <effectiveCode> link
 APP_VERSION := 0.3.0-snapshot
 HELM_KUBAUTH_VERSION := 0.3.0-snapshot
 HELM_KUBAUTH_USERS_VERSION := 0.3.0-snapshot
 HELM_KUBAUTH_UPSTREAM_PROVIDERS_VERSION := 0.3.0-snapshot
 
-DOCKER_TAG := $(APP_VERSION)
+IMG_REPO := $(REGISTRY)/exec/kubauth
 
-IMG ?= $(REGISTRY)/exec/kubauth:$(DOCKER_TAG)
-IMG_UBUNTU ?= $(REGISTRY)/exec/kubauth:$(DOCKER_TAG)-ubuntu
 HELM_DOCKER_REPO := $(REGISTRY)/charts
 
 # Local dev cluster + registry names (kept in sync with the defaults in
@@ -55,9 +62,6 @@ KUBAUTH_REGISTRY_NAME ?= kubauth-registry
 
 BUILD_TS ?= $(shell date -u +%Y%m%d.%H%M%S)
 
-# Version/build stamped into the binary at link time (replaces the old generated
-# internal/global/version_.go). Values follow APP_VERSION, overridable on CLI/CI.
-LDFLAGS := -X kubauth/internal/global.Version=$(APP_VERSION) -X kubauth/internal/global.BuildTs=$(BUILD_TS)
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -95,6 +99,31 @@ CONTAINER_TOOL ?= docker
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+.PHONY: check-registry
+check-registry: ## Fail if REGISTRY is unset, or if it targets the official registry outside CI
+	@if [ -z "$(strip $(REGISTRY))" ]; then \
+		echo "ERROR: REGISTRY is not set."; \
+		echo "Set it in dev.env, export it in your environment, or pass it on the command line, e.g.:"; \
+		echo "    make $(or $(MAKECMDGOALS),<target>) REGISTRY=quay.io/my-organization"; \
+		exit 1; \
+	fi
+	@if [ "$(strip $(REGISTRY))" = "$(OFFICIAL_REGISTRY)" ] && [ -z "$$CI" ] && [ "$(FORCE_OFFICIAL)" != "1" ]; then \
+		echo "ERROR: refusing to target the official registry ($(OFFICIAL_REGISTRY)) outside CI."; \
+		echo "This guard protects published artifacts from an accidental local push."; \
+		echo "Use your own registry in dev.env. If you really mean it:"; \
+		echo "    make $(or $(MAKECMDGOALS),<target>) FORCE_OFFICIAL=1"; \
+		exit 1; \
+	fi
+
+.PHONY: display
+display:  ## Display current config values
+	@echo "---------"
+	@echo "REGISTRY: $(REGISTRY)"
+	@echo "APP_VERSION: $(APP_VERSION)"
+	@echo "HELM_KUBAUTH_VERSION: $(HELM_KUBAUTH_VERSION)"
+	@echo "BUILD_TS: $(BUILD_TS)"
+	@echo "---------"
 
 ##@ Development
 
@@ -145,7 +174,7 @@ build:  build-kubauth  ## Build kubauth binaries with dependencies
 
 .PHONY: build-kubauth
 build-kubauth: generate ## Build kubauth binary.
-	CGO_ENABLED=0 go build -ldflags '$(LDFLAGS)' -o bin/kubauth main.go
+	CGO_ENABLED=0 go build -ldflags '-X kubauth/internal/global.Version=$(APP_VERSION) -X kubauth/internal/global.BuildTs=$(BUILD_TS)' -o bin/kubauth main.go
 
 .PHONY: test
 test: ## Run the Go unit tests
@@ -154,42 +183,42 @@ test: ## Run the Go unit tests
 ##@ Docker
 
 .PHONY: docker
-docker: docker-build docker-push  ## Build controller docker image and push
+docker: display docker-build docker-push  ## Build controller docker image and push
 
 .PHONY: docker-build
-docker-build: generate ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build --build-arg VERSION=$(APP_VERSION) --build-arg BUILD_TS=$(BUILD_TS) -t ${IMG} .
+docker-build: check-registry generate ## Build docker image with the manager.
+	$(CONTAINER_TOOL) build --build-arg VERSION=$(APP_VERSION) --build-arg BUILD_TS=$(BUILD_TS) -t $(IMG_REPO):$(APP_VERSION)  .
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
-	$(CONTAINER_TOOL) push ${IMG}
+docker-push: check-registry ## Push docker image with the manager.
+	$(CONTAINER_TOOL) push $(IMG_REPO):$(APP_VERSION)
 
 
 .PHONY: docker-ubuntu
-docker-ubuntu: docker-ubuntu-build docker-ubuntu-push  ## Build controller docker image using Ubuntu 22.04  and push
+docker-ubuntu: display docker-ubuntu-build docker-ubuntu-push  ## Build controller docker image using Ubuntu 22.04  and push
 
 .PHONY: docker-ubuntu-build
-docker-ubuntu-build: generate ## Build docker image using Ubuntu 22.04 as base
-	$(CONTAINER_TOOL) build --build-arg RUNTIME_BASE=ubuntu:22.04 --build-arg VERSION=$(APP_VERSION) --build-arg BUILD_TS=$(BUILD_TS) -t ${IMG_UBUNTU} .
+docker-ubuntu-build: check-registry generate ## Build docker image using Ubuntu 22.04 as base
+	$(CONTAINER_TOOL) build --build-arg RUNTIME_BASE=ubuntu:22.04 --build-arg VERSION=$(APP_VERSION) --build-arg BUILD_TS=$(BUILD_TS) -t $(IMG_REPO):$(APP_VERSION)-ubuntu  .
 
 .PHONY: docker-ubuntu-push
-docker-ubuntu-push: ## Push docker image using Ubuntu 22.04  with the manager.
-	$(CONTAINER_TOOL) push ${IMG_UBUNTU}
+docker-ubuntu-push: check-registry ## Push docker image using Ubuntu 22.04  with the manager.
+	$(CONTAINER_TOOL) push $(IMG_REPO):$(APP_VERSION)-ubuntu
 
 
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
-# architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
+# architectures. To use this option you need to:
 # - be able to use docker buildx. More info: https://docs.docker.com/build/buildx/
 # - have enabled BuildKit. More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-# - be able to push the image to your registry (i.e. if you do not set a valid value via IMG=<myregistry/image:<tag>> then the export will fail)
+# - be able to push the image to your registry
 # To adequately provide solutions that are compatible with multiple platforms, you should consider using this option.
 #PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
 PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
-docker-buildx:  ## Build and push docker image for the manager for cross-platform support
+docker-buildx:  check-registry display ## Build and push docker image for the manager for cross-platform support
 	- $(CONTAINER_TOOL) buildx create --name kubauth-builder --driver=docker-container
-	- $(CONTAINER_TOOL) buildx build --builder kubauth-builder --push --platform=$(PLATFORMS) --build-arg VERSION=$(APP_VERSION) --build-arg BUILD_TS=$(BUILD_TS) --tag ${IMG} -f Dockerfile .
+	$(CONTAINER_TOOL) buildx build --builder kubauth-builder --push --platform=$(PLATFORMS) --build-arg VERSION=$(APP_VERSION) --build-arg BUILD_TS=$(BUILD_TS) --tag $(IMG_REPO):$(APP_VERSION) -f Dockerfile .
 	- $(CONTAINER_TOOL) buildx rm kubauth-builder
 
 
@@ -199,6 +228,9 @@ docker-buildx:  ## Build and push docker image for the manager for cross-platfor
 crds: manifests kustomize ## Generate crds file into helm chart
 	$(KUSTOMIZE) build config/crd -o helm/kubauth/crds/crds.yaml
 
+# ----------------------
+.PHONY: charts
+charts: chart-kubauth chart-kubauth-users chart-kubauth-upstream-providers	## Build all charts
 # ----------------------
 
 define CHART_KUBAUTH_YAML
@@ -222,12 +254,16 @@ maintainers:
 endef
 export CHART_KUBAUTH_YAML
 
+# The generated Chart.yaml is registry-free on purpose: the default image
+# repository lives in values.yaml (overridable at install time), so this
+# target needs no REGISTRY and the committed Chart.yaml never drifts with a
+# developer's dev.env.
 .PHONY: chart-kubauth-yaml
 chart-kubauth-yaml: ## Generate the helm/kubauth/Chart.yaml
 	echo "$$CHART_KUBAUTH_YAML" >./helm/kubauth/Chart.yaml
 
 .PHONY: chart-kubauth
-chart-kubauth: chart-kubauth-yaml crds ## Build and push oidc server helm chart
+chart-kubauth: check-registry chart-kubauth-yaml crds ## Build and push oidc server helm chart
 	cd ./helm && helm package -d ./../tmp kubauth && helm push ./../tmp/kubauth-${HELM_KUBAUTH_VERSION}.tgz oci://${HELM_DOCKER_REPO}
 
 # ----------------------
@@ -258,7 +294,7 @@ chart-kubauth-users-yaml: ## Generate the helm/kubauth-users/Chart.yaml
 	echo "$$CHART_KUBAUTH_USERS_YAML" >./helm/kubauth-users/Chart.yaml
 
 .PHONY: chart-kubauth-users
-chart-kubauth-users: chart-kubauth-users-yaml crds ## Build and push oidc users helm chart
+chart-kubauth-users: check-registry chart-kubauth-users-yaml crds ## Build and push oidc users helm chart
 	cd ./helm && helm package -d ./../tmp kubauth-users && helm push ./../tmp/kubauth-users-${HELM_KUBAUTH_USERS_VERSION}.tgz oci://${HELM_DOCKER_REPO}
 
 # ----------------------
@@ -289,13 +325,10 @@ chart-kubauth-upstream-providers-yaml: ## Generate the helm/kubauth-upstream-pro
 	echo "$$CHART_KUBAUTH_UPSTREAM_PROVIDERS_YAML" >./helm/kubauth-upstream-providers/Chart.yaml
 
 .PHONY: chart-kubauth-upstream-providers
-chart-kubauth-upstream-providers: chart-kubauth-upstream-providers-yaml crds ## Build and push oidc upstream providers helm chart
+chart-kubauth-upstream-providers: check-registry chart-kubauth-upstream-providers-yaml crds ## Build and push oidc upstream providers helm chart
 	cd ./helm && helm package -d ./../tmp kubauth-upstream-providers && helm push ./../tmp/kubauth-upstream-providers-${HELM_KUBAUTH_UPSTREAM_PROVIDERS_VERSION}.tgz oci://${HELM_DOCKER_REPO}
 
 
-# ----------------------
-
-charts: chart-kubauth chart-kubauth-users chart-kubauth-upstream-providers	## Build all charts
 ##@ Dependencies
 
 ## Tool Binaries

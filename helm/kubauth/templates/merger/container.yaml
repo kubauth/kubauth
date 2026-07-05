@@ -25,7 +25,7 @@ Expand merger container
     - containerPort: {{ .Values.merger.server.bindPort }}
       name: merger
       protocol: TCP
-  image: "{{ .Values.merger.image.repository }}:{{ .Values.merger.image.tag | default .Chart.AppVersion }}"
+  image: "{{ .Values.merger.image.repository | default .Values.image.repository }}:{{ .Values.merger.image.tag | default .Chart.AppVersion }}"
   imagePullPolicy: {{ .Values.merger.image.pullPolicy }}
   {{- with .Values.merger.extraEnv }}
   env:
